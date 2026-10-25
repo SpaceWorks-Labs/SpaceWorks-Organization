@@ -4,7 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { deriveStatus } from "@/lib/membership/lifecycle";
 import { formatValidUntil, memberDetails, verifyPath } from "./core";
-import { normalizeCardDesign, type CardDesign } from "./design/presets";
+import { normalizeCardDesign, withOwnArtwork, type CardDesign } from "./design/presets";
 import { managedImageUrl, memberPhotoUrl } from "./imageUrl";
 import type { CardInput } from "./render";
 import type { CardBranding, CardHolder } from "./types";
@@ -81,7 +81,7 @@ export function designFor(ctx: CardOrgContext, plan: { id: string; name: string 
   const byPlan = ctx.designs.find((row) => row.planId === plan.id);
   const fallback = organisationDesignRow(ctx);
   const row = byRole ?? byPlan ?? fallback;
-  const design = normalizeCardDesign(row?.design, { organisationName: ctx.organisation.name, planName: plan.name });
+  const design = withOwnArtwork(normalizeCardDesign(row?.design, { organisationName: ctx.organisation.name, planName: plan.name }), ctx.organisation.id);
   return { design, branding: brandingFor(ctx, row?.watermarkUrl ?? null), source: byRole ? "role" : byPlan ? "plan" : fallback ? "organisation" : "default" };
 }
 

@@ -1,11 +1,11 @@
 import "server-only";
 
-import { fill, PDFDocument, popGraphicsState, pushGraphicsState, rectangle, rgb, setFillingColor, type Color, type PDFEmbeddedPage, type PDFImage, type PDFPage } from "pdf-lib";
-import { containBox, imageCache, loadSymbolPaths, qrModules, roundedRectPath, SYMBOL_VIEWBOX, type PreparedImage } from "./assets";
+import { concatTransformationMatrix, fill, PDFDocument, popGraphicsState, pushGraphicsState, rectangle, rgb, setFillingColor, setGraphicsState, type Color, type PDFEmbeddedPage, type PDFImage, type PDFOperator, type PDFPage } from "pdf-lib";
+import { containBox, ellipsePath, imageCache, loadSymbolPaths, qrModules, roundedRectPath, SYMBOL_VIEWBOX, type PreparedImage } from "./assets";
 import { loadCardFonts, type CardFonts } from "./fonts";
-import type { CardScene } from "./layout";
+import type { CardOp, CardScene } from "./layout";
 import type { CardSymbolVariant } from "./palette";
-import { drawShapedText, glyphContext, type GlyphContext } from "./pdfGlyphs";
+import { drawShapedText, glyphContext, opacityState, type GlyphContext } from "./pdfGlyphs";
 import { cropMarks, mmToPt, PT_PER_MM, sheetLayout, sheetSlot } from "./sheet";
 
 /*
@@ -73,38 +73,59 @@ async function drawScene(context: Context, page: PDFPage, scene: CardScene, orig
     });
 
   svg(roundedRectPath(0, 0, scene.widthMm, scene.heightMm, 0), { fill: scene.background });
-  for (const op of scene.ops) {
-    if (op.kind === "rect") {
-      if (op.fill) svg(roundedRectPath(op.x, op.y, op.w, op.h, op.radius), { fill: op.fill });
-      // Strokes are centred on the path, as a CSS border inset by half its width would be.
-      if (op.stroke) {
-        const half = (op.strokeWidth ?? 0.2) / 2;
-        svg(roundedRectPath(op.x + half, op.y + half, op.w - 2 * half, op.h - 2 * half, Math.max(0, op.radius - half)), { stroke: op.stroke, strokeWidth: op.strokeWidth });
+  const draw = async (ops: CardOp[]) => {
+    for (const op of ops) {
+      if (op.kind === "group") {
+        // Turn about the centre (clockwise on the page, so anticlockwise in PDF space) and fade as one.
+        const state: PDFOperator[] = [pushGraphicsState()];
+        if (op.opacity < 1) state.push(setGraphicsState(opacityState(context.glyphs, page, op.opacity)));
+        if (op.rotateDeg) {
+          const angle = (-op.rotateDeg * Math.PI) / 180;
+          const [cos, sin, px, py] = [Math.cos(angle), Math.sin(angle), x(op.cx), y(op.cy)];
+          state.push(concatTransformationMatrix(cos, sin, -sin, cos, px - cos * px + sin * py, py - sin * px - cos * py));
+        }
+        page.pushOperators(...state);
+        await draw(op.ops);
+        page.pushOperators(popGraphicsState());
+      } else if (op.kind === "ellipse") {
+        if (op.fill) svg(ellipsePath(op.x, op.y, op.w, op.h), { fill: op.fill });
+        if (op.stroke) {
+          const half = (op.strokeWidth ?? 0.2) / 2;
+          svg(ellipsePath(op.x + half, op.y + half, op.w - 2 * half, op.h - 2 * half), { stroke: op.stroke, strokeWidth: op.strokeWidth });
+        }
+      } else if (op.kind === "rect") {
+        if (op.fill) svg(roundedRectPath(op.x, op.y, op.w, op.h, op.radius), { fill: op.fill });
+        // Strokes are centred on the path, as a CSS border inset by half its width would be.
+        if (op.stroke) {
+          const half = (op.strokeWidth ?? 0.2) / 2;
+          svg(roundedRectPath(op.x + half, op.y + half, op.w - 2 * half, op.h - 2 * half, Math.max(0, op.radius - half)), { stroke: op.stroke, strokeWidth: op.strokeWidth });
+        }
+      } else if (op.kind === "text") {
+        drawShapedText(context.glyphs, context.fonts, page, op, x(op.x), y(op.baseline), hex(op.color));
+      } else if (op.kind === "image") {
+        const box = { wMm: op.w, hMm: op.h, fit: op.fit, shape: op.shape, grayscale: op.grayscale, background: scene.background, ...(op.alpha ? { alpha: true, radiusMm: op.radiusMm ?? 0 } : {}) };
+        const prepared = await context.prepare(op.url, box, !op.photo);
+        const image = await embedImage(context, prepared, op.photo ? null : JSON.stringify([op.url, box]));
+        if (!image || !prepared) continue;
+        const at = op.fit === "cover" ? { x: op.x, y: op.y, w: op.w, h: op.h } : containBox(op, prepared.widthPx, prepared.heightPx);
+        page.drawImage(image, { x: x(at.x), y: y(at.y + at.h), width: mmToPt(at.w), height: mmToPt(at.h), ...(op.opacity !== undefined ? { opacity: op.opacity } : {}) });
+      } else if (op.kind === "qr") {
+        // One rectangle per run of dark modules keeps large documents light.
+        const qr = qrModules(op.value);
+        const cell = op.size / qr.size;
+        page.pushOperators(
+          pushGraphicsState(),
+          setFillingColor(hex(op.dark)),
+          ...qr.runs.map(([column, row, length]) => rectangle(x(op.x + column * cell), y(op.y + (row + 1) * cell), mmToPt(length * cell), mmToPt(cell))),
+          fill(),
+          popGraphicsState(),
+        );
+      } else if (op.kind === "symbol") {
+        page.drawPage(await symbolForm(context, op.variant), { x: x(op.x), y: y(op.y + op.h), width: mmToPt(op.w), height: mmToPt(op.h) });
       }
-    } else if (op.kind === "text") {
-      drawShapedText(context.glyphs, context.fonts, page, op, x(op.x), y(op.baseline), hex(op.color));
-    } else if (op.kind === "image") {
-      const box = { wMm: op.w, hMm: op.h, fit: op.fit, shape: op.shape, grayscale: op.grayscale, background: scene.background };
-      const prepared = await context.prepare(op.url, box, !op.photo);
-      const image = await embedImage(context, prepared, op.photo ? null : JSON.stringify([op.url, box]));
-      if (!image || !prepared) continue;
-      const at = op.fit === "cover" ? { x: op.x, y: op.y, w: op.w, h: op.h } : containBox(op, prepared.widthPx, prepared.heightPx);
-      page.drawImage(image, { x: x(at.x), y: y(at.y + at.h), width: mmToPt(at.w), height: mmToPt(at.h), ...(op.opacity !== undefined ? { opacity: op.opacity } : {}) });
-    } else if (op.kind === "qr") {
-      // One rectangle per run of dark modules keeps large documents light.
-      const qr = qrModules(op.value);
-      const cell = op.size / qr.size;
-      page.pushOperators(
-        pushGraphicsState(),
-        setFillingColor(hex(op.dark)),
-        ...qr.runs.map(([column, row, length]) => rectangle(x(op.x + column * cell), y(op.y + (row + 1) * cell), mmToPt(length * cell), mmToPt(cell))),
-        fill(),
-        popGraphicsState(),
-      );
-    } else if (op.kind === "symbol") {
-      page.drawPage(await symbolForm(context, op.variant), { x: x(op.x), y: y(op.y + op.h), width: mmToPt(op.w), height: mmToPt(op.h) });
     }
-  }
+  };
+  await draw(scene.ops);
 }
 
 /**

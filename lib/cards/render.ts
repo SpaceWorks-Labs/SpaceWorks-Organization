@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { CardSide, CardDesign } from "./design/presets";
+import { designFonts, type CardSide, type CardDesign } from "./design/presets";
 import { loadCardFonts } from "./fonts";
 import { buildCardScene, type CardScene } from "./layout";
 import { renderCardsPdf, type CardPdfLayout } from "./renderPdf";
@@ -20,7 +20,7 @@ export const BULK_ZIP_LIMIT = 300;
 export type CardInput = { design: CardDesign; branding: CardBranding };
 
 export async function memberCardScenes(input: CardInput, holder: CardHolder): Promise<CardScene[]> {
-  const { measurer } = await loadCardFonts();
+  const { measurer } = await loadCardFonts(designFonts(input.design));
   const front = buildCardScene({ settings: input.design.front, holder, branding: input.branding, measurer });
   if (!input.design.backEnabled) return [front];
   return [front, buildCardScene({ settings: input.design.back, holder, branding: input.branding, measurer })];

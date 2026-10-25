@@ -6,20 +6,25 @@ import { PT_TO_MM } from "./design/elements";
  * (lib/cards/fonts.ts), so Indic conjuncts and the rupee sign measure as they draw.
  */
 
-/** Gilroy Light (400) and Gilroy ExtraBold (700), each with Noto fallbacks. */
+/** Regular and bold of a card font (Gilroy Light and ExtraBold by default), each with Noto fallbacks. */
 export type FontWeight = 400 | 700;
 
 export type TextMeasurer = {
-  widthMm(text: string, weight: FontWeight, sizePt: number, trackingEm?: number): number;
-  /** Ascender and descender as fractions of the em (both positive). */
+  /** `font` is a card font id (lib/cards/fontCatalog.ts); Gilroy when omitted. */
+  widthMm(text: string, weight: FontWeight, sizePt: number, trackingEm?: number, font?: string): number;
+  /** Ascender and descender of the default face as fractions of the em (both positive). */
   ascent: number;
   descent: number;
+  /** The same for one font. */
+  metrics(font?: string): { ascent: number; descent: number };
   /** Characters no card font can draw are decomposed or dropped. */
   clean(text: string): string;
 };
 
 export type CardTextOp = {
   kind: "text"; x: number; baseline: number; text: string; sizePt: number; weight: FontWeight; color: string; trackingEm: number;
+  /** A card font id; Gilroy when omitted. */
+  font?: string;
   /** Watermarks only: clockwise rotation about (x, baseline), and 0–1 opacity. */
   rotateDeg?: number;
   opacity?: number;
@@ -63,29 +68,31 @@ export function wrapText(text: string, maxMm: number, measure: (value: string) =
   return lines;
 }
 
-export type TextStyle = { sizePt: number; weight: FontWeight; color: string; trackingEm?: number; lineHeight: number };
+export type TextStyle = { sizePt: number; weight: FontWeight; color: string; trackingEm?: number; lineHeight: number; font?: string };
 
 /**
- * Lay out a left- (or right-) aligned paragraph whose first line box starts at `top`, using CSS
+ * Lay out a left-, centre- or right-aligned paragraph whose first line box starts at `top`, using CSS
  * half-leading so baselines match the browser. Returns the ops and the bottom of the last line box.
  */
-export function paragraph(measurer: TextMeasurer, raw: string, x: number, top: number, widthMm: number, style: TextStyle, align: "left" | "right" = "left") {
+export function paragraph(measurer: TextMeasurer, raw: string, x: number, top: number, widthMm: number, style: TextStyle, align: "left" | "center" | "right" = "left") {
   const text = measurer.clean(raw);
   const tracking = style.trackingEm ?? 0;
-  const measure = (value: string) => measurer.widthMm(value, style.weight, style.sizePt, tracking);
+  const measure = (value: string) => measurer.widthMm(value, style.weight, style.sizePt, tracking, style.font);
   const lines = text ? wrapText(text, Math.max(1, widthMm), measure) : [];
   const size = style.sizePt * PT_TO_MM;
   const lineBox = size * style.lineHeight;
-  const halfLeading = (lineBox - (measurer.ascent + measurer.descent) * size) / 2;
+  const { ascent, descent } = style.font ? measurer.metrics(style.font) : measurer;
+  const halfLeading = (lineBox - (ascent + descent) * size) / 2;
   const ops: CardTextOp[] = lines.map((line, index) => ({
     kind: "text",
-    x: align === "right" ? x + widthMm - measure(line) : x,
-    baseline: top + index * lineBox + halfLeading + measurer.ascent * size,
+    x: align === "right" ? x + widthMm - measure(line) : align === "center" ? x + (widthMm - measure(line)) / 2 : x,
+    baseline: top + index * lineBox + halfLeading + ascent * size,
     text: line,
     sizePt: style.sizePt,
     weight: style.weight,
     color: style.color,
     trackingEm: tracking,
+    ...(style.font ? { font: style.font } : {}),
   }));
   return { ops, bottom: top + lines.length * lineBox, lines };
 }

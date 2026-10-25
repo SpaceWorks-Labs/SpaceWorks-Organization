@@ -11,7 +11,7 @@ import { orgActionAccess } from "@/lib/permissions";
 import { createSafeWebpDerivative } from "@/lib/imageValidation";
 import { getPublicUrl, uploadFile } from "@/lib/storage";
 import { CARD_PREFIX_PATTERN, deriveCardPrefix } from "@/lib/cards/core";
-import { CARD_DESIGN_MAX_BYTES, defaultCardDesign, normalizeCardDesign } from "@/lib/cards/design/presets";
+import { CARD_DESIGN_MAX_BYTES, defaultCardDesign, normalizeCardDesign, withOwnArtwork } from "@/lib/cards/design/presets";
 import { DEFAULT_NUMBER_FORMAT, normalizeNumberFormat, numberFormatError } from "@/lib/cards/numbering";
 import type { ActionResult } from "./org";
 
@@ -91,7 +91,7 @@ export async function saveCardDesign(input: unknown): Promise<ActionResult<{ upd
   const found = await scopeFor(ctx.organisation.id, parsed.data.planId, parsed.data.roleId ?? null);
   if (!found.ok) return found;
   const { scope } = found;
-  const design = normalizeCardDesign(parsed.data.design, { organisationName: ctx.organisation.name, planName: scope.plan?.name ?? "" });
+  const design = withOwnArtwork(normalizeCardDesign(parsed.data.design, { organisationName: ctx.organisation.name, planName: scope.plan?.name ?? "" }), ctx.organisation.id);
   const row = await designRow(ctx.organisation, scope, ctx.userId);
   const saved = await prisma.cardDesign.update({
     where: { id: row.id },
@@ -148,6 +148,26 @@ export async function uploadCardWatermark(formData: FormData): Promise<ActionRes
     return { ok: true, data: { url } };
   } catch {
     console.error("[cards] watermark upload failed");
+    return { ok: false, error: "The image didn't upload. Try again." };
+  }
+}
+
+/** Upload an image for a card layer or background. The designer puts the returned URL into the design. */
+export async function uploadCardArtwork(formData: FormData): Promise<ActionResult<{ url: string }>> {
+  const ctx = await access(String(formData.get("organisationSlug") ?? ""));
+  if (!ctx.ok) return ctx;
+  if (await isActionRateLimited("upload", ctx.userId)) return { ok: false, error: "Too many uploads. Please try again later." };
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0 || file.size > MAX_IMAGE_BYTES) return { ok: false, error: "Choose an image of 5 MB or smaller." };
+  const derivative = await createSafeWebpDerivative(file, { width: 2000, height: 2000, fit: "inside" });
+  if ("error" in derivative) return { ok: false, error: derivative.error };
+  try {
+    const key = `organisations/${ctx.organisation.id}/member-id-artwork/${crypto.randomUUID()}.webp`;
+    await uploadFile({ key, body: derivative.body, contentType: "image/webp", organisationId: ctx.organisation.id });
+    await recordThrottledAuditEvent({ action: "CARD_ARTWORK_UPLOADED", actorUserId: ctx.userId, organisationId: ctx.organisation.id, targetType: "Organisation", targetId: ctx.organisation.id, windowMs: 30 * 60_000 });
+    return { ok: true, data: { url: getPublicUrl(key) } };
+  } catch {
+    console.error("[cards] artwork upload failed");
     return { ok: false, error: "The image didn't upload. Try again." };
   }
 }

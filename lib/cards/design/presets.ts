@@ -7,6 +7,7 @@ import {
   type CardSideSettings,
 } from "./elements";
 import { layoutForPaper } from "./geometry";
+import { DEFAULT_ORDER, scopeCardArtwork } from "./layers";
 import { defaultCardSideSettings, normalizeCardSide, type CardDesignContext } from "./normalize";
 
 /*
@@ -34,8 +35,8 @@ export type CardDesign = {
   back: CardSideSettings;
 };
 
-/** Upper bound for a stored design (front and back), in bytes of JSON. */
-export const CARD_DESIGN_MAX_BYTES = 64_000;
+/** Upper bound for a stored design (front and back, with their layers), in bytes of JSON. */
+export const CARD_DESIGN_MAX_BYTES = 128_000;
 
 // Saved sizes are kept to 0.1 mm, so CR80's 53.98 mm is stored as 54.
 const round1 = (mm: number) => Math.round(mm * 10) / 10;
@@ -96,6 +97,8 @@ function side(preset: CardPreset, which: CardSide, context: CardDesignContext): 
     printFieldKeys: [],
     printFieldLabels: {},
     watermark: { ...DEFAULT_WATERMARK },
+    layers: [],
+    order: [...DEFAULT_ORDER],
   };
 }
 
@@ -108,6 +111,16 @@ export function applyCardPreset(design: CardDesign, preset: CardPreset, context:
   const next = defaultCardDesign(context, preset);
   const keep = (fresh: CardSideSettings, old: CardSideSettings) => ({ ...fresh, watermark: old.watermark, printFieldKeys: old.printFieldKeys, printFieldLabels: old.printFieldLabels });
   return { ...next, backEnabled: design.backEnabled, front: keep(next.front, design.front), back: keep(next.back, design.back) };
+}
+
+/** The design with only `organisationId`'s own uploaded artwork. */
+export function withOwnArtwork(design: CardDesign, organisationId: string): CardDesign {
+  return { ...design, front: scopeCardArtwork(design.front, organisationId), back: scopeCardArtwork(design.back, organisationId) };
+}
+
+/** The card fonts a design's layers use. */
+export function designFonts(design: CardDesign) {
+  return [design.front, design.back].flatMap((side) => side.layers.flatMap((layer) => (layer.kind === "text" ? [layer.font] : [])));
 }
 
 /** Make a stored or submitted design safe to use. Anything unexpected falls back to the preset's default. */

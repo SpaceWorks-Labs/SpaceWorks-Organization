@@ -95,7 +95,8 @@ function nameOn(context: GlyphContext, page: PDFPage, key: string, ref: PDFRef) 
   return name;
 }
 
-function opacityState(context: GlyphContext, page: PDFPage, opacity: number) {
+/** A page graphics state with fill and stroke opacity `opacity`, made once per page and value. */
+export function opacityState(context: GlyphContext, page: PDFPage, opacity: number) {
   let states = context.states.get(page);
   if (!states) {
     states = new Map();
@@ -119,7 +120,7 @@ export function drawShapedText(context: GlyphContext, fonts: CardFonts, page: PD
     const angle = (-op.rotateDeg * Math.PI) / 180;
     ops.push(concatTransformationMatrix(Math.cos(angle), Math.sin(angle), -Math.sin(angle), Math.cos(angle), 0, 0));
   }
-  for (const placed of placeGlyphs(fonts, op.text, op.weight, op.sizePt, op.trackingEm)) {
+  for (const placed of placeGlyphs(fonts, op.text, op.weight, op.sizePt, op.trackingEm, op.font)) {
     const ref = glyphForm(context, placed.key, placed.glyph);
     if (!ref) continue;
     const scale = placed.scale * PT_PER_MM;

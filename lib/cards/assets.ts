@@ -25,20 +25,28 @@ export const MAX_PHOTO_PX = 600;
 
 const pxFor = (mm: number) => Math.min(MAX_IMAGE_PX, Math.max(8, Math.ceil((mm / MM_PER_INCH) * RASTER_DPI)));
 
-function roundedMask(side: number, shape: "circle" | "rounded") {
-  const radius = shape === "circle" ? side / 2 : side * 0.2;
-  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${side}" height="${side}"><rect width="${side}" height="${side}" rx="${radius}" ry="${radius}" fill="#fff"/></svg>`);
+function roundedMask(width: number, height: number, radius: number) {
+  return Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="${width}" height="${height}" rx="${radius}" ry="${radius}" fill="#fff"/></svg>`);
+}
+
+/** Round an image's corners into its transparency; `radiusMm` is measured on a box `wMm` wide. */
+async function roundCorners(png: Buffer, widthPx: number, heightPx: number, radiusMm: number, wMm: number) {
+  const radius = Math.min((radiusMm / wMm) * widthPx, widthPx / 2, heightPx / 2);
+  if (radius <= 0) return png;
+  return sharp(png).composite([{ input: roundedMask(widthPx, heightPx, radius), blend: "dest-in" }]).png({ compressionLevel: 9 }).toBuffer();
 }
 
 /**
  * Read and rasterise one managed image for a box of `wMm × hMm`. Logos keep
  * transparency (PNG, contained); photos are cropped square, masked to their
  * shape and flattened onto the card colour as JPEG, which keeps bulk PDFs
- * small. Returns null when the URL isn't a managed upload or can't be read.
+ * small. Layer artwork (`alpha`) keeps its transparency, is cropped to the
+ * box when it covers it, and has `radiusMm` corners cut into it. Returns null
+ * when the URL isn't a managed upload or can't be read.
  */
 export async function prepareCardImage(
   url: string,
-  box: { wMm: number; hMm: number; fit: "contain" | "cover"; shape: "none" | "circle" | "rounded"; grayscale: boolean; background: string },
+  box: { wMm: number; hMm: number; fit: "contain" | "cover"; shape: "none" | "circle" | "rounded"; grayscale: boolean; background: string; alpha?: boolean; radiusMm?: number },
 ): Promise<PreparedImage | null> {
   const key = managedImageKey(url);
   if (!key) return null;
@@ -47,11 +55,23 @@ export async function prepareCardImage(
     if (!file) return null;
     let image = sharp(Buffer.from(file.body), { failOn: "error", limitInputPixels: 40_000_000 }).rotate();
     if (box.grayscale) image = image.grayscale();
+    if (box.alpha) {
+      const cover = box.fit === "cover";
+      const { data, info } = await image
+        .resize(pxFor(box.wMm), pxFor(box.hMm), { fit: cover ? "cover" : "inside", withoutEnlargement: false })
+        .ensureAlpha()
+        .png({ compressionLevel: 9 })
+        .toBuffer({ resolveWithObject: true });
+      // A contained image is narrower than its box: measure its corners on the width it is drawn at.
+      const drawnWMm = cover ? box.wMm : Math.min(box.wMm, (box.hMm * info.width) / info.height);
+      const rounded = await roundCorners(data, info.width, info.height, box.radiusMm ?? 0, drawnWMm);
+      return { format: "png", data: rounded, widthPx: info.width, heightPx: info.height };
+    }
     if (box.fit === "cover") {
       const side = Math.min(MAX_PHOTO_PX, pxFor(Math.max(box.wMm, box.hMm)));
       let squared = await image.resize(side, side, { fit: "cover" }).ensureAlpha().png().toBuffer();
       if (box.shape !== "none") {
-        squared = await sharp(squared).composite([{ input: roundedMask(side, box.shape), blend: "dest-in" }]).png().toBuffer();
+        squared = await sharp(squared).composite([{ input: roundedMask(side, side, box.shape === "circle" ? side / 2 : side * 0.2), blend: "dest-in" }]).png().toBuffer();
       }
       const data = await sharp(squared).flatten({ background: box.background }).jpeg({ quality: 88, chromaSubsampling: "4:4:4" }).toBuffer();
       return { format: "jpeg", data, widthPx: side, heightPx: side };
@@ -150,6 +170,21 @@ export function roundedRectPath(x: number, y: number, w: number, h: number, radi
     `C${f(x + r - c)} ${f(y + h)} ${f(x)} ${f(y + h - r + c)} ${f(x)} ${f(y + h - r)}`,
     `V${f(y + r)}`,
     `C${f(x)} ${f(y + r - c)} ${f(x + r - c)} ${f(y)} ${f(x + r)} ${f(y)}`,
+    "Z",
+  ].join("");
+}
+
+/** An SVG path for the ellipse inscribed in a box, as four cubic arcs. */
+export function ellipsePath(x: number, y: number, w: number, h: number) {
+  const f = (n: number) => Number(n.toFixed(3));
+  const [rx, ry, cx, cy] = [w / 2, h / 2, x + w / 2, y + h / 2];
+  const [kx, ky] = [rx * 0.5523, ry * 0.5523];
+  return [
+    `M${f(cx)} ${f(y)}`,
+    `C${f(cx + kx)} ${f(y)} ${f(x + w)} ${f(cy - ky)} ${f(x + w)} ${f(cy)}`,
+    `C${f(x + w)} ${f(cy + ky)} ${f(cx + kx)} ${f(y + h)} ${f(cx)} ${f(y + h)}`,
+    `C${f(cx - kx)} ${f(y + h)} ${f(x)} ${f(cy + ky)} ${f(x)} ${f(cy)}`,
+    `C${f(x)} ${f(cy - ky)} ${f(cx - kx)} ${f(y)} ${f(cx)} ${f(y)}`,
     "Z",
   ].join("");
 }

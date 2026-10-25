@@ -1,4 +1,4 @@
-import { CARD_ACCENT_KEYS, CARD_BACKGROUND_KEYS, CARD_TEXT_KEYS } from "@/lib/cards/palette";
+import { CARD_ACCENT_KEYS, CARD_BACKGROUND_KEYS, CARD_TEXT_KEYS, DEFAULT_CUSTOM_COLOURS, type CardCustomColours } from "@/lib/cards/palette";
 import {
   CARD_ELEMENTS,
   CARD_GRID_SIZES_MM,
@@ -24,6 +24,7 @@ import {
   type CardWatermark,
 } from "./elements";
 import { defaultElementBold, defaultElementTextSizes, geometryWithOptionalDefaults, layoutForPaper } from "./geometry";
+import { DEFAULT_BACKGROUND, DEFAULT_ORDER, hexColour, normalizeBackground, normalizeLayers, normalizeOrder } from "./layers";
 
 /*
  * Saved and submitted designs are never trusted: every value is bounded, and anything unexpected is
@@ -124,6 +125,15 @@ function watermark(value: unknown): CardWatermark {
   };
 }
 
+function customColours(value: unknown): CardCustomColours {
+  const input = value && typeof value === "object" && !Array.isArray(value) ? (value as Partial<Record<keyof CardCustomColours, unknown>>) : {};
+  return {
+    background: hexColour(input.background) ?? DEFAULT_CUSTOM_COLOURS.background,
+    accent: hexColour(input.accent) ?? DEFAULT_CUSTOM_COLOURS.accent,
+    text: hexColour(input.text) ?? DEFAULT_CUSTOM_COLOURS.text,
+  };
+}
+
 export function defaultCardSideSettings(context: CardDesignContext): CardSideSettings {
   const size = { widthMm: CR80.widthMm, heightMm: CR80.heightMm };
   return {
@@ -155,6 +165,10 @@ export function defaultCardSideSettings(context: CardDesignContext): CardSideSet
     showValidUntil: false,
     validUntilLabel: "Valid until",
     watermark: { ...DEFAULT_WATERMARK },
+    customColours: { ...DEFAULT_CUSTOM_COLOURS },
+    background: { ...DEFAULT_BACKGROUND },
+    layers: [],
+    order: [...DEFAULT_ORDER],
   };
 }
 
@@ -182,6 +196,7 @@ export function normalizeCardSide(value: unknown, context: CardDesignContext): C
   const boldInput = asRecord(input.elementBold);
   const boldFallback = defaultElementBold();
   const grid = Number(input.gridSizeMm);
+  const layers = normalizeLayers(input.layers, { widthMm, heightMm });
   return {
     widthMm,
     heightMm,
@@ -215,5 +230,9 @@ export function normalizeCardSide(value: unknown, context: CardDesignContext): C
     idNumberLabel: boundedText(input.idNumberLabel, fallback.idNumberLabel, 30),
     validUntilLabel: boundedText(input.validUntilLabel, fallback.validUntilLabel, 30),
     watermark: watermark(input.watermark),
+    customColours: customColours(input.customColours),
+    background: normalizeBackground(input.background),
+    layers,
+    order: normalizeOrder(input.order, layers),
   };
 }

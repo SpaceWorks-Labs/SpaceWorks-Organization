@@ -4,7 +4,7 @@ import { can, requireOrgCapability } from "@/lib/permissions";
 import { memberWhere, teamScope } from "@/lib/membership/scope";
 import { deriveCardPrefix } from "@/lib/cards/core";
 import { brandingFor, designFor, loadCardOrgContext, organisationDesignRow, type DesignSource } from "@/lib/cards/data";
-import { normalizeCardDesign } from "@/lib/cards/design/presets";
+import { normalizeCardDesign, withOwnArtwork } from "@/lib/cards/design/presets";
 import { DEFAULT_NUMBER_FORMAT } from "@/lib/cards/numbering";
 
 /**
@@ -37,7 +37,7 @@ export async function loadOrgCardSettingsView({ params, searchParams }: { params
   let editing: { design: ReturnType<typeof designFor>["design"]; branding: ReturnType<typeof designFor>["branding"]; source: DesignSource };
   if (plan) editing = designFor(ctx, plan);
   else if (role) editing = { ...designFor(ctx, { id: "", name: "" }, role.id), source: roleRow ? "role" : orgRow ? "organisation" : "default" };
-  else editing = { design: normalizeCardDesign(orgRow?.design, { organisationName: ctx.organisation.name, planName: "" }), branding: brandingFor(ctx, orgRow?.watermarkUrl ?? null), source: orgRow ? "organisation" : "default" };
+  else editing = { design: withOwnArtwork(normalizeCardDesign(orgRow?.design, { organisationName: ctx.organisation.name, planName: "" }), ctx.organisation.id), branding: brandingFor(ctx, orgRow?.watermarkUrl ?? null), source: orgRow ? "organisation" : "default" };
   // A plan's own questions, or every plan's for the organisation and role designs (one entry per key).
   const fields = new Map<string, { key: string; label: string }>();
   for (const field of plan ? ctx.fields.get(plan.id) ?? [] : [...ctx.fields.values()].flat()) {
