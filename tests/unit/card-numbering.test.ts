@@ -35,6 +35,9 @@ describe("card number patterns", () => {
     expect(numberFormatError("{SEQ}#")).toMatch(/capital letters/);
     expect(numberFormatError("{SEQ}{NAME}")).toMatch(/capital letters/);
     expect(numberFormatError(`{SEQ}${"A".repeat(40)}`)).toMatch(/40/);
+    // 39 characters, but the numbers it makes would run past 32 and lose the running number.
+    expect(numberFormatError("MEMBERSHIP CARD OF THE SOCIETY NO {SEQ}")).toMatch(/32 characters/);
+    expect(numberFormatError("{PREFIX}/{YYYY}/{SEQ:8}")).toBeNull();
     expect(numberFormatError("  ")).toMatch(/Enter/);
   });
 

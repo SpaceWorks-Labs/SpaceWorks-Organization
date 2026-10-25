@@ -50,7 +50,7 @@ export function LayersPanel({ order, layers, visible, selected, onSelect, onMove
           </div>
         ) : null}
       </div>
-      <ul className="flex flex-col gap-0.5 rounded-2xl border border-line p-1">
+      <ul data-layers-list className="flex flex-col gap-0.5 rounded-2xl border border-line p-1">
         {rows.map((key) => {
           const layer = byId.get(key);
           const Icon = layer ? KIND_ICONS[layer.kind] : LayoutGrid;

@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { decideTerm, openTerm, startRenewal, upsertMember } from "@/lib/membership/service";
-import { reissueCardsForRoleChange } from "@/lib/cards/issue";
+import { issueCardOnActivation, reissueCard, reissueCardsForRoleChange, revokeCard } from "@/lib/cards/issue";
 import { designFor, loadCardOrgContext } from "@/lib/cards/data";
 import { defaultCardDesign } from "@/lib/cards/design/presets";
 
@@ -77,6 +77,19 @@ describe.sequential("card numbers", () => {
     expect(cards[1]!.verifyToken).not.toBe(before.verifyToken);
   });
 
+  it("keeps the number when someone still in grace registers again instead of renewing", async () => {
+    // The 2027 renewal ends in 2028; in its grace period the member fills in the join form.
+    const term = await prisma.membershipTerm.findFirstOrThrow({ where: { memberId, planId: plan.id }, orderBy: { startsAt: "desc" } });
+    const inGrace = new Date(term.endsAt!.getTime() + 24 * 3600_000);
+    expect(term.graceUntil!.getTime()).toBeGreaterThan(inGrace.getTime());
+    const before = (await cardsOf(memberId)).filter((card) => !card.revokedAt);
+    const fresh = await prisma.$transaction((tx) => openTerm(tx, { org, plan, memberId, byManager: true, actorUserId: ownerId, now: inGrace }));
+    await prisma.$transaction((tx) => issueCardOnActivation(tx, fresh, ownerId, inGrace));
+    const live = (await cardsOf(memberId)).filter((card) => !card.revokedAt);
+    expect(live.map((card) => card.cardNumber)).toEqual(before.map((card) => card.cardNumber));
+    await prisma.membershipTerm.delete({ where: { id: fresh.id } });
+  });
+
   it("gives a new registration after a lapse a new number and ends the old card", async () => {
     await prisma.$transaction((tx) => startRenewal(tx, { org, plan, memberId, byManager: true, actorUserId: ownerId, now: at("2030-01-10T06:00:00Z") }));
     const cards = await cardsOf(memberId);
@@ -84,6 +97,13 @@ describe.sequential("card numbers", () => {
     expect(live).toHaveLength(1);
     expect(live[0]!.cardNumber).toBe("CNL-0003");
     expect(cards.find((card) => card.cardNumber === "CNL-0001" && card.revokedReason === "MEMBERSHIP_ENDED")).toBeTruthy();
+  });
+
+  it("keeps the number when a manager reissues a revoked card", async () => {
+    const live = (await cardsOf(memberId)).find((card) => !card.revokedAt)!;
+    await prisma.$transaction((tx) => revokeCard(tx, { organisationId: org.id, cardId: live.id, actorUserId: ownerId }));
+    const replacement = await prisma.$transaction((tx) => reissueCard(tx, { organisationId: org.id, memberId, planId: plan.id }, ownerId));
+    expect(replacement.cardNumber).toBe(live.cardNumber);
   });
 
   it("numbers a role's cards with the role's own prefix and pattern once it has a design", async () => {

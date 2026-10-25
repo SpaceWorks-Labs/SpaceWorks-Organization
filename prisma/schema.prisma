@@ -1067,6 +1067,7 @@ model MemberCard {
   @@unique([organisationId, id])
   @@index([memberId, planId])
   @@index([organisationId, issuedAt])
+  @@index([organisationId, cardNumber])
 }
 
 enum CardExportStatus {

@@ -56,7 +56,7 @@ export function LayerInspector({ layer, card, orgAccent, uploading, onChange, on
       {layer.kind === "image" ? (
         <>
           <SegmentedControl<"cover" | "contain"> ariaLabel="Fit" size="sm" value={layer.fit} onValueChange={(fit) => onChange({ fit })} options={[{ value: "cover", label: "Fill the box" }, { value: "contain", label: "Show it all" }]} className="self-start" />
-          <NumberSlider label="Corner rounding" unit="mm" min={0} max={50} step={0.5} value={layer.radiusMm} onChange={(radiusMm) => onChange({ radiusMm })} />
+          {layer.fit === "cover" ? <NumberSlider label="Corner rounding" unit="mm" min={0} max={50} step={0.5} value={layer.radiusMm} onChange={(radiusMm) => onChange({ radiusMm })} /> : null}
           <SwitchLine label="Black and white" checked={layer.grayscale} onCheckedChange={(grayscale) => onChange({ grayscale })} />
           <Field label="Replace the image" helperText="PNG, JPEG or WebP, up to 5 MB.">
             <input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) onReplaceImage(file); event.target.value = ""; }} className="block w-full text-[14px] text-ink-secondary file:mr-3 file:min-h-11 file:rounded-full file:border file:border-line file:bg-panel file:px-4 file:font-semibold file:text-ink hover:file:bg-muted" />

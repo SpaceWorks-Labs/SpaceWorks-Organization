@@ -26,7 +26,8 @@ export function layerOps(layer: CardLayer, holder: CardHolder, measurer: TextMea
     const text = layer.uppercase ? filled.toLocaleUpperCase("en") : filled;
     ops = paragraph(measurer, text, box.x, box.y, box.w, { sizePt: layer.sizePt, weight: layer.bold ? 700 : 400, color: mono ? "#000000" : layer.color, trackingEm: layer.trackingEm, lineHeight: layer.lineHeight, font: layer.font }, layer.align).ops;
   } else if (layer.kind === "image") {
-    ops = [{ kind: "image", url: layer.url, ...box, fit: layer.fit, shape: "none", grayscale: mono || layer.grayscale, radiusMm: layer.radiusMm, alpha: true }];
+    // Corners round only a picture that fills its box, as the designer shows it.
+    ops = [{ kind: "image", url: layer.url, ...box, fit: layer.fit, shape: "none", grayscale: mono || layer.grayscale, radiusMm: layer.fit === "cover" ? layer.radiusMm : 0, alpha: true }];
   } else if (layer.kind === "line") {
     ops = [{ kind: "rect", ...box, radius: 0, fill: colour(layer.color) }];
   } else if (layer.kind === "ellipse") {

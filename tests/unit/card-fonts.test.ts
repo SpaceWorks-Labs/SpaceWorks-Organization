@@ -37,7 +37,7 @@ describe("card font catalogue", () => {
     for (const family of catalogue.families) {
       expect(family.id).toMatch(/^[a-z0-9-]{2,40}$/);
       expect(CATEGORIES).toContain(family.category);
-      expect(["OFL-1.1", "Apache-2.0", "UFL-1.0"]).toContain(family.license);
+      expect(["OFL-1.1", "Apache-2.0"]).toContain(family.license);
       expect(family.subsets[0]?.name).toBe("latin");
       if (family.category === "indic") expect(family.subsets.map((subset) => subset.name)).toHaveLength(2);
     }

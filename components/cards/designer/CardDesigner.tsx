@@ -162,7 +162,7 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
     if (mod && (key === "y" || (key === "z" && event.shiftKey))) restore(history.redo(latestDesign()));
     else if (mod && key === "z") restore(history.undo(latestDesign()));
     else if (mod && key === "d" && selectedLayer) layers.duplicate(selectedLayer.id);
-    else if ((key === "delete" || key === "backspace") && selectedLayer) layers.remove(selectedLayer.id);
+    else if ((key === "delete" || key === "backspace") && selectedLayer && (event.target as HTMLElement).closest("[data-card-frame], [data-layers-list]")) layers.remove(selectedLayer.id);
     else return;
     event.preventDefault();
   };

@@ -3,6 +3,7 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import type { MemberCard, Prisma } from "@prisma/client";
 import { recordAuditEvent } from "@/lib/audit";
+import { statusAt, TIMED_STATUSES } from "@/lib/membership/lifecycle";
 import { deriveCardPrefix } from "./core";
 import { DEFAULT_NUMBER_FORMAT, formatCardNumberFrom, formatUsesYear, numberCounterName, yearIn } from "./numbering";
 
@@ -19,6 +20,11 @@ type CardRef = { organisationId: string; memberId: string; planId: string };
 
 export class CardError extends Error {
   override name = "CardError";
+}
+
+/** The card number pattern has no free number left. Managers see the message; activations log it. */
+export class CardNumberError extends CardError {
+  override name = "CardNumberError";
 }
 
 /** 32 random bytes as base64url: 43 characters. */
@@ -44,10 +50,12 @@ async function bumpCounter(tx: Tx, organisationId: string, name: string) {
 
 /**
  * A new card number: the member's primary role design numbers its own cards, else the organisation
- * default does. The counter row stays locked until the transaction ends, so concurrent issues queue;
- * a number some card already has (an older pattern, an earlier registration) is skipped.
+ * default does. Numbering is locked per organisation until the transaction ends, so concurrent issues
+ * (even under different patterns) queue; a number some card already has (an older pattern, an earlier
+ * registration) is skipped.
  */
 async function nextCardNumber(tx: Tx, organisationId: string, memberId: string, memberNumber: number) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`card-number:${organisationId}`}))`;
   const primary = await tx.memberRoleAssignment.findFirst({ where: { organisationId, memberId, isPrimary: true, role: { archivedAt: null } }, select: { roleId: true } });
   const select = { numberPrefix: true, numberFormat: true } as const;
   const byRole = primary ? await tx.cardDesign.findFirst({ where: { organisationId, roleId: primary.roleId }, select }) : null;
@@ -57,15 +65,20 @@ async function nextCardNumber(tx: Tx, organisationId: string, memberId: string, 
   const prefix = scheme?.numberPrefix ?? deriveCardPrefix(org.name);
   const year = yearIn(org.timezone);
   const counter = numberCounterName({ roleId: byRole ? primary!.roleId : null }, formatUsesYear(format) ? year : null);
-  for (let attempt = 0; attempt < 500; attempt += 1) {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
     const number = formatCardNumberFrom(format, { prefix, seq: await bumpCounter(tx, organisationId, counter), memberNumber, year });
     if (!(await tx.memberCard.findFirst({ where: { organisationId, cardNumber: number }, select: { id: true } }))) return number;
   }
-  throw new CardError("No free card number is left in this pattern. Change the card number pattern.");
+  throw new CardNumberError("No free card number is left in this pattern. Change the card number pattern or its prefix.");
 }
 
 async function createCard(tx: Tx, ref: CardRef, cardNumber: string, actorUserId: string | null) {
   return tx.memberCard.create({ data: { ...ref, cardNumber, verifyToken: newVerifyToken(), issuedById: actorUserId } });
+}
+
+/** The number of the plan's most recent card for this member, which a continuing membership keeps. */
+async function lastCardNumber(tx: Tx, ref: CardRef) {
+  return (await tx.memberCard.findFirst({ where: ref, orderBy: { issuedAt: "desc" }, select: { cardNumber: true } }))?.cardNumber ?? null;
 }
 
 function liveCard(tx: Tx, ref: CardRef) {
@@ -83,8 +96,8 @@ export async function issueCard(tx: Tx, ref: CardRef, actorUserId: string | null
   const existing = await liveCard(tx, ref);
   if (existing && !options.fresh) return { card: existing, created: false };
   if (existing) await tx.memberCard.update({ where: { id: existing.id }, data: { revokedAt: new Date(), revokedById: actorUserId, revokedReason: "MEMBERSHIP_ENDED" } });
-  const previous = options.fresh ? null : await tx.memberCard.findFirst({ where: ref, orderBy: { issuedAt: "desc" }, select: { cardNumber: true } });
-  const card = await createCard(tx, ref, previous?.cardNumber ?? (await nextCardNumber(tx, ref.organisationId, ref.memberId, member.memberNumber)), actorUserId);
+  const previous = options.fresh ? null : await lastCardNumber(tx, ref);
+  const card = await createCard(tx, ref, previous ?? (await nextCardNumber(tx, ref.organisationId, ref.memberId, member.memberNumber)), actorUserId);
   await recordAuditEvent({ action: "CARD_ISSUED", actorUserId, organisationId: ref.organisationId, targetType: "MemberCard", targetId: card.id, metadata: existing ? { replaces: existing.id } : undefined, client: tx });
   return { card, created: true };
 }
@@ -94,16 +107,24 @@ export async function issueCard(tx: Tx, ref: CardRef, actorUserId: string | null
  * card; renewals keep the card they have. A renewal for someone who never had a card on this plan
  * (members from before cards existed) also gets one, but a card a manager revoked is never brought
  * back by a renewal: that takes a manager's reissue. A new registration on a plan the member held a
- * card for before is a new membership, so it gets a new card number.
+ * card for, once that membership has ended (no other term still upcoming, active or in grace), is a
+ * new membership, so it gets a new card number.
  */
-export async function issueCardOnActivation(tx: Tx, term: { organisationId: string; memberId: string; planId: string; kind: string }, actorUserId: string | null) {
+export async function issueCardOnActivation(tx: Tx, term: { id: string; organisationId: string; memberId: string; planId: string; kind: string }, actorUserId: string | null, now = new Date()) {
   const ref = { organisationId: term.organisationId, memberId: term.memberId, planId: term.planId };
   const earlier = await tx.memberCard.count({ where: ref });
   if (term.kind === "RENEWAL" && earlier > 0) return null;
+  let fresh = false;
+  if (term.kind === "NEW" && earlier > 0) {
+    const others = await tx.membershipTerm.findMany({ where: { memberId: term.memberId, planId: term.planId, id: { not: term.id } }, select: { status: true, startsAt: true, endsAt: true, graceUntil: true, paymentDueBy: true } });
+    fresh = !others.some((other) => TIMED_STATUSES.has(statusAt(other as Parameters<typeof statusAt>[0], now)));
+  }
   try {
-    return await issueCard(tx, ref, actorUserId, { fresh: term.kind === "NEW" && earlier > 0 });
+    return await issueCard(tx, ref, actorUserId, { fresh });
   } catch (error) {
-    // An erased member gets no card, but their membership change still goes through.
+    // The membership change still goes through: an erased member gets no card, and a pattern with no
+    // free number left is logged for the managers to fix.
+    if (error instanceof CardNumberError) console.error(`[cards] no card number for a member of organisation ${term.organisationId}: ${error.message}`);
     if (error instanceof CardError) return null;
     throw error;
   }
@@ -114,8 +135,8 @@ export async function reissueCard(tx: Tx, ref: CardRef, actorUserId: string, rea
   const member = await lockMember(tx, ref.organisationId, ref.memberId);
   const old = await liveCard(tx, ref);
   if (old) await tx.memberCard.update({ where: { id: old.id }, data: { revokedAt: new Date(), revokedById: actorUserId, revokedReason: "REISSUED" } });
-  // The replacement keeps the printed number, even if the pattern has changed since.
-  const card = await createCard(tx, ref, old?.cardNumber ?? (await nextCardNumber(tx, ref.organisationId, ref.memberId, member.memberNumber)), actorUserId);
+  // The replacement keeps the printed number (a revoked card's too), even if the pattern has changed since.
+  const card = await createCard(tx, ref, old?.cardNumber ?? (await lastCardNumber(tx, ref)) ?? (await nextCardNumber(tx, ref.organisationId, ref.memberId, member.memberNumber)), actorUserId);
   await recordAuditEvent({ action: old ? "CARD_REISSUED" : "CARD_ISSUED", actorUserId, organisationId: ref.organisationId, targetType: "MemberCard", targetId: card.id, metadata: old ? { replaces: old.id, ...(reason ? { reason } : {}) } : undefined, client: tx });
   return card;
 }

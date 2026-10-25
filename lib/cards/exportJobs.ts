@@ -40,11 +40,12 @@ async function* exportCards(job: CardExportJob, ctx: CardOrgContext) {
   for (;;) {
     const cards = await prisma.memberCard.findMany({ where, include: CARD_INCLUDE, orderBy: { id: "asc" }, take: PAGE, ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}) });
     for (const card of cards) {
-      let input = designs.get(card.planId);
+      const key = `${card.planId}:${cardRoleId(card) ?? ""}`;
+      let input = designs.get(key);
       if (!input) {
         const { design, branding } = designFor(ctx, card.plan, cardRoleId(card));
         input = { design, branding };
-        designs.set(card.planId, input);
+        designs.set(key, input);
       }
       yield { input, holder: holderFor(card, ctx) };
     }

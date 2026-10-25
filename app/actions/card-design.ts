@@ -91,6 +91,10 @@ export async function saveCardDesign(input: unknown): Promise<ActionResult<{ upd
   const found = await scopeFor(ctx.organisation.id, parsed.data.planId, parsed.data.roleId ?? null);
   if (!found.ok) return found;
   const { scope } = found;
+  if (scope.role && parsed.data.numberPrefix) {
+    const own = await prisma.cardDesign.findFirst({ where: { organisationId: ctx.organisation.id, planId: null, roleId: null }, select: { numberPrefix: true } });
+    if (parsed.data.numberPrefix === (own?.numberPrefix ?? deriveCardPrefix(ctx.organisation.name))) return { ok: false, error: "Give this role a prefix other than the organisation's, so its card numbers never repeat one already printed." };
+  }
   const design = withOwnArtwork(normalizeCardDesign(parsed.data.design, { organisationName: ctx.organisation.name, planName: scope.plan?.name ?? "" }), ctx.organisation.id);
   const row = await designRow(ctx.organisation, scope, ctx.userId);
   const saved = await prisma.cardDesign.update({

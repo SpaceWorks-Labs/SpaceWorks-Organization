@@ -96,7 +96,7 @@ export function CardLayerView({ layer, holder, pxPerMm, zIndex, mono, interactio
     content = fillLayerText(layer.text, holder);
   } else if (layer.kind === "image") {
     // eslint-disable-next-line @next/next/no-img-element -- the organisation's own uploaded artwork, drawn to scale
-    content = <img src={layer.url} alt="" draggable={false} style={{ display: "block", width: "100%", height: "100%", objectFit: layer.fit, borderRadius: px(layer.radiusMm), filter: mono || layer.grayscale ? "grayscale(1)" : undefined }} />;
+    content = <img src={layer.url} alt="" draggable={false} style={{ display: "block", width: "100%", height: "100%", objectFit: layer.fit, borderRadius: layer.fit === "cover" ? px(layer.radiusMm) : undefined, filter: mono || layer.grayscale ? "grayscale(1)" : undefined }} />;
   } else if (layer.kind === "line") {
     look = { background: colour(layer.color) };
   } else {

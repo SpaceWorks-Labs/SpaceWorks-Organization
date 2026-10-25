@@ -20,7 +20,7 @@ const OUT_DIR = path.join(ROOT, "public", "fonts", "card");
 const CATALOGUE = path.join(ROOT, "lib", "cards", "card-fonts.json");
 const API = "https://api.fontsource.org/v1/fonts";
 const CDN = "https://cdn.jsdelivr.net/fontsource/fonts";
-const LICENCES = { "OFL-1.1": "SIL Open Font License 1.1", "Apache-2.0": "Apache License 2.0", "UFL-1.0": "Ubuntu Font Licence 1.0" };
+const LICENCES = { "OFL-1.1": "SIL Open Font License 1.1", "Apache-2.0": "Apache License 2.0" };
 const WEIGHTS = [400, 700];
 const CONCURRENCY = 6;
 

@@ -28,7 +28,17 @@ export function numberFormatError(format: string): string | null {
   if (!tokens.some((token) => token[1] === "SEQ")) return "Include {SEQ} so every registration gets its own number.";
   if (tokens.some((token) => token[2] && token[1] !== "SEQ" && token[1] !== "MEMBER")) return "Only {SEQ} and {MEMBER} take a length, as in {SEQ:4}.";
   if (!LITERAL.test(value.replace(TOKEN, ""))) return "Use capital letters, digits, spaces and . / _ - between the tokens.";
+  if (longestNumber(value) > CARD_NUMBER_MAX_LENGTH) return `Card numbers can be up to ${CARD_NUMBER_MAX_LENGTH} characters, and this pattern can make longer ones. Shorten the text around the tokens.`;
   return null;
+}
+
+/** The longest number a pattern can make: a 6-character prefix and running and member numbers of up to 7 digits. */
+function longestNumber(format: string) {
+  return format.replace(TOKEN, (_token, name: string, width?: string) => {
+    if (name === "PREFIX") return "X".repeat(6);
+    if (name === "SEQ" || name === "MEMBER") return "9".repeat(Math.max(7, Number(width ?? 0)));
+    return name === "YYYY" ? "2026" : "26";
+  }).trim().length;
 }
 
 /** The pattern as stored: trimmed, in capitals. Call after `numberFormatError` returns null. */
@@ -49,7 +59,7 @@ export function formatCardNumberFrom(format: string, parts: NumberParts) {
     if (name === "MEMBER") return pad(parts.memberNumber, width);
     if (name === "YYYY") return String(parts.year);
     return String(parts.year % 100).padStart(2, "0");
-  }).trim().slice(0, CARD_NUMBER_MAX_LENGTH);
+  }).trim();
 }
 
 /** The OrgCounter row a pattern's running number lives in: per role (or the organisation), per year when used. */

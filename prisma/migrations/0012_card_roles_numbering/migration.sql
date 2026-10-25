@@ -22,6 +22,9 @@ ALTER TABLE "CardDesign"
   -- lib/cards/numbering.ts is the full check; the database keeps the running number in every pattern.
   ADD CONSTRAINT "CardDesign_number_format" CHECK (char_length("numberFormat") <= 40 AND "numberFormat" ~ '\{SEQ(:[1-8])?\}');
 
+-- Numbering looks numbers up to skip ones already printed.
+CREATE INDEX "MemberCard_organisationId_cardNumber_idx" ON "MemberCard"("organisationId", "cardNumber");
+
 -- Numbers were the member number until now. The organisation's running card number starts above every
 -- member number, so a new card never repeats one already printed.
 INSERT INTO "OrgCounter" ("organisationId", "name", "next")
