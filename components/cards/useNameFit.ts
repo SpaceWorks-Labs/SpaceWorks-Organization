@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { CARD_LINE_HEIGHT, nameBlockHeightMm, PT_TO_MM, type CardSideSettings } from "@/lib/cards/design/elements";
+import { cardFontCssName, DEFAULT_CARD_FONT } from "@/lib/cards/fontCatalog";
 import { wrapText } from "@/lib/cards/text";
 
 /*
@@ -38,7 +39,7 @@ export function useNameSizePt(settings: CardSideSettings, name: string, estimate
   let sizePt = estimatePt;
   for (;;) {
     const sizePx = sizePt * PT_TO_MM * PX_PER_MM;
-    ctx.font = `${weight} ${sizePx}px "SWO Card"`;
+    ctx.font = `${weight} ${sizePx}px "${cardFontCssName(settings.elementFonts.name ?? DEFAULT_CARD_FONT)}", "SWO Noto"`;
     const measure = (value: string) => ctx.measureText(value).width / PX_PER_MM + trackingEm * sizePt * PT_TO_MM * segments(value);
     const lines = wrapText(text, settings.elementSizes.name, measure).length;
     if (lines * sizePt * PT_TO_MM * CARD_LINE_HEIGHT.name <= room || sizePt <= floor) return sizePt;

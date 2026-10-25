@@ -2,6 +2,7 @@
 
 import { useState, type KeyboardEvent, type PointerEvent } from "react";
 import type { CardElement, CardSideSettings } from "@/lib/cards/design/elements";
+import type { CardLayer } from "@/lib/cards/design/layers";
 
 export const SAFE_MARGIN_MM = 3;
 
@@ -21,11 +22,18 @@ export const ELEMENT_LABELS: Record<CardElement, string> = {
 };
 
 export type CanvasInteraction = {
-  selected: CardElement | null;
-  onSelect: (element: CardElement) => void;
+  /** A built-in item or a layer id. */
+  selected: string | null;
+  onSelect: (key: string) => void;
   /** Called once when a drag or nudge starts, so it becomes one undo step. */
   onBeginChange: () => void;
   onMove: (element: CardElement, xMm: number, yMm: number) => void;
+  /** A layer dragged to (xMm, yMm); `snap` to the grid and the card's centre lines. */
+  onLayerMove: (id: string, xMm: number, yMm: number, snap: boolean) => void;
+  onLayerMoveEnd: () => void;
+  onLayerChange: (id: string, patch: Partial<CardLayer>) => void;
+  /** Centre lines a dragged layer has snapped to. */
+  guides: { x: boolean; y: boolean };
   showGrid: boolean;
 };
 

@@ -110,6 +110,9 @@ npx vitest run tests/unit/health.test.ts
   is unaffected.
 - **Member cards** (`lib/cards/*`):
   - One live card per member and plan. The verify token (in the QR) is 32 random bytes; reissuing revokes the old card. Renewals keep the card, because `/verify` reads `deriveStatus` live.
+  - Designs: a card uses its member's primary role design, else its plan's, else the organisation default (`designFor`). Read designs through `withOwnArtwork` so only the organisation's own `member-id-artwork` uploads draw.
+  - Card numbers (`lib/cards/numbering.ts`): a pattern with `{SEQ}` per organisation default and per role design, numbered from an `OrgCounter`. A number belongs to a membership: renewals, reinstatements and reissues keep it; a primary role change reissues live cards (`reissueCardsForRoleChange`) with the same number; a `NEW` term on a plan the member had a card for gets a new number and ends the old card (`MEMBERSHIP_ENDED`).
+  - Card fonts: Gilroy plus the library in `public/fonts/card` (`lib/cards/fontCatalog.ts`). Change the library only through `scripts/sync-card-fonts.mjs`, which checks licences and rewrites `LICENSES.md`.
   - A card is issued from `activateTerm` on first activation; managers issue, reissue, revoke and email it from the member page.
   - Card text is shaped with fontkit (Gilroy, then Noto for extended Latin, ₹, Malayalam and Devanagari) and drawn as outlines in both the PDF and the PNG. Never draw card text with pdf-lib's `drawText`.
   - Bulk exports are `CardExportJob` rows run by the scheduler pass and stored privately through `lib/storage/private.ts`.

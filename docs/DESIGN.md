@@ -62,17 +62,31 @@ run the tests.
 ## Member cards
 
 - **One drawing, three outputs.** `components/cards/CardCanvas.tsx` (browser) and `lib/cards/layout.ts` (PDF and
-  PNG) draw the same boxes, palette and template decor. Cards are CR80 (85.6 × 54 mm), landscape or portrait, with
-  four presets: Community, Corporate, Night and Student.
-- **Type on cards.** Gilroy Light and ExtraBold first, then OFL Noto Sans (extended Latin and ₹), Noto Sans
-  Malayalam and Noto Sans Devanagari. The browser loads the same files under one `"SWO Card"` family with
-  unicode ranges (`components/cards/cardFonts.tsx`). Long names shrink until they fit the room kept for them,
-  measured with real shaping on the server and with canvas metrics in the browser.
-- **Colour.** Card colours are brand keys plus the organisation's accent; every text colour keeps 4.5:1 against
-  what it sits on, and Workshop Orange is a fill only.
-- **The designer** (Settings → Cards) is three panes from 1280px: settings, the card to scale, and the selected
-  item's inspector. Below that they stack, card first. It autosaves; a sample switch shows Latin, Malayalam and
-  Devanagari names.
+  PNG) draw the same boxes, palette, template decor and layers. Cards are CR80 (85.6 × 54 mm), landscape or
+  portrait, with four presets (Community, Corporate, Night, Student) and six templates
+  (`lib/cards/design/templates.ts`: Aurora, Kasavu, Ribbon, Confetti, Midnight gold, Sunrise).
+- **Which design a card uses:** the member's primary role design, else the plan's, else the organisation's.
+- **Layers** (`lib/cards/design/layers.ts`): each side can add text (with `{name}`, `{role}`, `{plan}`,
+  `{number}` and `{validUntil}` placeholders), uploaded images and rectangles, ellipses and lines, up to 30.
+  Each is placed, sized and turned in millimetres and faded as a whole. `order` stacks built-in items and layers
+  together, bottom first, under a background colour and picture. Artwork is the organisation's own
+  `member-id-artwork` uploads only (`scopeCardArtwork`).
+- **Type on cards.** Gilroy Light and ExtraBold by default, or any of the 66 open-licence families in
+  `public/fonts/card` (`lib/cards/fontCatalog.ts`, synced by `scripts/sync-card-fonts.mjs`, licences in
+  `public/fonts/card/LICENSES.md`), for layers and for each built-in text item. Every face falls back to OFL Noto
+  Sans (extended Latin and ₹), Noto Sans Malayalam and Noto Sans Devanagari. The browser registers each family
+  with unicode ranges (`components/cards/cardFonts.tsx`); the server loads a family the first time a design uses
+  it. Long names shrink until they fit the room kept for them, measured with real shaping on the server and with
+  canvas metrics in the browser.
+- **Colour.** Card colours are brand keys, the organisation's accent or any colour of the organisation's own; every
+  built-in text colour keeps 4.5:1 against what it sits on, and Workshop Orange is a fill only. Layer colours are
+  as chosen; print-economy mode turns them black or white.
+- **The designer** (Settings → Cards) is three panes from 1280px: settings, the card to scale with a toolbar to add
+  text, images and shapes, and the selected item's inspector above the layers list. Below that they stack, card
+  first. Layers drag, resize from eight handles and turn from a knob (Shift: 15° steps, keep proportions; Alt: no
+  snapping); dragged layers snap to the grid and the centre lines. Undo and redo (Ctrl+Z, Ctrl+Shift+Z), duplicate
+  (Ctrl+D) and delete work from the keyboard. It autosaves; a sample switch shows Latin, Malayalam and Devanagari
+  names.
 - **Delight moment.** A card issued in the last two minutes rises into place on the member page and one Citron and
   Sky Blue sweep crosses it, once per tab (`components/cards/cards.module.css`). With reduced motion the card
   simply appears.

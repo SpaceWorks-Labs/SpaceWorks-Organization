@@ -4,6 +4,22 @@ Releases are published from `main` and titled **`Space Works Organization <versi
 file selects the series; each build is tagged `v<series>-main.<run>.<sha>`, which is what a deployment pins
 to. Pushes to `dev` publish staging images tagged `dev` without a release.
 
+## Unreleased
+
+A card designer that works like a design tool, and card designs and numbers per member role.
+
+- **Layers on cards:** add text, images, rectangles, ellipses and lines; drag, resize, turn, fade, lock, hide and
+  stack them with the built-in items, with undo and redo. Text fills in the member's name, role, plan, card number
+  and valid-until date.
+- **66 fonts** for card text, including Malayalam and Devanagari families, for layers and for every built-in text
+  item.
+- **Six ready-made templates**, any colour of your own, and a background picture per side.
+- **Designs per member role:** a member's primary role design comes before their plan's and the organisation's.
+- **Card number patterns** per organisation and per role, such as `{PREFIX}-{SEQ:4}` or `SEC/{YYYY}/{SEQ:3}`. A
+  renewal, a reissue or a new role keeps the number; a new registration after a membership ended gets a new one.
+  Existing cards keep their numbers, and new ones continue above every member number.
+- **Release pipeline:** the image clean-up no longer deletes images a concurrent run is still publishing.
+
 ## 0.7.0 (2026-10-21)
 
 Safer sign-in, organisations in their own voice, and the option to keep records without member accounts.

@@ -15,6 +15,7 @@ import {
 import type { CardSide } from "@/lib/cards/design/presets";
 import { BRAND, CARD_ACCENT_KEYS, CARD_BACKGROUND_KEYS, CARD_TEXT_KEYS, orgAccentHex, resolveCardPalette } from "@/lib/cards/palette";
 import type { CardBranding } from "@/lib/cards/types";
+import { ColourField } from "./ColourField";
 import { NumberSlider, Section, SwatchGroup, SwitchLine, ToggleField } from "./controls";
 
 export type DesignerField = { key: string; label: string };
@@ -31,7 +32,11 @@ export function SideSettings({ side, current, branding, fields, uploading, updat
   onWatermark: (file: File | null) => void;
 }) {
   const orgColour = orgAccentHex(branding.orgAccent);
-  const colourOf = (key: string) => (key === "org" ? orgColour : key === "auto" ? null : BRAND[key as keyof typeof BRAND]);
+  const custom = current.customColours;
+  const colourOf = (own: string) => (key: string) => (key === "custom" ? own : key === "org" ? orgColour : key === "auto" ? null : BRAND[key as keyof typeof BRAND]);
+  const ownColour = (which: keyof typeof custom, label: string) => (
+    <ColourField label={label} value={custom[which]} orgAccent={orgColour} onChange={(hex) => hex && update({ customColours: { ...custom, [which]: hex } })} />
+  );
   const palette = resolveCardPalette(current, branding.orgAccent);
   const mark = current.watermark;
   const toggleField = (key: string, on: boolean) => update({ printFieldKeys: on ? [...current.printFieldKeys, key] : current.printFieldKeys.filter((item) => item !== key) });
@@ -51,9 +56,12 @@ export function SideSettings({ side, current, branding, fields, uploading, updat
           <p className="text-caption text-ink-muted">Print economy: black on white only, for laser and thermal printers. Logos and photos print in grey.</p>
         ) : (
           <>
-            <SwatchGroup label="Card" value={current.backgroundColor} options={CARD_BACKGROUND_KEYS} colourOf={colourOf} onChange={(backgroundColor) => update({ backgroundColor })} />
-            <SwatchGroup label={current.template === "bold" ? "Band and accents" : "Frame and accents"} value={current.accentColor} options={CARD_ACCENT_KEYS} colourOf={colourOf} onChange={(accentColor) => update({ accentColor })} />
-            <SwatchGroup label="Text" value={current.textColor} options={CARD_TEXT_KEYS} colourOf={colourOf} onChange={(textColor) => update({ textColor })} />
+            <SwatchGroup label="Card" value={current.backgroundColor} options={CARD_BACKGROUND_KEYS} colourOf={colourOf(custom.background)} onChange={(backgroundColor) => update({ backgroundColor })} />
+            {current.backgroundColor === "custom" ? ownColour("background", "Your card colour") : null}
+            <SwatchGroup label={current.template === "bold" ? "Band and accents" : "Frame and accents"} value={current.accentColor} options={CARD_ACCENT_KEYS} colourOf={colourOf(custom.accent)} onChange={(accentColor) => update({ accentColor })} />
+            {current.accentColor === "custom" ? ownColour("accent", "Your accent colour") : null}
+            <SwatchGroup label="Text" value={current.textColor} options={CARD_TEXT_KEYS} colourOf={colourOf(custom.text)} onChange={(textColor) => update({ textColor })} />
+            {current.textColor === "custom" ? ownColour("text", "Your text colour") : null}
             {palette.textAdjusted ? <Callout tone="warning">That text colour doesn&apos;t have enough contrast on this card, so text prints in the automatic colour.</Callout> : null}
           </>
         )}

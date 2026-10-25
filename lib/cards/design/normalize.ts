@@ -24,6 +24,7 @@ import {
   type CardWatermark,
 } from "./elements";
 import { defaultElementBold, defaultElementTextSizes, geometryWithOptionalDefaults, layoutForPaper } from "./geometry";
+import { cardFont, DEFAULT_CARD_FONT } from "@/lib/cards/fontCatalog";
 import { DEFAULT_BACKGROUND, DEFAULT_ORDER, hexColour, normalizeBackground, normalizeLayers, normalizeOrder } from "./layers";
 
 /*
@@ -125,6 +126,14 @@ function watermark(value: unknown): CardWatermark {
   };
 }
 
+function elementFonts(value: unknown): CardSideSettings["elementFonts"] {
+  const input = asRecord(value);
+  return Object.fromEntries(CARD_ELEMENTS.flatMap((element) => {
+    const font = typeof input[element] === "string" ? cardFont(input[element] as string).id : DEFAULT_CARD_FONT;
+    return isTextElement(element) && font !== DEFAULT_CARD_FONT ? [[element, font]] : [];
+  }));
+}
+
 function customColours(value: unknown): CardCustomColours {
   const input = value && typeof value === "object" && !Array.isArray(value) ? (value as Partial<Record<keyof CardCustomColours, unknown>>) : {};
   return {
@@ -165,6 +174,7 @@ export function defaultCardSideSettings(context: CardDesignContext): CardSideSet
     showValidUntil: false,
     validUntilLabel: "Valid until",
     watermark: { ...DEFAULT_WATERMARK },
+    elementFonts: {},
     customColours: { ...DEFAULT_CUSTOM_COLOURS },
     background: { ...DEFAULT_BACKGROUND },
     layers: [],
@@ -230,6 +240,7 @@ export function normalizeCardSide(value: unknown, context: CardDesignContext): C
     idNumberLabel: boundedText(input.idNumberLabel, fallback.idNumberLabel, 30),
     validUntilLabel: boundedText(input.validUntilLabel, fallback.validUntilLabel, 30),
     watermark: watermark(input.watermark),
+    elementFonts: elementFonts(input.elementFonts),
     customColours: customColours(input.customColours),
     background: normalizeBackground(input.background),
     layers,

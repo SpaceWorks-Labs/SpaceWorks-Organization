@@ -73,7 +73,7 @@ function layer(value: unknown, card: { widthMm: number; heightMm: number }): Car
   const hMm = num(input.hMm, kind === "line" ? 0.1 : 1, span, kind === "line" ? 0.5 : 10);
   const base: LayerBase = {
     id: input.id,
-    name: typeof input.name === "string" ? input.name.trim().slice(0, 40) : "",
+    name: typeof input.name === "string" ? input.name.slice(0, 40) : "",
     xMm: num(input.xMm, -wMm + 1, card.widthMm - 1, 0),
     yMm: num(input.yMm, -hMm + 0.1, card.heightMm - 0.1, 0),
     wMm,

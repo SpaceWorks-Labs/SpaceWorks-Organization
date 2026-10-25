@@ -393,6 +393,11 @@
       "id": "card-design:uploadCardWatermark"
     },
     {
+      "module": "app/actions/card-design",
+      "name": "uploadCardArtwork",
+      "id": "card-design:uploadCardArtwork"
+    },
+    {
       "module": "app/actions/cards",
       "name": "issueMemberCard",
       "id": "cards:issueMemberCard"

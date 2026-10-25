@@ -70,6 +70,7 @@ export function buildCardScene({ settings, holder, branding, measurer }: CardSce
   const pt = settings.elementTextSizes;
   const bold = settings.elementBold;
   const weight = (on: boolean): FontWeight => (on ? 700 : 400);
+  const font = settings.elementFonts;
   const ops: CardOp[] = [];
   const parts = new Map<CardElement, CardOp[]>();
   const part = (element: CardElement) => {
@@ -116,12 +117,12 @@ export function buildCardScene({ settings, holder, branding, measurer }: CardSce
     let cursor = at.header.yMm + (band ? band.padYMm : 0);
     const texts: CardOp[] = [];
     if (label) {
-      const block = paragraph(measurer, label, innerX, cursor, innerWidth, { sizePt: cardLabelPt(pt.header), weight: weight(bold.header), color, trackingEm: 0.16, lineHeight: CARD_LINE_HEIGHT.label });
+      const block = paragraph(measurer, label, innerX, cursor, innerWidth, { sizePt: cardLabelPt(pt.header), weight: weight(bold.header), color, trackingEm: 0.16, lineHeight: CARD_LINE_HEIGHT.label, font: font.header });
       texts.push(...block.ops);
       cursor = block.bottom + decor.labelGapMm;
     }
     if (heading) {
-      const block = paragraph(measurer, heading, innerX, cursor, innerWidth, { sizePt: pt.header, weight: weight(bold.header), color, trackingEm: -0.01, lineHeight: CARD_LINE_HEIGHT.heading });
+      const block = paragraph(measurer, heading, innerX, cursor, innerWidth, { sizePt: pt.header, weight: weight(bold.header), color, trackingEm: -0.01, lineHeight: CARD_LINE_HEIGHT.heading, font: font.header });
       texts.push(...block.ops);
       cursor = block.bottom;
     }
@@ -133,7 +134,7 @@ export function buildCardScene({ settings, holder, branding, measurer }: CardSce
 
   if (settings.showName) {
     const name = decor.nameUppercase ? holder.displayName.toLocaleUpperCase("en") : holder.displayName;
-    const style = (sizePt: number) => ({ sizePt, weight: weight(bold.name), color: palette.text, trackingEm: decor.nameTrackingEm, lineHeight: CARD_LINE_HEIGHT.name });
+    const style = (sizePt: number) => ({ sizePt, weight: weight(bold.name), color: palette.text, trackingEm: decor.nameTrackingEm, lineHeight: CARD_LINE_HEIGHT.name, font: font.name });
     // The size estimate can miss on unusual scripts: with real measurements, shrink until the
     // wrapped name fits the room kept for it, so it never runs into the lines below.
     const room = nameBlockHeightMm(pt.name) + 0.01;
@@ -148,7 +149,7 @@ export function buildCardScene({ settings, holder, branding, measurer }: CardSce
   }
 
   const body = (element: "role" | "plan" | "idNumber" | "validUntil", text: string, trackingEm = 0) => {
-    if (text) part(element).push(...paragraph(measurer, text, at[element].xMm, at[element].yMm, size[element], { sizePt: pt[element], weight: weight(bold[element]), color: palette.text, trackingEm, lineHeight: CARD_LINE_HEIGHT.body }).ops);
+    if (text) part(element).push(...paragraph(measurer, text, at[element].xMm, at[element].yMm, size[element], { sizePt: pt[element], weight: weight(bold[element]), color: palette.text, trackingEm, lineHeight: CARD_LINE_HEIGHT.body, font: font[element] }).ops);
   };
   body("role", settings.showRole ? holder.role?.trim() ?? "" : "");
   body("plan", settings.showPlan ? holder.planName?.trim() ?? "" : "");
@@ -157,7 +158,7 @@ export function buildCardScene({ settings, holder, branding, measurer }: CardSce
 
   const fields = printableFields(settings, holder);
   if (fields.length > 0) {
-    const style = { sizePt: pt.details, weight: weight(bold.details), color: palette.text, lineHeight: CARD_LINE_HEIGHT.body };
+    const style = { sizePt: pt.details, weight: weight(bold.details), color: palette.text, lineHeight: CARD_LINE_HEIGHT.body, font: font.details };
     let cursor = at.details.yMm;
     const details = part("details");
     for (const field of fields) {
@@ -166,7 +167,7 @@ export function buildCardScene({ settings, holder, branding, measurer }: CardSce
       let labelWidth = 0;
       let rowBottom = cursor;
       if (fieldLabel) {
-        labelWidth = Math.min(measurer.widthMm(measurer.clean(fieldLabel), style.weight, style.sizePt), size.details * 0.5);
+        labelWidth = Math.min(measurer.widthMm(measurer.clean(fieldLabel), style.weight, style.sizePt, 0, style.font), size.details * 0.5);
         const block = paragraph(measurer, fieldLabel, at.details.xMm, cursor, labelWidth + 0.01, style);
         details.push(...block.ops);
         rowBottom = block.bottom;
@@ -181,7 +182,7 @@ export function buildCardScene({ settings, holder, branding, measurer }: CardSce
   const footer = settings.showFooter ? settings.footerText.trim() : "";
   if (footer) {
     part("footer").push(...paragraph(measurer, footer, at.footer.xMm, at.footer.yMm, size.footer, {
-      sizePt: pt.footer, weight: weight(bold.footer || settings.template === "bold"), color: palette.text, lineHeight: CARD_LINE_HEIGHT.body,
+      sizePt: pt.footer, weight: weight(bold.footer || settings.template === "bold"), color: palette.text, lineHeight: CARD_LINE_HEIGHT.body, font: font.footer,
     }).ops);
   }
 

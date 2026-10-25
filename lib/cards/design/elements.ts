@@ -80,6 +80,8 @@ export type CardSideSettings = {
   elementBold: CardElementBold;
   /** Point size for each text item; graphic entries are unused. */
   elementTextSizes: CardElementTextSizes;
+  /** Card font ids for text items set to something other than the default face. */
+  elementFonts: Partial<Record<CardTextElement, string>>;
   gridSizeMm: CardGridSizeMm;
   showGrid: boolean;
   /** Shrink long names (down to 60%) so they stay on one line. */

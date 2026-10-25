@@ -79,3 +79,33 @@ test("an owner reaches the email and chat notification settings", async ({ page 
   await expect(page.getByRole("heading", { name: "Chat alerts" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Add channel" })).toBeVisible();
 });
+
+test("an owner adds, styles, stacks and undoes a layer in the card designer", async ({ page }) => {
+  await signIn(page, "owner@demo.test");
+  await page.goto("/dashboard/spaceworks/settings/cards");
+  const toolbar = page.getByRole("toolbar", { name: "Add to the card" });
+  await toolbar.getByRole("button", { name: "Text", exact: true }).click();
+
+  const preview = page.getByRole("region", { name: "Card preview" });
+  const layer = preview.getByRole("button", { name: /^Your text\./ });
+  await expect(layer).toBeVisible();
+  await page.getByRole("textbox", { name: "Text", exact: true }).fill("Hello {name}");
+  await expect(preview.getByText("Hello Shaan Shoukath")).toBeVisible();
+
+  await page.getByRole("button", { name: /^Font:/ }).click();
+  await page.getByRole("searchbox", { name: "Find a font" }).fill("Lobster");
+  await page.getByRole("button", { name: "Lobster", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Font: Lobster" })).toBeVisible();
+
+  const layers = page.getByRole("region", { name: "Layers" });
+  await expect(layers.getByRole("listitem").first()).toContainText("Hello {name}");
+  await page.getByRole("button", { name: "Send to back" }).click();
+  await expect(layers.getByRole("listitem").last()).toContainText("Hello {name}");
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible({ timeout: 15_000 });
+
+  // Undo walks back through the changes until the layer is gone.
+  const undo = page.getByRole("button", { name: "Undo (Ctrl+Z)" });
+  while (await undo.isEnabled()) await undo.click();
+  await expect(preview.getByText("Hello Shaan Shoukath")).toHaveCount(0);
+  await expect(page.getByText("Saved", { exact: true })).toBeVisible({ timeout: 15_000 });
+});

@@ -120,7 +120,7 @@ export function withOwnArtwork(design: CardDesign, organisationId: string): Card
 
 /** The card fonts a design's layers use. */
 export function designFonts(design: CardDesign) {
-  return [design.front, design.back].flatMap((side) => side.layers.flatMap((layer) => (layer.kind === "text" ? [layer.font] : [])));
+  return [design.front, design.back].flatMap((side) => [...Object.values(side.elementFonts), ...side.layers.flatMap((layer) => (layer.kind === "text" ? [layer.font] : []))]);
 }
 
 /** Make a stored or submitted design safe to use. Anything unexpected falls back to the preset's default. */
