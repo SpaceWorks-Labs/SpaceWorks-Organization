@@ -1014,13 +1014,22 @@ model DocumentCounter {
 
 /// A member card design: the organisation default (planId and roleId null), one plan's own, or one member
 /// role's own. A card uses its member's primary role design, else its plan's, else the organisation's.
-/// `design` holds the front and back (lib/cards/design/presets.ts normalises it on every read).
+/// Managers edit `draft`; only the owner approves it, which copies it into the live columns (`design`,
+/// numbering, watermark) that every member's card is drawn from (lib/cards/approval.ts).
 model CardDesign {
   id             String   @id @default(cuid())
   organisationId String
   planId         String?
   roleId         String?
-  design         Json
+  /// The approved front and back (lib/cards/design/presets.ts normalises it on every read); null until
+  /// the first approval, and the row is ignored until then.
+  design         Json?
+  /// Changes waiting for the owner's approval: { design, numberPrefix, numberFormat, watermarkUrl }.
+  draft          Json?
+  draftUpdatedById String?
+  draftUpdatedAt   DateTime?
+  approvedById   String?
+  approvedAt     DateTime?
   /// Prefix of printed card numbers, e.g. "SWO" in SWO-0042. Read from the organisation default and
   /// role designs only (lib/cards/numbering.ts).
   numberPrefix   String

@@ -384,6 +384,16 @@
     },
     {
       "module": "app/actions/card-design",
+      "name": "approveCardDesign",
+      "id": "card-design:approveCardDesign"
+    },
+    {
+      "module": "app/actions/card-design",
+      "name": "discardCardDraft",
+      "id": "card-design:discardCardDraft"
+    },
+    {
+      "module": "app/actions/card-design",
       "name": "revertToOrganisationCardDesign",
       "id": "card-design:revertToOrganisationCardDesign"
     },

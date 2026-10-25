@@ -15,6 +15,8 @@ export const CAPABILITIES = {
   "members.manage": ["OWNER", "ADMIN"],
   "members.export": ["OWNER", "ADMIN", "TREASURER"],
   "cards.manage": ["OWNER", "ADMIN"],
+  /** Putting a card design (and its numbering) on members' cards. Managers draft; the owner approves. */
+  "cards.approve": ["OWNER"],
   "payments.view": ["OWNER", "ADMIN", "TREASURER"],
   "payments.manage": ["OWNER", "ADMIN", "TREASURER"],
   "payments.settings": ["OWNER", "ADMIN"],

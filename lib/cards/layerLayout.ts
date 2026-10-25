@@ -30,10 +30,19 @@ export function layerOps(layer: CardLayer, holder: CardHolder, measurer: TextMea
     ops = [{ kind: "image", url: layer.url, ...box, fit: layer.fit, shape: "none", grayscale: mono || layer.grayscale, radiusMm: layer.fit === "cover" ? layer.radiusMm : 0, alpha: true }];
   } else if (layer.kind === "line") {
     ops = [{ kind: "rect", ...box, radius: 0, fill: colour(layer.color) }];
-  } else if (layer.kind === "ellipse") {
-    ops = [{ kind: "ellipse", ...box, ...(layer.fill ? { fill: colour(layer.fill) } : {}), ...(layer.stroke && layer.strokeMm > 0 ? { stroke: colour(layer.stroke), strokeWidth: layer.strokeMm } : {}) }];
   } else {
-    ops = [{ kind: "rect", ...box, radius: Math.min(layer.radiusMm, box.w / 2, box.h / 2), ...(layer.fill ? { fill: colour(layer.fill) } : {}), ...(layer.stroke && layer.strokeMm > 0 ? { stroke: colour(layer.stroke), strokeWidth: layer.strokeMm } : {}) }];
+    // The fill stops inside the outline, so the two never overlap: a faded shape then looks the same in
+    // the PDF (which fades each part) as in the PNG and the browser (which fade the layer as a whole).
+    const stroke = layer.stroke && layer.strokeMm > 0 ? Math.min(layer.strokeMm, box.w / 2, box.h / 2) : 0;
+    const inner = { x: box.x + stroke, y: box.y + stroke, w: box.w - 2 * stroke, h: box.h - 2 * stroke };
+    const radius = Math.min(layer.radiusMm, box.w / 2, box.h / 2);
+    if (layer.kind === "ellipse") {
+      if (layer.fill && inner.w > 0 && inner.h > 0) ops.push({ kind: "ellipse", ...inner, fill: colour(layer.fill) });
+      if (stroke) ops.push({ kind: "ellipse", ...box, stroke: colour(layer.stroke!), strokeWidth: stroke });
+    } else {
+      if (layer.fill && inner.w > 0 && inner.h > 0) ops.push({ kind: "rect", ...inner, radius: Math.max(0, radius - stroke), fill: colour(layer.fill) });
+      if (stroke) ops.push({ kind: "rect", ...box, radius, stroke: colour(layer.stroke!), strokeWidth: stroke });
+    }
   }
   if (ops.length === 0) return [];
   return [{ kind: "group", rotateDeg: layer.rotationDeg, cx: box.x + box.w / 2, cy: box.y + box.h / 2, opacity: layer.opacityPct / 100, ops }];

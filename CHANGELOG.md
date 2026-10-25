@@ -15,6 +15,9 @@ A card designer that works like a design tool, and card designs and numbers per 
   item.
 - **Six ready-made templates**, any colour of your own, and a background picture per side.
 - **Designs per member role:** a member's primary role design comes before their plan's and the organisation's.
+- **The owner approves card designs:** managers' changes are drafts until the owner publishes them, so every
+  member's card changes only with the owner's say-so.
+- **PDF and PNG cards match:** tests rasterise both for every design and template.
 - **Card number patterns** per organisation and per role, such as `{PREFIX}-{SEQ:4}` or `SEC/{YYYY}/{SEQ:3}`. A
   renewal, a reissue or a new role keeps the number; a new registration after a membership ended gets a new one.
   Existing cards keep their numbers, and new ones continue above every member number.

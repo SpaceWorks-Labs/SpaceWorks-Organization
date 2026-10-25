@@ -7,6 +7,9 @@ import { normalizeCardSide } from "@/lib/cards/design/normalize";
 import { defaultCardDesign, withOwnArtwork } from "@/lib/cards/design/presets";
 import { renderMemberCard } from "@/lib/cards/render";
 import { EMPTY_BRANDING, type CardHolder } from "@/lib/cards/types";
+import { loadCardFonts } from "@/lib/cards/fonts";
+import { buildCardScene } from "@/lib/cards/layout";
+import { comparePdfToPng } from "../helpers/cardParity";
 
 /* Uploaded card artwork draws as a layer and as the background, and only for its own organisation. */
 
@@ -64,5 +67,21 @@ describe("card artwork", () => {
     const design = defaultCardDesign(context, "student");
     design.front = normalizeCardSide({ ...design.front, ...bare, background: { imageUrl: url, fit: "cover", opacityPct: 100 } }, context);
     expect(await redShare(await renderMemberCard({ design: withOwnArtwork(design, "someone-else"), branding: EMPTY_BRANDING }, holder, "png", { title: "Card" }))).toBe(0);
+  });
+});
+
+describe("card artwork in print", () => {
+  it("prints an image layer and a background picture the same in the PDF as in the PNG", async () => {
+    const design = defaultCardDesign(context, "student");
+    design.front = normalizeCardSide({
+      ...design.front,
+      background: { imageUrl: url, fit: "cover", opacityPct: 35 },
+      layers: [{ id: "limage1", kind: "image", url, xMm: 50, yMm: 8, wMm: 24, hMm: 16, fit: "cover", radiusMm: 4, rotationDeg: 12, opacityPct: 80 }],
+    }, context);
+    const { measurer } = await loadCardFonts();
+    const scene = buildCardScene({ settings: withOwnArtwork(design, organisationId).front, holder, branding: EMPTY_BRANDING, measurer });
+    const result = await comparePdfToPng(scene);
+    expect(result.meanDifference).toBeLessThan(3.2);
+    expect(result.offShare).toBeLessThan(0.003);
   });
 });

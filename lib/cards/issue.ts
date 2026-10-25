@@ -1,7 +1,7 @@
 import "server-only";
 
 import { randomBytes } from "node:crypto";
-import type { MemberCard, Prisma } from "@prisma/client";
+import { Prisma, type MemberCard } from "@prisma/client";
 import { recordAuditEvent } from "@/lib/audit";
 import { statusAt, TIMED_STATUSES } from "@/lib/membership/lifecycle";
 import { deriveCardPrefix } from "./core";
@@ -58,8 +58,10 @@ async function nextCardNumber(tx: Tx, organisationId: string, memberId: string, 
   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`card-number:${organisationId}`}))`;
   const primary = await tx.memberRoleAssignment.findFirst({ where: { organisationId, memberId, isPrimary: true, role: { archivedAt: null } }, select: { roleId: true } });
   const select = { numberPrefix: true, numberFormat: true } as const;
-  const byRole = primary ? await tx.cardDesign.findFirst({ where: { organisationId, roleId: primary.roleId }, select }) : null;
-  const scheme = byRole ?? (await tx.cardDesign.findFirst({ where: { organisationId, planId: null, roleId: null }, select }));
+  // Approved designs only: a draft's numbering waits for the owner's approval.
+  const live = { design: { not: Prisma.DbNull } };
+  const byRole = primary ? await tx.cardDesign.findFirst({ where: { organisationId, roleId: primary.roleId, ...live }, select }) : null;
+  const scheme = byRole ?? (await tx.cardDesign.findFirst({ where: { organisationId, planId: null, roleId: null, ...live }, select }));
   const org = await tx.organisation.findUniqueOrThrow({ where: { id: organisationId }, select: { name: true, timezone: true } });
   const format = scheme?.numberFormat ?? DEFAULT_NUMBER_FORMAT;
   const prefix = scheme?.numberPrefix ?? deriveCardPrefix(org.name);

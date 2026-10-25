@@ -17,6 +17,7 @@ import type { CardBranding } from "@/lib/cards/types";
 import { CardCanvas } from "../CardCanvas";
 import { CardFontFaces } from "../cardFonts";
 import { SAFE_MARGIN_MM } from "../canvasInteraction";
+import { ApprovalBar, type ApprovalState } from "./ApprovalBar";
 import { BackgroundSection } from "./BackgroundSection";
 import { FitArea, SaveStatusPill, Section, SwitchLine } from "./controls";
 import { DesignerToolbar } from "./DesignerToolbar";
@@ -36,10 +37,11 @@ const isElement = (key: string | null): key is CardElement => (CARD_ELEMENTS as 
 
 /**
  * Front and back designer for member cards. Each side is edited on a to-scale canvas with an
- * inspector for the selected item or layer, a layers list and undo, and the whole design autosaves to
- * the organisation default, one plan (`planId`) or one member role (`roleId`).
+ * inspector for the selected item or layer, a layers list and undo. The whole design autosaves as a
+ * draft of the organisation default, one plan (`planId`) or one member role (`roleId`), which reaches
+ * members' cards once the owner approves it.
  */
-export function CardDesigner({ organisationSlug, organisationName, planId, planName, roleId, roleName, initialDesign, branding: initialBranding, fields, numbering: initialNumbering }: {
+export function CardDesigner({ organisationSlug, organisationName, planId, planName, roleId, roleName, initialDesign, branding: initialBranding, fields, numbering: initialNumbering, approval }: {
   organisationSlug: string;
   organisationName: string;
   planId: string | null;
@@ -51,7 +53,9 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
   fields: DesignerField[];
   /** Card number prefix and pattern; null when editing a plan's design, which numbers nothing. */
   numbering: Numbering | null;
+  approval: ApprovalState;
 }) {
+  const [edited, setEdited] = useState(false);
   const [design, setDesign] = useState(initialDesign);
   const [side, setSide] = useState<CardSide>("front");
   const [selected, setSelected] = useState<string | null>("name");
@@ -68,6 +72,7 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
   const commit = (next: CardDesign) => {
     autosave.set({ design: next });
     setDesign(next);
+    setEdited(true);
   };
   /** A change that undoes as its own step (`coalesce`: merged with edits just before it). */
   const change = (next: CardDesign, coalesce = false) => {
@@ -150,7 +155,9 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
   };
   const uploadWatermark = async (file: File | null) => {
     const url = await upload(() => uploadCardWatermark(form(file)));
-    if (url !== undefined) setBranding((value) => ({ ...value, watermarkUrl: url }));
+    if (url === undefined) return;
+    setBranding((value) => ({ ...value, watermarkUrl: url }));
+    setEdited(true);
   };
   const uploadArtwork = async (file: File) => (await upload(() => uploadCardArtwork(form(file)))) ?? null;
 
@@ -181,6 +188,7 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
           {autosave.status === "error" ? <Button size="sm" variant="secondary" onClick={() => void autosave.save()}>Try again</Button> : null}
         </div>
       </header>
+      <ApprovalBar state={approval} pending={approval.pending || edited} scope={{ organisationSlug, planId, roleId }} flush={autosave.save} />
       {autosave.error ? <div className="px-4 pt-3"><Callout tone="danger" role="alert">{autosave.error}</Callout></div> : null}
 
       <div className="flex min-h-0 flex-col xl:grid xl:grid-cols-[300px_minmax(0,1fr)_300px]">
@@ -195,7 +203,7 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
           </Section>
           {initialNumbering ? (
             <Section title="Card numbers">
-              <NumberingSection value={numbering} role={Boolean(roleId)} onChange={(next) => { setNumbering(next); autosave.set({ numbering: next }); }} />
+              <NumberingSection value={numbering} role={Boolean(roleId)} onChange={(next) => { setNumbering(next); autosave.set({ numbering: next }); setEdited(true); }} />
             </Section>
           ) : null}
           {side === "back" ? (

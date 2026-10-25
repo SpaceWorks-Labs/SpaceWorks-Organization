@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { deriveStatus } from "@/lib/membership/lifecycle";
 import { formatValidUntil, memberDetails, verifyPath } from "./core";
@@ -48,7 +48,8 @@ export async function loadCardOrgContext(organisationId: string): Promise<CardOr
   });
   if (!organisation) return null;
   const [designs, fields] = await Promise.all([
-    prisma.cardDesign.findMany({ where: { organisationId }, select: { planId: true, roleId: true, design: true, watermarkUrl: true, numberPrefix: true, numberFormat: true } }),
+    // Only approved designs reach cards; drafts wait for the owner (lib/cards/approval.ts).
+    prisma.cardDesign.findMany({ where: { organisationId, design: { not: Prisma.DbNull } }, select: { planId: true, roleId: true, design: true, watermarkUrl: true, numberPrefix: true, numberFormat: true } }),
     prisma.planField.findMany({ where: { organisationId, adminOnly: false }, orderBy: { sortOrder: "asc" }, select: { planId: true, key: true, label: true, type: true } }),
   ]);
   const byPlan = new Map<string, Array<{ key: string; label: string; type: string }>>();

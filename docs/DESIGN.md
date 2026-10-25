@@ -66,6 +66,9 @@ run the tests.
   portrait, with four presets (Community, Corporate, Night, Student) and six templates
   (`lib/cards/design/templates.ts`: Aurora, Kasavu, Ribbon, Confetti, Midnight gold, Sunrise).
 - **Which design a card uses:** the member's primary role design, else the plan's, else the organisation's.
+- **Approval.** The designer autosaves a draft. Members' cards keep the approved design until the owner chooses
+  Approve and publish; managers can discard a draft but not publish it. The bar under the designer's header says
+  which state the design is in.
 - **Layers** (`lib/cards/design/layers.ts`): each side can add text (with `{name}`, `{role}`, `{plan}`,
   `{number}` and `{validUntil}` placeholders), uploaded images and rectangles, ellipses and lines, up to 30.
   Each is placed, sized and turned in millimetres and faded as a whole. `order` stacks built-in items and layers

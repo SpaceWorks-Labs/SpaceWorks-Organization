@@ -8,7 +8,7 @@ const password = process.env.DEMO_PASSWORD;
 const mfaSecret = process.env.DEMO_MFA_SECRET;
 test.skip(!password || !mfaSecret, "DEMO_PASSWORD and DEMO_MFA_SECRET must be set; seed the demo data to run signed-in journeys.");
 
-async function signIn(page: Page, email: string) {
+async function signIn(page: Page, email: string, retry = true): Promise<void> {
   // Type only after hydration, or React resets the controlled fields.
   await page.goto("/login", { waitUntil: "networkidle" });
   await page.fill('input[autocomplete="email"]', email);
@@ -16,10 +16,19 @@ async function signIn(page: Page, email: string) {
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   // Staff have an authenticator; members (just verified by the seed) go straight in.
   const code = page.getByLabel("Authenticator or recovery code");
-  await Promise.race([code.waitFor({ timeout: 30_000 }), page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 })]);
+  // Sign-in allows 10 attempts a minute from one address (proxy.ts), and a staff sign-in takes two, so a
+  // long run of journeys can spend it. Then the sign-in fails; wait the minute out once and start again.
+  const limited = page.getByText("Sign-in is temporarily unavailable");
+  const signedIn = () => page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 30_000 });
+  await Promise.race([code.waitFor({ timeout: 30_000 }), signedIn(), limited.waitFor({ timeout: 30_000 })]);
   if (await code.isVisible()) {
     await code.fill(await nextTotp(mfaSecret!));
     await page.getByRole("button", { name: "Verify and sign in" }).click();
+    await Promise.race([signedIn(), limited.waitFor({ timeout: 30_000 })]).catch(() => undefined);
+  }
+  if (retry && (await limited.isVisible())) {
+    await page.waitForTimeout(61_000);
+    return signIn(page, email, false);
   }
   await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 60_000 });
 }
@@ -80,7 +89,9 @@ test("an owner reaches the email and chat notification settings", async ({ page 
   await expect(page.getByRole("button", { name: "Add channel" })).toBeVisible();
 });
 
-test("an owner adds, styles, stacks and undoes a layer in the card designer", async ({ page }) => {
+test("an owner adds, styles, stacks and undoes a layer in the card designer, then approves it", async ({ page }) => {
+  // Room for a sign-in that has to wait out the rate limit.
+  test.setTimeout(240_000);
   await signIn(page, "owner@demo.test");
   await page.goto("/dashboard/spaceworks/settings/cards");
   const toolbar = page.getByRole("toolbar", { name: "Add to the card" });
@@ -103,9 +114,17 @@ test("an owner adds, styles, stacks and undoes a layer in the card designer", as
   await expect(layers.getByRole("listitem").last()).toContainText("Hello {name}");
   await expect(page.getByText("Saved", { exact: true })).toBeVisible({ timeout: 15_000 });
 
+  // Edits are a draft: members' cards wait for the owner's approval.
+  await expect(page.getByText("Waiting for the owner's approval")).toBeVisible();
+
   // Undo walks back through the changes until the layer is gone.
   const undo = page.getByRole("button", { name: "Undo (Ctrl+Z)" });
   while (await undo.isEnabled()) await undo.click();
   await expect(preview.getByText("Hello Shaan Shoukath")).toHaveCount(0);
   await expect(page.getByText("Saved", { exact: true })).toBeVisible({ timeout: 15_000 });
+
+  // The owner approves, and the design is what members' cards use.
+  await page.getByRole("button", { name: "Approve and publish" }).click();
+  await expect(page.getByText("On members' cards")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByRole("button", { name: "Approve and publish" })).toHaveCount(0);
 });
