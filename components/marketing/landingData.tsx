@@ -2,7 +2,7 @@ import { SAMPLE } from "./sample";
 import { Proof } from "./Proof";
 
 /** Sample content for the landing page: the SpaceWorks team's year, receipt, units and questions. */
-export const GITHUB = "https://github.com/SpaceWorks-HQ/SpaceWorks-Organization";
+export const GITHUB = "https://github.com/SpaceWorks-Labs/SpaceWorks-Organization";
 export const MONTHS = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
 
 /** One sample membership year, April to March, in the order it happens. */

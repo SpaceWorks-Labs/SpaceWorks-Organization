@@ -27,7 +27,7 @@ In the cloud topology set the same three values in `cloud.env` ([DEPLOYMENT_CLOU
 
 ## 2. Create the Netlify site
 
-1. In Netlify, add a new site from the GitHub repository `SpaceWorks-HQ/SpaceWorks-Organization`.
+1. In Netlify, add a new site from the GitHub repository `SpaceWorks-Labs/SpaceWorks-Organization`.
 2. **Base directory:** leave empty (the repository root). **Package directory:** `frontend`.
 3. The build command and publish directory come from `frontend/netlify.toml`.
 4. Set these environment variables in the Netlify UI (Site configuration → Environment variables):
@@ -53,7 +53,7 @@ In the cloud topology set the same three values in `cloud.env` ([DEPLOYMENT_CLOU
 
 ## The website as a container instead of Netlify
 
-The same build is published as `ghcr.io/spaceworks-hq/spaceworks-organization-frontend`. Run it with the
+The same build is published as `ghcr.io/spaceworks-labs/spaceworks-organization-frontend`. Run it with the
 variables in the table above and `FRONTEND_TRUSTED_IP_HEADER=x-real-ip` behind a proxy that overwrites
 `X-Real-IP`; the public origins are applied when the container starts, so one image serves any domain.
 

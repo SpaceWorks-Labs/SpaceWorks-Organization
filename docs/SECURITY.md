@@ -2,7 +2,7 @@
 
 How Space Works Organization protects an installation, and what an operator must do. Report a vulnerability
 privately through GitHub's **Security → Report a vulnerability** on
-[SpaceWorks-HQ/SpaceWorks-Organization](https://github.com/SpaceWorks-HQ/SpaceWorks-Organization), not in a
+[SpaceWorks-Labs/SpaceWorks-Organization](https://github.com/SpaceWorks-Labs/SpaceWorks-Organization), not in a
 public issue.
 
 ## Data in transit

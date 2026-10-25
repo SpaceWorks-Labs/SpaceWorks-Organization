@@ -68,7 +68,7 @@ integration tests at a disposable database. `DEMO_PASSWORD` and `DEMO_MFA_SECRET
 
 | Variable | Default | Description |
 |---|---|---|
-| `SWO_REPOSITORY` | `SpaceWorks-HQ/SpaceWorks-Organization` | Repository the installer, updater and runner follow (a fork works). |
+| `SWO_REPOSITORY` | `SpaceWorks-Labs/SpaceWorks-Organization` | Repository the installer, updater and runner follow (a fork works). |
 | `SWO_BACKEND_IMAGE`, `SWO_FRONTEND_IMAGE` | `ghcr.io/<owner>/spaceworks-organization-backend` / `-frontend` | Image names, derived from the repository owner. |
 | `SWO_IMAGE_TAG` | `.spaceworks-version`, else `latest` | The release the stack runs. |
 | `SWO_LAYER` | `none` | `none` plain HTTP through Caddy, `tls` automatic HTTPS, `proxy` your own proxy on `127.0.0.1:8080`. |
