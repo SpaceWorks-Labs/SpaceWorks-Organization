@@ -17,21 +17,13 @@ import {
 import { layoutForPaper } from "@/lib/cards/design/geometry";
 import type { CardBranding } from "@/lib/cards/types";
 import { ELEMENT_LABELS, SAFE_MARGIN_MM } from "../canvasInteraction";
+import { DEFAULT_CARD_FONT } from "@/lib/cards/fontCatalog";
 import { NumberSlider, SwitchLine } from "./controls";
+import { FontPicker } from "./FontPicker";
 
-/** The selected item's size, weight and position, with alignment shortcuts and resets. */
-export function Inspector({ settings, branding, selected, onSelect, update }: {
-  settings: CardSideSettings;
-  branding: CardBranding;
-  selected: CardElement;
-  onSelect: (element: CardElement) => void;
-  update: (patch: Partial<CardSideSettings>) => void;
-}) {
-  const square = isSquareElement(selected);
-  const text = isTextElement(selected);
-  const at = settings.elementPositions[selected];
-  const size = settings.elementSizes[selected];
-  const visible: Record<CardElement, boolean> = {
+/** Which built-in items show on a side right now. */
+export function itemVisibility(settings: CardSideSettings, branding: CardBranding): Record<CardElement, boolean> {
+  return {
     header: Boolean((settings.showCardLabel && settings.cardLabel.trim()) || settings.heading.trim()),
     name: settings.showName,
     role: settings.showRole,
@@ -45,6 +37,21 @@ export function Inspector({ settings, branding, selected, onSelect, update }: {
     idNumber: settings.showIdNumber,
     validUntil: settings.showValidUntil,
   };
+}
+
+/** The selected item's size, weight and position, with alignment shortcuts and resets. */
+export function Inspector({ settings, branding, selected, onSelect, update }: {
+  settings: CardSideSettings;
+  branding: CardBranding;
+  selected: CardElement;
+  onSelect: (element: CardElement) => void;
+  update: (patch: Partial<CardSideSettings>) => void;
+}) {
+  const square = isSquareElement(selected);
+  const text = isTextElement(selected);
+  const at = settings.elementPositions[selected];
+  const size = settings.elementSizes[selected];
+  const visible = itemVisibility(settings, branding);
   const place = (xMm: number, yMm: number) => update({ elementPositions: { ...settings.elementPositions, [selected]: { xMm: Math.round(xMm * 10) / 10, yMm: Math.round(yMm * 10) / 10 } } });
   const height = elementBoxHeightMm(selected, settings.elementSizes);
   const align = {
@@ -98,6 +105,7 @@ export function Inspector({ settings, branding, selected, onSelect, update }: {
         ) : null}
         <NumberSlider label={square ? "Size" : "Box width"} unit="mm" min={minimum} max={Math.max(minimum, settings.widthMm - 4)} step={1} value={size} onChange={(value) => update({ elementSizes: { ...settings.elementSizes, [selected]: value } })} />
         {text ? <SwitchLine label="Bold" checked={settings.elementBold[selected]} onCheckedChange={(bold) => update({ elementBold: { ...settings.elementBold, [selected]: bold } })} /> : null}
+        {isTextElement(selected) ? <FontPicker value={settings.elementFonts[selected] ?? DEFAULT_CARD_FONT} onChange={(font) => update({ elementFonts: { ...settings.elementFonts, [selected]: font } })} /> : null}
         <div className="grid grid-cols-2 gap-2">
           <Field label="From left (mm)"><Input type="number" step={settings.gridSizeMm} value={at.xMm} onChange={(event) => place(Number(event.target.value), at.yMm)} /></Field>
           <Field label="From top (mm)"><Input type="number" step={settings.gridSizeMm} value={at.yMm} onChange={(event) => place(at.xMm, Number(event.target.value))} /></Field>

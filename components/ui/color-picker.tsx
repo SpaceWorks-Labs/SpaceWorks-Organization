@@ -20,7 +20,8 @@ const HUE_TRACK = "linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 5
  * Custom colour picker (never the browser's own): a saturation/brightness
  * area, a hue slider, a hex box, the system eyedropper where available, and
  * a live sample of how buttons and links will look with the colour. The
- * trigger is passed in, so it can sit in a row of preset chips.
+ * trigger is passed in, so it can sit in a row of preset chips. `plain`
+ * leaves out the button sample and the reset, for colours that aren't an accent.
  */
 export function ColorPicker({
   value,
@@ -28,6 +29,7 @@ export function ColorPicker({
   onChange,
   trigger,
   label = "Custom colour",
+  plain = false,
 }: {
   /** "#RRGGBB", or "" for the default. */
   value: string;
@@ -35,6 +37,7 @@ export function ColorPicker({
   onChange: (hex: string) => void;
   trigger: ReactNode;
   label?: string;
+  plain?: boolean;
 }) {
   const current = normalizeAccentHex(value, defaultColor);
   // Keep HSV locally so the hue survives greys and blacks (where hex loses it).
@@ -133,31 +136,35 @@ export function ColorPicker({
           ) : null}
         </div>
 
-        {/* How members will see it: the button and link colours, contrast-adjusted like the public pages. */}
-        <div className="flex items-center justify-between gap-3 rounded-lg bg-subtle px-3 py-2.5">
-          <span
-            className="inline-flex min-h-8 items-center rounded-full px-3.5 text-[13px] font-semibold"
-            style={{ backgroundColor: tokens["--sw-accent"], color: tokens["--sw-on-accent"] }}
-          >
-            Register
-          </span>
-          <span className="text-[13px] font-semibold underline underline-offset-2" style={{ color: tokens["--sw-accent-text"] }}>
-            Link
-          </span>
-        </div>
-        {tokens["--sw-accent-text"] !== tokens["--sw-accent"] ? (
-          <p className="-mt-1.5 text-caption text-ink-muted">Text and links use a darker shade so they stay readable.</p>
-        ) : null}
+        {plain ? null : (
+          <>
+            {/* How members will see it: the button and link colours, contrast-adjusted like the public pages. */}
+            <div className="flex items-center justify-between gap-3 rounded-lg bg-subtle px-3 py-2.5">
+              <span
+                className="inline-flex min-h-8 items-center rounded-full px-3.5 text-[13px] font-semibold"
+                style={{ backgroundColor: tokens["--sw-accent"], color: tokens["--sw-on-accent"] }}
+              >
+                Register
+              </span>
+              <span className="text-[13px] font-semibold underline underline-offset-2" style={{ color: tokens["--sw-accent-text"] }}>
+                Link
+              </span>
+            </div>
+            {tokens["--sw-accent-text"] !== tokens["--sw-accent"] ? (
+              <p className="-mt-1.5 text-caption text-ink-muted">Text and links use a darker shade so they stay readable.</p>
+            ) : null}
 
-        <button
-          type="button"
-          onClick={() => onChange("")}
-          disabled={!value}
-          className="inline-flex items-center gap-1.5 self-start text-sm font-semibold text-ink-secondary hover:text-ink disabled:text-ink-muted"
-        >
-          <RotateCcw aria-hidden className="size-4" />
-          Use the default colour
-        </button>
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              disabled={!value}
+              className="inline-flex items-center gap-1.5 self-start text-sm font-semibold text-ink-secondary hover:text-ink disabled:text-ink-muted"
+            >
+              <RotateCcw aria-hidden className="size-4" />
+              Use the default colour
+            </button>
+          </>
+        )}
       </PopoverContent>
     </Popover>
   );

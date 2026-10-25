@@ -19,3 +19,8 @@ Member cards fall back to Noto Sans, Noto Sans Malayalam and Noto Sans Devanagar
 (public/fonts/noto, from the Fontsource 5.3.0 packages) for characters the brand
 font lacks. Copyright 2022 The Noto Project Authors, licensed under the SIL Open
 Font License 1.1 (public/fonts/noto/OFL.txt).
+
+The member card font library (public/fonts/card, from the Fontsource 5.3.0 packages)
+holds 66 open-licence typefaces, each under the SIL Open Font License 1.1
+(public/fonts/card/OFL.txt) or the Apache License 2.0 (public/fonts/card/Apache-2.0.txt).
+Every family's licence and copyright notice is listed in public/fonts/card/LICENSES.md.

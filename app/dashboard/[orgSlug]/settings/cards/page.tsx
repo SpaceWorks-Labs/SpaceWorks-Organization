@@ -9,7 +9,7 @@ import { Callout, Card, CardHeader } from "@/components/ui/display";
 
 export const metadata: Metadata = { title: "Cards", robots: { index: false, follow: false } };
 
-export default async function OrgCardSettingsPage({ params, searchParams }: { params: Promise<{ orgSlug: string }>; searchParams: Promise<{ plan?: string }> }) {
+export default async function OrgCardSettingsPage({ params, searchParams }: { params: Promise<{ orgSlug: string }>; searchParams: Promise<{ plan?: string; role?: string }> }) {
   const view = await loadOrgCardSettingsView({ params, searchParams });
   const { org } = view;
   return (
@@ -21,18 +21,21 @@ export default async function OrgCardSettingsPage({ params, searchParams }: { pa
       />
       <SettingsTabs slug={org.slug} />
       {!view.canEdit ? <Callout tone="info">You manage one unit, so card designs are read-only for you.</Callout> : null}
-      <DesignScopePicker slug={org.slug} plans={view.plans} planId={view.plan?.id ?? null} source={view.source} disabled={!view.canEdit} />
+      <DesignScopePicker slug={org.slug} plans={view.plans} roles={view.roles} planId={view.plan?.id ?? null} roleId={view.role?.id ?? null} source={view.source} canRevert={view.canEdit && view.approval.canApprove} />
       {view.canEdit ? (
         <CardDesigner
-          key={`${view.plan?.id ?? "organisation"}-${view.source}`}
+          key={`${view.plan?.id ?? view.role?.id ?? "organisation"}-${view.source}-${view.approval.approvedAt}-${view.approval.draftUpdatedAt}`}
           organisationSlug={org.slug}
           organisationName={org.name}
           planId={view.plan?.id ?? null}
           planName={view.plan?.name ?? ""}
+          roleId={view.role?.id ?? null}
+          roleName={view.role?.name ?? ""}
           initialDesign={view.design}
           branding={view.branding}
           fields={view.fields}
-          numberPrefix={view.plan ? null : view.numberPrefix}
+          numbering={view.numbering}
+          approval={view.approval}
         />
       ) : null}
       {view.canExport ? (

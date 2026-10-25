@@ -10,11 +10,11 @@
 
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 const OWNER = "[A-Za-z0-9_-]{1,128}";
-const ORGANISATION_KEY = new RegExp(`^organisations/(${OWNER})/(organisation-logos|member-id-photos|member-id-watermarks)/${UUID}\\.webp$`, "i");
+const ORGANISATION_KEY = new RegExp(`^organisations/(${OWNER})/(organisation-logos|member-id-photos|member-id-watermarks|member-id-artwork)/${UUID}\\.webp$`, "i");
 const USER_KEY = new RegExp(`^users/(${OWNER})/profile-images/${UUID}\\.webp$`, "i");
 
 export type ManagedImageScope =
-  | { kind: "organisation"; organisationId: string; category: "organisation-logos" | "member-id-photos" | "member-id-watermarks" }
+  | { kind: "organisation"; organisationId: string; category: "organisation-logos" | "member-id-photos" | "member-id-watermarks" | "member-id-artwork" }
   | { kind: "user"; userId: string };
 
 /** The path of an upload URL. Absolute URLs are reduced to their path: the host is never contacted. */

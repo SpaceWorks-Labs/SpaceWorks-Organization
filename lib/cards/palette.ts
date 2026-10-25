@@ -1,10 +1,11 @@
 import { contrastRatio, mix, normalizeAccentHex } from "@/lib/theme/accent";
 
 /*
- * Card colours. Managers pick from the Space Works brand colours plus the
- * organisation's own accent; every text colour is contrast-checked (WCAG AA,
- * 4.5:1) against what it sits on, and Workshop Orange is only ever a fill,
- * never text. Shared by the browser preview and the server renderer.
+ * Card colours. Managers pick from the Space Works brand colours, the
+ * organisation's own accent or any colour of their own; every text colour is
+ * contrast-checked (WCAG AA, 4.5:1) against what it sits on, and Workshop Orange
+ * is only ever a fill, never text. Shared by the browser preview and the server
+ * renderer.
  */
 
 export const BRAND = {
@@ -21,9 +22,13 @@ export const BRAND = {
 /** Print-economy mode: pure black on white, which laser and thermal printers reproduce exactly. */
 const MONO_INK = "#000000";
 
-export const CARD_BACKGROUND_KEYS = ["white", "cream", "ink", "teal", "citron", "sky", "org"] as const;
-export const CARD_ACCENT_KEYS = ["org", "teal", "ink", "orange", "citron", "sky", "yellow"] as const;
-export const CARD_TEXT_KEYS = ["auto", "ink", "teal", "cream", "white"] as const;
+export const CARD_BACKGROUND_KEYS = ["white", "cream", "ink", "teal", "citron", "sky", "org", "custom"] as const;
+export const CARD_ACCENT_KEYS = ["org", "teal", "ink", "orange", "citron", "sky", "yellow", "custom"] as const;
+export const CARD_TEXT_KEYS = ["auto", "ink", "teal", "cream", "white", "custom"] as const;
+
+/** The colours behind each "custom" choice, as #RRGGBB. */
+export type CardCustomColours = { background: string; accent: string; text: string };
+export const DEFAULT_CUSTOM_COLOURS: CardCustomColours = { background: "#F2EFE9", accent: "#5B3FD9", text: "#1D1D1F" };
 
 export type CardBackgroundKey = (typeof CARD_BACKGROUND_KEYS)[number];
 export type CardAccentKey = (typeof CARD_ACCENT_KEYS)[number];
@@ -41,6 +46,7 @@ export const CARD_COLOUR_LABELS: Record<CardBackgroundKey | CardAccentKey | Card
   sky: "Sky Blue",
   yellow: "Warm Yellow",
   org: "Organisation colour",
+  custom: "Your own colour",
 };
 
 /** Minimum contrast for any text on the card. */
@@ -76,7 +82,8 @@ export function orgAccentHex(value: string | null | undefined) {
   return normalizeAccentHex(value, BRAND.teal);
 }
 
-function colourFor(key: CardBackgroundKey | CardAccentKey | Exclude<CardTextKey, "auto">, orgAccent: string) {
+function colourFor(key: CardBackgroundKey | CardAccentKey | Exclude<CardTextKey, "auto">, orgAccent: string, custom: string) {
+  if (key === "custom") return custom;
   return key === "org" ? orgAccent : BRAND[key];
 }
 
@@ -116,7 +123,7 @@ function bandSafe(accent: string) {
 }
 
 export function resolveCardPalette(
-  input: { colorMode: CardColorMode; backgroundColor: CardBackgroundKey; accentColor: CardAccentKey; textColor: CardTextKey },
+  input: { colorMode: CardColorMode; backgroundColor: CardBackgroundKey; accentColor: CardAccentKey; textColor: CardTextKey; customColours?: CardCustomColours },
   orgAccent: string | null | undefined,
 ): CardPalette {
   if (input.colorMode === "mono") {
@@ -137,10 +144,12 @@ export function resolveCardPalette(
     };
   }
   const accentHex = orgAccentHex(orgAccent);
-  const background = bandSafe(colourFor(input.backgroundColor, accentHex));
-  const accent = bandSafe(colourFor(input.accentColor, accentHex));
+  const custom = input.customColours ?? DEFAULT_CUSTOM_COLOURS;
+  // A colour of the organisation's own is used as chosen for the card; bands are still deepened for their text.
+  const background = input.backgroundColor === "custom" ? custom.background : bandSafe(colourFor(input.backgroundColor, accentHex, custom.background));
+  const accent = bandSafe(colourFor(input.accentColor, accentHex, custom.accent));
   const automatic = readableOn(background, [BRAND.ink, BRAND.cream, BRAND.white]);
-  const chosen = input.textColor === "auto" ? automatic : colourFor(input.textColor, accentHex);
+  const chosen = input.textColor === "auto" ? automatic : colourFor(input.textColor, accentHex, custom.text);
   const textAdjusted = input.textColor !== "auto" && !isReadableText(chosen, background);
   const text = textAdjusted ? automatic : chosen;
   const onAccent = readableOn(accent, [BRAND.cream, BRAND.ink, BRAND.white]);

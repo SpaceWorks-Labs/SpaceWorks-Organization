@@ -19,13 +19,15 @@ import { cardImageUrls, watermarkImageBox } from "@/lib/cards/layout";
 import { resolveCardPalette, SYMBOL_ASSET } from "@/lib/cards/palette";
 import { holderInitials, labelledLine, printableFields, type CardBranding, type CardHolder } from "@/lib/cards/types";
 import { SAFE_MARGIN_MM, useCanvasItems, type CanvasInteraction } from "./canvasInteraction";
-import { CARD_FONT_FAMILY } from "./cardFonts";
+import { CARD_FONT_FAMILY, cardFontStack, LayerFontFaces } from "./cardFonts";
+import { CardLayerView, LayerSelection } from "./CardLayerView";
 import { useNameSizePt } from "./useNameFit";
 
 /**
  * One card side drawn to scale, matching the server-rendered PDF and PNG (lib/cards/layout.ts draws
- * the same boxes, palette and decor). With `interaction`, items can be selected, dragged and nudged
- * with the arrow keys; without it, it is a static preview. Include <CardFontFaces /> once per page.
+ * the same boxes, palette and decor, and stacks items and layers in `settings.order`). With
+ * `interaction`, items can be selected, dragged and nudged with the arrow keys, and layers resized and
+ * turned; without it, it is a static preview. Include <CardFontFaces /> once per page.
  */
 export function CardCanvas({ settings, holder, branding, pxPerMm = 1, interaction }: { settings: CardSideSettings; holder: CardHolder; branding: CardBranding; pxPerMm?: number; interaction?: CanvasInteraction }) {
   const px = (mm: number) => `${mm * pxPerMm}px`;
@@ -38,7 +40,10 @@ export function CardCanvas({ settings, holder, branding, pxPerMm = 1, interactio
   const mono = settings.colorMode === "mono";
   const images = cardImageUrls(settings, branding, holder);
   const weight = (on: boolean) => (on ? 700 : 400);
-  const lift = (element: CardElement, base: number) => (interaction?.selected === element ? 3 : base);
+  // Stacking: the background and watermark at 0, then items and layers in order.
+  const stack = new Map(settings.order.map((key, index) => [key, index + 1]));
+  const z = (key: string) => stack.get(key) ?? 1;
+  const fontOf = (element: CardElement) => (settings.elementFonts as Partial<Record<CardElement, string>>)[element];
 
   const itemStyle = (element: CardElement, extra: CSSProperties = {}): CSSProperties => ({
     position: "absolute",
@@ -47,7 +52,8 @@ export function CardCanvas({ settings, holder, branding, pxPerMm = 1, interactio
     cursor: editing ? "grab" : undefined,
     touchAction: editing ? "none" : undefined,
     userSelect: editing ? "none" : undefined,
-    zIndex: lift(element, 1),
+    zIndex: z(element),
+    ...(fontOf(element) ? { fontFamily: cardFontStack(fontOf(element)) } : {}),
     ...extra,
   });
   const line = (element: "role" | "plan" | "idNumber" | "validUntil", text: string, extra: CSSProperties = {}) =>
@@ -93,8 +99,13 @@ export function CardCanvas({ settings, holder, branding, pxPerMm = 1, interactio
   const markBox = watermarkImageBox(settings.widthMm, settings.heightMm);
   const logoSide = settings.elementSizes.logo;
 
+  const background = settings.background;
   let content: ReactNode = (
     <>
+      {background.imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- the organisation's own background artwork
+        <img aria-hidden src={background.imageUrl} alt="" draggable={false} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: background.fit, opacity: background.opacityPct / 100, filter: mono ? "grayscale(1)" : undefined, pointerEvents: "none" }} />
+      ) : null}
       {markText ? (
         <span aria-hidden style={{ position: "absolute", left: "50%", top: "50%", transform: `translate(-50%, -50%) rotate(${mark.angleDeg}deg)`, fontSize: ptPx(watermarkSizePt(markText, settings.widthMm, settings.heightMm, mark.angleDeg)), fontWeight: 700, lineHeight: 1, letterSpacing: "0.04em", whiteSpace: "nowrap", color: markColour, opacity: mark.opacityPct / 100, pointerEvents: "none" }}>
           {markText}
@@ -147,15 +158,15 @@ export function CardCanvas({ settings, holder, branding, pxPerMm = 1, interactio
 
       {images.organisationLogo ? (
         // eslint-disable-next-line @next/next/no-img-element -- managed logo upload drawn to scale
-        <img {...itemProps("logo")} src={images.organisationLogo} alt="" draggable={false} style={itemStyle("logo", { width: px(logoSide), height: px(logoSide), objectFit: "contain", padding: px(TILE_PADDING_MM), borderRadius: px(Math.min(3, logoSide / 4)), background: palette.tile, filter: mono ? "grayscale(1)" : undefined, zIndex: lift("logo", 2) })} />
+        <img {...itemProps("logo")} src={images.organisationLogo} alt="" draggable={false} style={itemStyle("logo", { width: px(logoSide), height: px(logoSide), objectFit: "contain", padding: px(TILE_PADDING_MM), borderRadius: px(Math.min(3, logoSide / 4)), background: palette.tile, filter: mono ? "grayscale(1)" : undefined, zIndex: z("logo") })} />
       ) : null}
 
       {settings.showPhoto ? (
         images.photo ? (
           // eslint-disable-next-line @next/next/no-img-element -- the member's own uploaded photo
-          <img {...itemProps("photo")} src={images.photo} alt="" draggable={false} style={itemStyle("photo", { width: px(photoSide), height: px(photoSide), objectFit: "cover", borderRadius: photoRadius, filter: mono ? "grayscale(1)" : undefined, zIndex: lift("photo", 2) })} />
+          <img {...itemProps("photo")} src={images.photo} alt="" draggable={false} style={itemStyle("photo", { width: px(photoSide), height: px(photoSide), objectFit: "cover", borderRadius: photoRadius, filter: mono ? "grayscale(1)" : undefined, zIndex: z("photo") })} />
         ) : (
-          <div {...itemProps("photo")} style={itemStyle("photo", { width: px(photoSide), height: px(photoSide), borderRadius: photoRadius, background: palette.photoPlaceholder, color: palette.onPhotoPlaceholder, display: "grid", placeItems: "center", fontSize: ptPx((photoSide * 0.36) / PT_TO_MM), fontWeight: 700, lineHeight: 1, zIndex: lift("photo", 2) })}>
+          <div {...itemProps("photo")} style={itemStyle("photo", { width: px(photoSide), height: px(photoSide), borderRadius: photoRadius, background: palette.photoPlaceholder, color: palette.onPhotoPlaceholder, display: "grid", placeItems: "center", fontSize: ptPx((photoSide * 0.36) / PT_TO_MM), fontWeight: 700, lineHeight: 1, zIndex: z("photo") })}>
             {holderInitials(holder.displayName)}
           </div>
         )
@@ -163,17 +174,29 @@ export function CardCanvas({ settings, holder, branding, pxPerMm = 1, interactio
 
       {settings.showSymbol ? (
         // eslint-disable-next-line @next/next/no-img-element -- the unaltered Space Works master symbol
-        <img {...itemProps("symbol")} src={SYMBOL_ASSET[palette.symbol]} alt="" draggable={false} style={itemStyle("symbol", { width: px(settings.elementSizes.symbol), height: px(settings.elementSizes.symbol), objectFit: "contain", zIndex: lift("symbol", 2) })} />
+        <img {...itemProps("symbol")} src={SYMBOL_ASSET[palette.symbol]} alt="" draggable={false} style={itemStyle("symbol", { width: px(settings.elementSizes.symbol), height: px(settings.elementSizes.symbol), objectFit: "contain", zIndex: z("symbol") })} />
       ) : null}
 
       {settings.showQr ? (
-        <div {...itemProps("qr")} style={itemStyle("qr", { background: palette.qrLight, padding: px(TILE_PADDING_MM), lineHeight: 0, zIndex: lift("qr", 2) })}>
+        <div {...itemProps("qr")} style={itemStyle("qr", { background: palette.qrLight, padding: px(TILE_PADDING_MM), lineHeight: 0, zIndex: z("qr") })}>
           <QRCode value={holder.verifyUrl} size={Math.max(16, Math.round(settings.elementSizes.qr * pxPerMm))} bgColor={palette.qrLight} fgColor={palette.qrDark} level="M" />
         </div>
       ) : null}
+
+      {settings.layers.map((layer) => <CardLayerView key={layer.id} layer={layer} holder={holder} pxPerMm={pxPerMm} zIndex={z(layer.id)} mono={mono} interaction={interaction} />)}
     </>
   );
 
   if (!interaction) content = <div aria-hidden>{content}</div>;
-  return <div data-card-preview style={cardStyle} className="shrink-0">{content}</div>;
+  const selectedLayer = interaction ? settings.layers.find((layer) => layer.id === interaction.selected) : undefined;
+  const guide = (vertical: boolean): CSSProperties => ({ position: "absolute", pointerEvents: "none", background: "rgb(236 72 153)", ...(vertical ? { left: "50%", top: -8, bottom: -8, width: 1 } : { top: "50%", left: -8, right: -8, height: 1 }) });
+  return (
+    <div data-card-frame className="relative shrink-0" style={{ width: px(settings.widthMm), height: px(settings.heightMm) }}>
+      <LayerFontFaces fonts={[...Object.values(settings.elementFonts), ...settings.layers.flatMap((layer) => (layer.kind === "text" ? [layer.font] : []))]} />
+      <div data-card-preview style={cardStyle}>{content}</div>
+      {interaction?.guides.x ? <span aria-hidden style={guide(true)} /> : null}
+      {interaction?.guides.y ? <span aria-hidden style={guide(false)} /> : null}
+      {selectedLayer && interaction ? <LayerSelection layer={selectedLayer} pxPerMm={pxPerMm} interaction={interaction} /> : null}
+    </div>
+  );
 }

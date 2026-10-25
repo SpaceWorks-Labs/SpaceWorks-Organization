@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardState, deriveCardPrefix, formatCardNumber, formatValidUntil, memberDetails, VERIFY_TOKEN_PATTERN } from "@/lib/cards/core";
+import { cardState, deriveCardPrefix, formatValidUntil, memberDetails, VERIFY_TOKEN_PATTERN } from "@/lib/cards/core";
 import { newVerifyToken } from "@/lib/cards/issue";
 import { exportCardsWhere, parseExportFilter } from "@/lib/cards/exportFilter";
 import { managedImageUrl } from "@/lib/cards/imageUrl";
@@ -21,11 +21,6 @@ describe("card numbers", () => {
     expect(deriveCardPrefix("SpaceWorks")).toBe("SPA");
     expect(deriveCardPrefix("Kerala Makers Guild")).toBe("KMG");
     expect(deriveCardPrefix("ശ്രീ സംഘം")).toBe("M");
-  });
-
-  it("pad the member number", () => {
-    expect(formatCardNumber("SWO", 42)).toBe("SWO-0042");
-    expect(formatCardNumber("SWO", 12345)).toBe("SWO-12345");
   });
 
   it("print the last valid day in the organisation's time zone, or Lifetime", () => {

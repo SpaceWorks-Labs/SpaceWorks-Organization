@@ -11,6 +11,7 @@ import { orgActionAccess, type OrgActionAccess } from "@/lib/permissions";
 import { teamScope, unitInScope, type TeamScope } from "@/lib/membership/scope";
 import { decideTerm, extendTerm, MembershipError, openTerm, startRenewal, upsertMember } from "@/lib/membership/service";
 import { memberProfileSchema, validateFieldValues } from "@/lib/membership/validators";
+import { reissueCardsForRoleChange } from "@/lib/cards/issue";
 import { addDays, startOfLocalDay } from "@/lib/membership/periods";
 import type { Capability } from "@/lib/permissionRoles";
 import type { ActionResult } from "./org";
@@ -232,7 +233,7 @@ export async function extendMembership(input: unknown): Promise<ActionResult> {
 
 const rolesSchema = z.object({ organisationSlug: z.string().trim().min(1), memberId: id, roleIds: z.array(id).max(20), primaryRoleId: id.optional().nullable() });
 
-/** Give a member their organisation roles; the primary one prints on the card. */
+/** Give a member their organisation roles; the primary one prints on the card, so changing it reissues their cards. */
 export async function assignMemberRoles(input: unknown): Promise<ActionResult> {
   const parsed = rolesSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid request." };
@@ -245,11 +246,13 @@ export async function assignMemberRoles(input: unknown): Promise<ActionResult> {
   if (roles !== roleIds.length) return { ok: false, error: "One of those roles no longer exists." };
   const primary = parsed.data.primaryRoleId && roleIds.includes(parsed.data.primaryRoleId) ? parsed.data.primaryRoleId : roleIds[0] ?? null;
   await prisma.$transaction(async (tx) => {
+    const before = await tx.memberRoleAssignment.findFirst({ where: { memberId: member.id, isPrimary: true }, select: { roleId: true } });
     await tx.memberRoleAssignment.deleteMany({ where: { memberId: member.id } });
     if (roleIds.length) {
       await tx.memberRoleAssignment.createMany({ data: roleIds.map((roleId) => ({ organisationId: ctx.org.id, memberId: member.id, roleId, isPrimary: roleId === primary })) });
     }
     await recordAuditEvent({ action: "MEMBER_ROLES_CHANGED", actorUserId: ctx.access.userId, organisationId: ctx.org.id, targetType: "Member", targetId: member.id, metadata: { roles: roleIds.length }, client: tx });
+    if ((before?.roleId ?? null) !== primary) await reissueCardsForRoleChange(tx, ctx.org.id, member.id, ctx.access.userId);
   });
   refresh(ctx.org.slug, member.id);
   return { ok: true };

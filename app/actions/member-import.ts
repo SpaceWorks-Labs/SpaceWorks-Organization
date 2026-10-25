@@ -13,6 +13,7 @@ import { isIndianStateCode } from "@/lib/indianStates";
 import { mappingIsUsable, readRow, suggestMapping, type ImportTarget } from "@/lib/membership/importMapping";
 import { teamScope, unitInScope } from "@/lib/membership/scope";
 import { MembershipError, openTerm, upsertMember } from "@/lib/membership/service";
+import { reissueCardsForRoleChange } from "@/lib/cards/issue";
 import type { ActionResult } from "./org";
 
 const revalidatePath = trackedRevalidation(nextRevalidatePath);
@@ -121,6 +122,8 @@ export async function commitMemberImport(input: unknown): Promise<ActionResult<{
         if (role) {
           const hasPrimary = await tx.memberRoleAssignment.count({ where: { memberId: member.id, isPrimary: true } });
           await tx.memberRoleAssignment.upsert({ where: { memberId_roleId: { memberId: member.id, roleId: role.id } }, create: { organisationId: org.id, memberId: member.id, roleId: role.id, isPrimary: hasPrimary === 0 }, update: {} });
+          // A first primary role changes what the member's cards print.
+          if (hasPrimary === 0 && (await tx.memberRoleAssignment.count({ where: { memberId: member.id, isPrimary: true } }))) await reissueCardsForRoleChange(tx, org.id, member.id, access.userId);
         }
         if (plan && parsed.data.startMemberships) {
           const live = await tx.membershipTerm.count({ where: { memberId: member.id, planId: plan.id, status: { in: ["PENDING_APPROVAL", "PENDING_PAYMENT", "UPCOMING", "ACTIVE", "GRACE"] } } });

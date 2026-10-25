@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { teamScope } from "@/lib/membership/scope";
 import { slugForFile } from "@/lib/downloads";
 import { deletePrivateExports, privateExportKey, uploadPrivateExport } from "@/lib/storage/private";
-import { CARD_INCLUDE, designFor, holderFor, loadCardOrgContext, type CardOrgContext } from "./data";
+import { CARD_INCLUDE, cardRoleId, designFor, holderFor, loadCardOrgContext, type CardOrgContext } from "./data";
 import { exportCardsWhere, parseExportFilter, type CardExportFormat } from "./exportFilter";
 import { BULK_PDF_LIMIT, BULK_ZIP_LIMIT, renderMemberCardsPdf, renderMemberCardsZip, type CardInput } from "./render";
 import { tryAcquireRenderSlot } from "./renderSlot";
@@ -40,11 +40,12 @@ async function* exportCards(job: CardExportJob, ctx: CardOrgContext) {
   for (;;) {
     const cards = await prisma.memberCard.findMany({ where, include: CARD_INCLUDE, orderBy: { id: "asc" }, take: PAGE, ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}) });
     for (const card of cards) {
-      let input = designs.get(card.planId);
+      const key = `${card.planId}:${cardRoleId(card) ?? ""}`;
+      let input = designs.get(key);
       if (!input) {
-        const { design, branding } = designFor(ctx, card.plan);
+        const { design, branding } = designFor(ctx, card.plan, cardRoleId(card));
         input = { design, branding };
-        designs.set(card.planId, input);
+        designs.set(key, input);
       }
       yield { input, holder: holderFor(card, ctx) };
     }

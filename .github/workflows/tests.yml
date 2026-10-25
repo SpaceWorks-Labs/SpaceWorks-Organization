@@ -117,6 +117,8 @@ jobs:
         run: |
           docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.10.0 -S warning -x \
             install.sh setup.sh scripts/*.sh deploy/*.sh
+      - name: Release helper scripts (Python unit tests)
+        run: python3 -m unittest discover -s tests/scripts -p 'test_*.py' -v
       - name: Compose files resolve in every layer
         run: |
           set -euo pipefail

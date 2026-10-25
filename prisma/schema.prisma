@@ -475,6 +475,7 @@ model MemberRole {
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   unit         OrgUnit?     @relation(fields: [organisationId, unitId], references: [organisationId, id], onDelete: Restrict, onUpdate: Restrict)
   assignments  MemberRoleAssignment[]
+  cardDesigns  CardDesign[]
 
   @@unique([organisationId, id])
   @@unique([organisationId, name])
@@ -1011,15 +1012,29 @@ model DocumentCounter {
 
 // ─── Member cards ────────────────────────────────────────────────────────────
 
-/// A member card design: the organisation default (planId null) or one plan's own. `design` holds the
-/// front and back (lib/cards/design/presets.ts normalises it on every read).
+/// A member card design: the organisation default (planId and roleId null), one plan's own, or one member
+/// role's own. A card uses its member's primary role design, else its plan's, else the organisation's.
+/// Managers edit `draft`; only the owner approves it, which copies it into the live columns (`design`,
+/// numbering, watermark) that every member's card is drawn from (lib/cards/approval.ts).
 model CardDesign {
   id             String   @id @default(cuid())
   organisationId String
   planId         String?
-  design         Json
-  /// Prefix of printed card numbers, e.g. "SWO" in SWO-0042. Read from the organisation default only.
+  roleId         String?
+  /// The approved front and back (lib/cards/design/presets.ts normalises it on every read); null until
+  /// the first approval, and the row is ignored until then.
+  design         Json?
+  /// Changes waiting for the owner's approval: { design, numberPrefix, numberFormat, watermarkUrl }.
+  draft          Json?
+  draftUpdatedById String?
+  draftUpdatedAt   DateTime?
+  approvedById   String?
+  approvedAt     DateTime?
+  /// Prefix of printed card numbers, e.g. "SWO" in SWO-0042. Read from the organisation default and
+  /// role designs only (lib/cards/numbering.ts).
   numberPrefix   String
+  /// Card number pattern, e.g. "{PREFIX}-{SEQ:4}". Read from the organisation default and role designs.
+  numberFormat   String   @default("{PREFIX}-{SEQ:4}")
   /// Watermark image (a managed upload) for designs that use one.
   watermarkUrl   String?
   updatedById    String?
@@ -1028,9 +1043,11 @@ model CardDesign {
 
   organisation Organisation    @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   plan         MembershipPlan? @relation(fields: [organisationId, planId], references: [organisationId, id], onDelete: Cascade)
+  role         MemberRole?     @relation(fields: [organisationId, roleId], references: [organisationId, id], onDelete: Cascade)
 
   @@unique([organisationId, id])
   @@unique([organisationId, planId])
+  @@unique([organisationId, roleId])
 }
 
 /// A member's card for one plan. The verify token sits in the QR and is unguessable; renewals keep the
@@ -1059,6 +1076,7 @@ model MemberCard {
   @@unique([organisationId, id])
   @@index([memberId, planId])
   @@index([organisationId, issuedAt])
+  @@index([organisationId, cardNumber])
 }
 
 enum CardExportStatus {

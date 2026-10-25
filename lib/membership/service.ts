@@ -158,7 +158,7 @@ export async function activateTerm(tx: Tx, args: { org: OrgClock; termId: string
   });
   await recordEvent(tx, updated, term.status, status, now, args.actorUserId, args.cause);
   await notifyMember(tx, updated, status === "UPCOMING" ? "renewal-confirmed" : "activated");
-  await issueCardOnActivation(tx, updated, args.actorUserId);
+  await issueCardOnActivation(tx, updated, args.actorUserId, now);
   return updated;
 }
 

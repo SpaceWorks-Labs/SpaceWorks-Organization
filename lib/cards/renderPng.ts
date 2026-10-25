@@ -1,9 +1,9 @@
 import "server-only";
 
 import sharp from "sharp";
-import { containBox, imageCache, loadSymbolPaths, qrModules, roundedRectPath, SYMBOL_VIEWBOX } from "./assets";
+import { containBox, ellipsePath, imageCache, loadSymbolPaths, qrModules, roundedRectPath, SYMBOL_VIEWBOX } from "./assets";
 import { loadCardFonts, placeGlyphs, type CardFonts } from "./fonts";
-import type { CardScene } from "./layout";
+import type { CardOp, CardScene } from "./layout";
 import { pixelSize, PNG_DPI } from "./sheet";
 import type { CardTextOp } from "./text";
 
@@ -29,7 +29,7 @@ function glyphPath(key: string, glyph: { path: { toSVG(): string } }) {
 
 function textPaths(fonts: CardFonts, op: CardTextOp) {
   let out = "";
-  for (const placed of placeGlyphs(fonts, op.text, op.weight, op.sizePt, op.trackingEm)) {
+  for (const placed of placeGlyphs(fonts, op.text, op.weight, op.sizePt, op.trackingEm, op.font)) {
     const d = glyphPath(placed.key, placed.glyph);
     if (d) out += `<path transform="translate(${n(op.x + placed.x)} ${n(op.baseline + placed.y)}) scale(${placed.scale.toPrecision(6)} ${(-placed.scale).toPrecision(6)})" d="${d}"/>`;
   }
@@ -45,40 +45,55 @@ export async function renderCardSvg(scene: CardScene, dpi = PNG_DPI) {
   const prepare = imageCache();
   const parts: string[] = [`<rect width="${scene.widthMm}" height="${scene.heightMm}" fill="${scene.background}"/>`];
   let clipId = 0;
-  for (const op of scene.ops) {
-    if (op.kind === "rect") {
-      if (op.fill) parts.push(`<path d="${roundedRectPath(op.x, op.y, op.w, op.h, op.radius)}" fill="${op.fill}"/>`);
-      if (op.stroke) {
-        const half = (op.strokeWidth ?? 0.2) / 2;
-        parts.push(`<path d="${roundedRectPath(op.x + half, op.y + half, op.w - 2 * half, op.h - 2 * half, Math.max(0, op.radius - half))}" fill="none" stroke="${op.stroke}" stroke-width="${op.strokeWidth ?? 0.2}"/>`);
+  const draw = async (ops: CardOp[], out: string[]) => {
+    for (const op of ops) {
+      if (op.kind === "group") {
+        const inner: string[] = [];
+        await draw(op.ops, inner);
+        const rotate = op.rotateDeg ? ` transform="rotate(${n(op.rotateDeg)} ${n(op.cx)} ${n(op.cy)})"` : "";
+        const opacity = op.opacity < 1 ? ` opacity="${n(op.opacity)}"` : "";
+        out.push(`<g${rotate}${opacity}>${inner.join("")}</g>`);
+      } else if (op.kind === "ellipse") {
+        if (op.fill) out.push(`<path d="${ellipsePath(op.x, op.y, op.w, op.h)}" fill="${op.fill}"/>`);
+        if (op.stroke) {
+          const half = (op.strokeWidth ?? 0.2) / 2;
+          out.push(`<path d="${ellipsePath(op.x + half, op.y + half, op.w - 2 * half, op.h - 2 * half)}" fill="none" stroke="${op.stroke}" stroke-width="${op.strokeWidth ?? 0.2}"/>`);
+        }
+      } else if (op.kind === "rect") {
+        if (op.fill) out.push(`<path d="${roundedRectPath(op.x, op.y, op.w, op.h, op.radius)}" fill="${op.fill}"/>`);
+        if (op.stroke) {
+          const half = (op.strokeWidth ?? 0.2) / 2;
+          out.push(`<path d="${roundedRectPath(op.x + half, op.y + half, op.w - 2 * half, op.h - 2 * half, Math.max(0, op.radius - half))}" fill="none" stroke="${op.stroke}" stroke-width="${op.strokeWidth ?? 0.2}"/>`);
+        }
+      } else if (op.kind === "text") {
+        out.push(textPaths(fonts, op));
+      } else if (op.kind === "image") {
+        const prepared = await prepare(op.url, { wMm: op.w, hMm: op.h, fit: op.fit, shape: op.shape, grayscale: op.grayscale, background: scene.background, ...(op.alpha ? { alpha: true, radiusMm: op.radiusMm ?? 0 } : {}) }, !op.photo);
+        if (!prepared) continue;
+        const at = op.fit === "cover" ? { x: op.x, y: op.y, w: op.w, h: op.h } : containBox(op, prepared.widthPx, prepared.heightPx);
+        const href = `data:image/${prepared.format};base64,${prepared.data.toString("base64")}`;
+        // Photos were flattened onto the card colour; clip them to their shape so corners never show.
+        if (op.shape !== "none") {
+          clipId += 1;
+          const radius = op.shape === "circle" ? op.w / 2 : op.w * 0.2;
+          out.push(`<clipPath id="c${clipId}"><path d="${roundedRectPath(at.x, at.y, at.w, at.h, radius)}"/></clipPath>`);
+          out.push(`<image clip-path="url(#c${clipId})" x="${n(at.x)}" y="${n(at.y)}" width="${n(at.w)}" height="${n(at.h)}" preserveAspectRatio="none" href="${attr(href)}"/>`);
+        } else {
+          const opacity = op.opacity !== undefined ? ` opacity="${n(op.opacity)}"` : "";
+          out.push(`<image x="${n(at.x)}" y="${n(at.y)}" width="${n(at.w)}" height="${n(at.h)}"${opacity} preserveAspectRatio="none" href="${attr(href)}"/>`);
+        }
+      } else if (op.kind === "qr") {
+        const qr = qrModules(op.value);
+        const scale = op.size / qr.size;
+        out.push(`<path transform="translate(${n(op.x)} ${n(op.y)}) scale(${scale.toPrecision(6)})" d="${qr.d}" fill="${op.dark}" shape-rendering="crispEdges"/>`);
+      } else if (op.kind === "symbol") {
+        const scale = op.w / SYMBOL_VIEWBOX.width;
+        const paths = (await loadSymbolPaths(op.variant)).map((symbolPath) => `<path d="${symbolPath.d}" fill="${symbolPath.fill}"/>`).join("");
+        out.push(`<g transform="translate(${n(op.x)} ${n(op.y)}) scale(${scale.toPrecision(6)})">${paths}</g>`);
       }
-    } else if (op.kind === "text") {
-      parts.push(textPaths(fonts, op));
-    } else if (op.kind === "image") {
-      const prepared = await prepare(op.url, { wMm: op.w, hMm: op.h, fit: op.fit, shape: op.shape, grayscale: op.grayscale, background: scene.background }, !op.photo);
-      if (!prepared) continue;
-      const at = op.fit === "cover" ? { x: op.x, y: op.y, w: op.w, h: op.h } : containBox(op, prepared.widthPx, prepared.heightPx);
-      const href = `data:image/${prepared.format};base64,${prepared.data.toString("base64")}`;
-      // Photos were flattened onto the card colour; clip them to their shape so corners never show.
-      if (op.shape !== "none") {
-        clipId += 1;
-        const radius = op.shape === "circle" ? op.w / 2 : op.w * 0.2;
-        parts.push(`<clipPath id="c${clipId}"><path d="${roundedRectPath(at.x, at.y, at.w, at.h, radius)}"/></clipPath>`);
-        parts.push(`<image clip-path="url(#c${clipId})" x="${n(at.x)}" y="${n(at.y)}" width="${n(at.w)}" height="${n(at.h)}" preserveAspectRatio="none" href="${attr(href)}"/>`);
-      } else {
-        const opacity = op.opacity !== undefined ? ` opacity="${n(op.opacity)}"` : "";
-        parts.push(`<image x="${n(at.x)}" y="${n(at.y)}" width="${n(at.w)}" height="${n(at.h)}"${opacity} preserveAspectRatio="none" href="${attr(href)}"/>`);
-      }
-    } else if (op.kind === "qr") {
-      const qr = qrModules(op.value);
-      const scale = op.size / qr.size;
-      parts.push(`<path transform="translate(${n(op.x)} ${n(op.y)}) scale(${scale.toPrecision(6)})" d="${qr.d}" fill="${op.dark}" shape-rendering="crispEdges"/>`);
-    } else if (op.kind === "symbol") {
-      const scale = op.w / SYMBOL_VIEWBOX.width;
-      const paths = (await loadSymbolPaths(op.variant)).map((symbolPath) => `<path d="${symbolPath.d}" fill="${symbolPath.fill}"/>`).join("");
-      parts.push(`<g transform="translate(${n(op.x)} ${n(op.y)}) scale(${scale.toPrecision(6)})">${paths}</g>`);
     }
-  }
+  };
+  await draw(scene.ops, parts);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${scene.widthMm} ${scene.heightMm}">${parts.join("")}</svg>`;
   return { svg, width, height };
 }

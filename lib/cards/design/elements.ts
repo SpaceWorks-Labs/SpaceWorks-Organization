@@ -1,4 +1,5 @@
-import type { CardAccentKey, CardBackgroundKey, CardColorMode, CardTextKey } from "@/lib/cards/palette";
+import type { CardAccentKey, CardBackgroundKey, CardColorMode, CardCustomColours, CardTextKey } from "@/lib/cards/palette";
+import type { CardBackground, CardLayer } from "./layers";
 
 /*
  * One side of a member card: what prints, where (millimetres from the top-left corner), how big and
@@ -79,6 +80,8 @@ export type CardSideSettings = {
   elementBold: CardElementBold;
   /** Point size for each text item; graphic entries are unused. */
   elementTextSizes: CardElementTextSizes;
+  /** Card font ids for text items set to something other than the default face. */
+  elementFonts: Partial<Record<CardTextElement, string>>;
   gridSizeMm: CardGridSizeMm;
   showGrid: boolean;
   /** Shrink long names (down to 60%) so they stay on one line. */
@@ -108,6 +111,14 @@ export type CardSideSettings = {
   showValidUntil: boolean;
   validUntilLabel: string;
   watermark: CardWatermark;
+  /** The colours behind the "custom" background, accent and text choices. */
+  customColours: CardCustomColours;
+  /** Background artwork under everything, watermark included. */
+  background: CardBackground;
+  /** The side's own text, images and shapes (lib/cards/design/layers.ts). */
+  layers: CardLayer[];
+  /** Built-in items and layer ids, bottom first. */
+  order: string[];
 };
 
 /** The optional items whose presence changes the default layout. */
