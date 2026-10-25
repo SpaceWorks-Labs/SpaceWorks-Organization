@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Pinned, no-git Space Works Organization installer:
-#   curl -fsSL https://raw.githubusercontent.com/SpaceWorks-HQ/SpaceWorks-Organization/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/SpaceWorks-Labs/SpaceWorks-Organization/main/install.sh | bash
 # Mirrors the main SpaceWorks installer. It is fetched alone (curl | bash), so it is one
 # self-contained file by necessity and may exceed the ~300-line ceiling for that reason.
 set -euo pipefail
@@ -52,7 +52,7 @@ done
 # One command for everyone: --repo (or SWO_REPOSITORY) picks a fork up front;
 # otherwise a fresh install asks below, defaulting to the main project.
 [[ -z "$REPO_ARG" ]] || SWO_REPOSITORY="$REPO_ARG"
-REPOSITORY="${SWO_REPOSITORY:-SpaceWorks-HQ/SpaceWorks-Organization}"
+REPOSITORY="${SWO_REPOSITORY:-SpaceWorks-Labs/SpaceWorks-Organization}"
 INSTALL_DIR="${SWO_DIR:-/opt/spaceworks-organization}"
 MIN_FREE_KB=$((8 * 1024 * 1024))
 RUN_ROOT=()

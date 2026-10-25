@@ -30,7 +30,7 @@ SpaceWorks' `docker-compose.cloud.yml` and `scripts/spaceworks-compose.sh cloud`
 ## Docker host with Compose
 
 ```bash
-git clone https://github.com/SpaceWorks-HQ/SpaceWorks-Organization.git /opt/spaceworks-organization
+git clone https://github.com/SpaceWorks-Labs/SpaceWorks-Organization.git /opt/spaceworks-organization
 cd /opt/spaceworks-organization
 sudo install -D -m 600 .env.production.example /etc/spaceworks-organization/cloud.env
 sudoedit /etc/spaceworks-organization/cloud.env      # fill every value; see docs/CONFIGURATION.md
@@ -70,7 +70,7 @@ refuses, so use a TLS Redis such as Upstash.
 
 Any container platform works with the published image:
 
-- web: `ghcr.io/spaceworks-hq/spaceworks-organization-backend:<version>` with the default command
+- web: `ghcr.io/spaceworks-labs/spaceworks-organization-backend:<version>` with the default command
   (`--role backend node server.js`), the variables in [CONFIGURATION.md](CONFIGURATION.md) and
   `SCHEDULER_MODE=external`;
 - a release or pre-deploy job: the same image with `--role migrate`;

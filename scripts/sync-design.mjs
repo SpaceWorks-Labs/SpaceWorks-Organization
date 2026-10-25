@@ -74,7 +74,7 @@ const commit = execFileSync("git", ["-C", design, "rev-parse", "HEAD"], { encodi
 mkdirSync(join(root, "brand"), { recursive: true });
 writeFileSync(
   join(root, "brand", "SOURCE.json"),
-  `${JSON.stringify({ repository: "https://github.com/SpaceWorks-HQ/SpaceWorks-Design", commit, fonts: FONTS }, null, 2)}\n`,
+  `${JSON.stringify({ repository: "https://github.com/SpaceWorks-Labs/SpaceWorks-Design", commit, fonts: FONTS }, null, 2)}\n`,
 );
 
 console.log(`sync-design: copied tokens, ${FONTS.length} fonts, logos and icons from ${commit.slice(0, 7)}`);

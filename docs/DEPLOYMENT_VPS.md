@@ -7,7 +7,7 @@ standalone SpaceWorks install: the curl installer, `setup.sh`, `scripts/update.s
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/SpaceWorks-HQ/SpaceWorks-Organization/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/SpaceWorks-Labs/SpaceWorks-Organization/main/install.sh | bash
 ```
 
 The installer checks the host (architecture, distribution, Docker, disk space, an existing install), asks which

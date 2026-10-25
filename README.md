@@ -9,7 +9,7 @@
   <a href="https://nextjs.org"><img src="https://img.shields.io/badge/Next.js-16-B5CDFF?style=flat-square&labelColor=142C2A&logo=nextdotjs&logoColor=FFF4E8" alt="Next.js 16" /></a>
   <a href="#development"><img src="https://img.shields.io/badge/Node-22-DFFF8F?style=flat-square&labelColor=142C2A&logo=nodedotjs&logoColor=FFF4E8" alt="Node 22" /></a>
   <a href="#install-in-one-line"><img src="https://img.shields.io/badge/deploy-one--line%20installer-FFF4E8?style=flat-square&labelColor=142C2A&logo=docker&logoColor=FFF4E8" alt="Deploy: one-line installer" /></a>
-  <a href="https://github.com/SpaceWorks-HQ/SpaceWorks-Organization/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/SpaceWorks-HQ/SpaceWorks-Organization/release.yml?branch=main&style=flat-square&label=release&labelColor=142C2A&color=FFD447" alt="Release" /></a>
+  <a href="https://github.com/SpaceWorks-Labs/SpaceWorks-Organization/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/SpaceWorks-Labs/SpaceWorks-Organization/release.yml?branch=main&style=flat-square&label=release&labelColor=142C2A&color=FFD447" alt="Release" /></a>
 </p>
 
 <p align="center">
@@ -29,7 +29,7 @@ books, and for Indian organisations first: the April–March year, GST and UPI a
 
 One deployment hosts **many organisations**. Each owns its plans, members, money and pages, fully isolated
 from the others. Organisations apply at `/start` and a platform admin reviews them, or the platform admin sets
-one up and invites its owner. It is part of the [Space Works](https://github.com/SpaceWorks-HQ/SpaceWorks)
+one up and invites its owner. It is part of the [Space Works](https://github.com/SpaceWorks-Labs/SpaceWorks)
 family.
 
 > **Status:** in active development, phase by phase. See
@@ -164,7 +164,7 @@ UPI ID and GSTIN in them is made up.
 On a 64-bit Linux server (or macOS / Windows with Docker Desktop running), as a user with `sudo`:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/SpaceWorks-HQ/SpaceWorks-Organization/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/SpaceWorks-Labs/SpaceWorks-Organization/main/install.sh | bash
 ```
 
 It asks every question first, shows a summary, and changes nothing until you confirm. Run the same command
@@ -175,7 +175,7 @@ again later to update, back up or roll back. Details, requirements and options f
 Everything runs through Docker Compose: **PostgreSQL 16, Redis 7 and Silo object storage** (the maintained,
 S3-compatible fork of the archived MinIO), each speaking TLS signed by the install's own private CA, plus the
 **migrations, the app, the scheduler, scheduled backups and the Caddy web edge**. Every application process
-runs from one published image, `ghcr.io/spaceworks-hq/spaceworks-organization-backend`, in a different role.
+runs from one published image, `ghcr.io/spaceworks-labs/spaceworks-organization-backend`, in a different role.
 
 **Before you start, you need:**
 
@@ -190,7 +190,7 @@ runs from one published image, `ghcr.io/spaceworks-hq/spaceworks-organization-ba
 
 All deployment decisions come first, in this order:
 
-1. **GitHub repository** to install and update from (`SpaceWorks-HQ/SpaceWorks-Organization`, or your fork).
+1. **GitHub repository** to install and update from (`SpaceWorks-Labs/SpaceWorks-Organization`, or your fork).
 2. **Website here?** Yes (default), or backend only with the website on Netlify
    ([docs/DEPLOYMENT_NETLIFY.md](docs/DEPLOYMENT_NETLIFY.md)).
 3. **HTTPS:** plain HTTP for a LAN or trial (default), automatic HTTPS with Caddy and Let's Encrypt (domain and
@@ -212,7 +212,7 @@ install's owner-only `.env`, and never printed. Production contains no demo or e
 **One command for everyone, forks included.** Pass a fork up front to skip the repository question:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/SpaceWorks-HQ/SpaceWorks-Organization/main/install.sh | bash -s -- --repo YourName/SpaceWorks-Organization
+curl -fsSL https://raw.githubusercontent.com/SpaceWorks-Labs/SpaceWorks-Organization/main/install.sh | bash -s -- --repo YourName/SpaceWorks-Organization
 ```
 
 A fork must have published a release first (run its **Continuous Release** workflow on `main` once) and its
@@ -289,11 +289,11 @@ Or use the Render Blueprint in [`render.yaml`](render.yaml). See [docs/DEPLOYMEN
 
 The website can render on Netlify while every database, payment and email operation stays on your server.
 Choose "backend only" in the installer, then follow [docs/DEPLOYMENT_NETLIFY.md](docs/DEPLOYMENT_NETLIFY.md).
-The same website also ships as a container, `ghcr.io/spaceworks-hq/spaceworks-organization-frontend`.
+The same website also ships as a container, `ghcr.io/spaceworks-labs/spaceworks-organization-frontend`.
 
 ## Design system
 
-Space Works Organization follows the [Space Works design system](https://github.com/SpaceWorks-HQ/SpaceWorks-Design):
+Space Works Organization follows the [Space Works design system](https://github.com/SpaceWorks-Labs/SpaceWorks-Design):
 Gilroy Light and ExtraBold, pill-shaped controls, one Unbounded phrase or one bold moment per layout, light and
 dark modes, and reduced motion respected everywhere. The details are in [docs/DESIGN.md](docs/DESIGN.md).
 

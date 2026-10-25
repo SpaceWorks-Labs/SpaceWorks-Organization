@@ -12,7 +12,7 @@ repository_env_value() {
 configure_release_repository() {
   local owner key value
   SWO_REPOSITORY="${SWO_REPOSITORY:-$(repository_env_value SWO_REPOSITORY)}"
-  SWO_REPOSITORY="${SWO_REPOSITORY:-SpaceWorks-HQ/SpaceWorks-Organization}"
+  SWO_REPOSITORY="${SWO_REPOSITORY:-SpaceWorks-Labs/SpaceWorks-Organization}"
   [[ "$SWO_REPOSITORY" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?/[A-Za-z0-9_.-]{1,100}$ ]] \
     && [[ "$SWO_REPOSITORY" != */. && "$SWO_REPOSITORY" != */.. ]] || {
     printf 'ERROR: SWO_REPOSITORY must be a GitHub owner/repo name.\n' >&2
