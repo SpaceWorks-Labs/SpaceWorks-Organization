@@ -9,6 +9,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable, Iterable, Mapping, Sequence
+from datetime import datetime, timedelta, timezone
 from typing import NamedTuple
 
 
@@ -16,6 +17,13 @@ class PackageVersion(NamedTuple):
     version_id: str
     digest: str
     tags: frozenset[str]
+    created_at: datetime
+
+
+# A run on another branch pushes its platform images by digest and joins them into a tagged index
+# minutes later; until then they look untagged and stale. Anything this young is left for a later
+# release to prune.
+MIN_AGE = timedelta(hours=6)
 
 
 class CommandError(RuntimeError):
@@ -63,6 +71,7 @@ def digests_to_delete(
     versions: Iterable[PackageVersion],
     protected_tags: frozenset[str],
     children_by_root: Mapping[str, Iterable[str]],
+    now: datetime,
 ) -> frozenset[str]:
     """Pure retention decision from a version listing and discovered child maps."""
     version_list = tuple(versions)
@@ -75,7 +84,7 @@ def digests_to_delete(
     return frozenset(
         version.digest
         for version in version_list
-        if version.digest not in roots | children
+        if version.digest not in roots | children and now - version.created_at >= MIN_AGE
     )
 
 
@@ -131,7 +140,7 @@ def list_package_versions(
             "--paginate",
             f"orgs/{owner}/packages/container/{package}/versions?per_page=100",
             "--jq",
-            '.[] | [.id, .name, (.metadata.container.tags // [] | join(","))] | @tsv',
+            '.[] | [.id, .name, (.metadata.container.tags // [] | join(",")), .created_at] | @tsv',
         ),
         f"Listing {package} versions",
         runner=runner,
@@ -141,11 +150,17 @@ def list_package_versions(
     for line in output.splitlines():
         if not line:
             continue
-        fields = line.split("\t", 2)
-        if len(fields) != 3 or not fields[0] or not fields[1]:
+        fields = line.split("\t")
+        if len(fields) != 4 or not fields[0] or not fields[1]:
+            raise CommandError(f"Malformed GHCR version row for {package}: {line!r}")
+        try:
+            created_at = datetime.fromisoformat(fields[3])
+        except ValueError as error:
+            raise CommandError(f"Malformed GHCR version row for {package}: {line!r}") from error
+        if created_at.tzinfo is None:
             raise CommandError(f"Malformed GHCR version row for {package}: {line!r}")
         tags = frozenset(filter(None, fields[2].split(",")))
-        versions.append(PackageVersion(fields[0], fields[1], tags))
+        versions.append(PackageVersion(fields[0], fields[1], tags, created_at))
     return tuple(versions)
 
 
@@ -232,7 +247,9 @@ def clean_package(
             )
             return False
 
-    stale_digests = digests_to_delete(versions, protected_tags, children_by_root)
+    stale_digests = digests_to_delete(
+        versions, protected_tags, children_by_root, datetime.now(timezone.utc)
+    )
     for version in versions:
         if version.digest not in stale_digests:
             continue
