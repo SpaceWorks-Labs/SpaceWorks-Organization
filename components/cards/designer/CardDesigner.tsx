@@ -5,17 +5,18 @@ import { saveCardDesign, uploadCardWatermark } from "@/app/actions/card-design";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/choice";
 import { Callout } from "@/components/ui/display";
-import { Field, Input } from "@/components/ui/field";
 import { CR80, elementBoxHeightMm, layoutFlags, type CardElement, type CardLayoutFlags, type CardSideSettings } from "@/lib/cards/design/elements";
 import { isDefaultLayout, layoutForPaper } from "@/lib/cards/design/geometry";
 import { normalizeCardSide, TEXT_LIMITS } from "@/lib/cards/design/normalize";
 import { applyCardPreset, type CardDesign, type CardSide } from "@/lib/cards/design/presets";
+import { formatCardNumberFrom, normalizeNumberFormat, numberFormatError } from "@/lib/cards/numbering";
 import type { CardBranding, CardHolder } from "@/lib/cards/types";
 import { CardCanvas } from "../CardCanvas";
 import { CardFontFaces } from "../cardFonts";
 import { SAFE_MARGIN_MM } from "../canvasInteraction";
 import { FitArea, SaveStatusPill, Section, SwitchLine, type SaveStatus } from "./controls";
 import { Inspector } from "./Inspector";
+import { NumberingSection, type Numbering } from "./NumberingSection";
 import { PresetPicker } from "./PresetPicker";
 import { SideSettings, type DesignerField } from "./SideSettings";
 
@@ -23,36 +24,38 @@ const SAVE_DELAY_MS = 900;
 const SAMPLES = { latin: "Shaan Shoukath", malayalam: "ഷാൻ ഷൗക്കത്ത്", devanagari: "शान शौकत" } as const;
 type Sample = keyof typeof SAMPLES;
 
-function sampleHolder(name: string, planName: string, prefix: string, fields: DesignerField[]): CardHolder {
+function sampleHolder(name: string, planName: string, roleName: string, idNumber: string, fields: DesignerField[]): CardHolder {
   return {
     memberId: "sample",
     verifyToken: "sample",
     verifyUrl: "https://example.invalid/verify/sample-card",
     displayName: name,
-    role: "Systems Engineer",
+    role: roleName || "Systems Engineer",
     planName: planName || "Annual member",
     details: fields.map((field) => ({ key: field.key, label: field.label, value: /blood/i.test(field.label) ? "O+" : /date|birth/i.test(field.label) ? "14 Feb 1998" : "Sample answer" })),
     photoUrl: null,
-    idNumber: `${prefix || "M"}-0042`,
+    idNumber,
     validUntil: "31 Mar 2027",
   };
 }
 
 /**
  * Front and back designer for member cards. Each side is edited on a to-scale canvas with an
- * inspector for the selected item, and the whole design autosaves to the organisation default or to
- * one plan (`planId`).
+ * inspector for the selected item, and the whole design autosaves to the organisation default, one
+ * plan (`planId`) or one member role (`roleId`).
  */
-export function CardDesigner({ organisationSlug, organisationName, planId, planName, initialDesign, branding: initialBranding, fields, numberPrefix }: {
+export function CardDesigner({ organisationSlug, organisationName, planId, planName, roleId, roleName, initialDesign, branding: initialBranding, fields, numbering: initialNumbering }: {
   organisationSlug: string;
   organisationName: string;
   planId: string | null;
   planName: string;
+  roleId: string | null;
+  roleName: string;
   initialDesign: CardDesign;
   branding: CardBranding;
   fields: DesignerField[];
-  /** The organisation's card number prefix; null when editing a plan's design. */
-  numberPrefix: string | null;
+  /** Card number prefix and pattern; null when editing a plan's design, which numbers nothing. */
+  numbering: Numbering | null;
 }) {
   const [design, setDesign] = useState(initialDesign);
   const [side, setSide] = useState<CardSide>("front");
@@ -62,8 +65,8 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
   const [branding, setBranding] = useState(initialBranding);
   const [uploading, setUploading] = useState(false);
   const [sample, setSample] = useState<Sample>("latin");
-  const [prefix, setPrefix] = useState(numberPrefix ?? "");
-  const latest = useRef({ design, prefix });
+  const [numbering, setNumbering] = useState<Numbering>(initialNumbering ?? { prefix: "", format: "" });
+  const latest = useRef({ design, numbering });
   const timer = useRef<number | null>(null);
   const saving = useRef(false);
   const dirty = useRef(false);
@@ -78,8 +81,12 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
     dirty.current = false;
     setStatus("saving");
     try {
-      const { design: next, prefix: nextPrefix } = latest.current;
-      const result = await saveCardDesign({ organisationSlug, planId, design: next as unknown as Record<string, unknown>, ...(numberPrefix !== null && /^[A-Z0-9]{2,6}$/.test(nextPrefix) ? { numberPrefix: nextPrefix } : {}) });
+      const { design: next, numbering: nextNumbering } = latest.current;
+      const result = await saveCardDesign({
+        organisationSlug, planId, roleId, design: next as unknown as Record<string, unknown>,
+        ...(initialNumbering && /^[A-Z0-9]{2,6}$/.test(nextNumbering.prefix) ? { numberPrefix: nextNumbering.prefix } : {}),
+        ...(initialNumbering && !numberFormatError(nextNumbering.format) ? { numberFormat: nextNumbering.format } : {}),
+      });
       setStatus(result.ok ? (dirty.current ? "pending" : "saved") : "error");
       setError(result.ok ? null : result.error);
     } catch {
@@ -116,7 +123,10 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
   };
 
   const current = design[side];
-  const holder = sampleHolder(SAMPLES[sample], planName, prefix, fields);
+  const sampleNumber = initialNumbering && !numberFormatError(numbering.format)
+    ? formatCardNumberFrom(normalizeNumberFormat(numbering.format), { prefix: numbering.prefix || "M", seq: 42, memberNumber: 7, year: new Date().getFullYear() })
+    : "M-0042";
+  const holder = sampleHolder(SAMPLES[sample], planName, roleName, sampleNumber, fields);
 
   const update = (patch: Partial<CardSideSettings>) => {
     const base = latest.current.design[side];
@@ -159,6 +169,7 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
     const data = new FormData();
     data.set("organisationSlug", organisationSlug);
     if (planId) data.set("planId", planId);
+    if (roleId) data.set("roleId", roleId);
     if (file) data.set("file", file);
     else data.set("remove", "1");
     try {
@@ -194,12 +205,12 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
             <p className="text-caption text-ink-muted">Choosing a design resets both sides&apos; layout and colours.</p>
             <SegmentedControl<"landscape" | "portrait"> ariaLabel="Orientation" size="sm" value={landscape ? "landscape" : "portrait"} onValueChange={(next) => setOrientation(next === "landscape")} options={[{ value: "landscape", label: "Landscape" }, { value: "portrait", label: "Portrait" }]} className="self-start" />
             <p className="text-caption text-ink-muted">ID card size (CR80, {CR80.widthMm} × 54 mm).</p>
-            {numberPrefix !== null ? (
-              <Field label="Card number prefix" helperText={`Cards are numbered ${prefix || "M"}-0042 from the member number. New and reissued cards use the prefix.`}>
-                <Input value={prefix} maxLength={6} onChange={(event) => { const next = event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""); setPrefix(next); latest.current = { ...latest.current, prefix: next }; schedule(); }} className="w-[10rem] uppercase tabular-nums" />
-              </Field>
-            ) : null}
           </Section>
+          {initialNumbering ? (
+            <Section title="Card numbers">
+              <NumberingSection value={numbering} role={Boolean(roleId)} onChange={(next) => { setNumbering(next); latest.current = { ...latest.current, numbering: next }; schedule(); }} />
+            </Section>
+          ) : null}
           {side === "back" ? (
             <Section title="Back">
               <SwitchLine label="Print a back" hint="Off: downloads and the wallet show the front only." checked={design.backEnabled} onCheckedChange={(backEnabled) => commit({ ...latest.current.design, backEnabled })} />

@@ -20,11 +20,6 @@ export function deriveCardPrefix(name: string) {
   return CARD_PREFIX_PATTERN.test(prefix) ? prefix : "M";
 }
 
-/** `SWO-0042`: the prefix and the member number, padded to four digits. Stable across reissues. */
-export function formatCardNumber(prefix: string, memberNumber: number) {
-  return `${prefix}-${String(memberNumber).padStart(4, "0")}`;
-}
-
 export function verifyPath(token: string) {
   return `/verify/${token}`;
 }

@@ -8,46 +8,65 @@ import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/display";
 import { cn } from "@/lib/cn";
 
+type ScopeItem = { id: string; name: string; ownDesign: boolean };
+type Source = "role" | "plan" | "organisation" | "default";
+
 /**
- * Which design the designer edits: the organisation's (every plan's cards use it) or one plan's own.
- * A plan without its own design starts from the organisation's; saving gives it its own.
+ * Which design the designer edits: the organisation's, one plan's own or one member role's own. A card
+ * uses its member's primary role design, else its plan's, else the organisation's. A plan or role
+ * without its own design starts from the organisation's; saving gives it its own.
  */
-export function DesignScopePicker({ slug, plans, planId, source, disabled }: { slug: string; plans: Array<{ id: string; name: string; ownDesign: boolean }>; planId: string | null; source: "plan" | "organisation" | "default"; disabled: boolean }) {
+export function DesignScopePicker({ slug, plans, roles, planId, roleId, source, disabled }: { slug: string; plans: ScopeItem[]; roles: ScopeItem[]; planId: string | null; roleId: string | null; source: Source; disabled: boolean }) {
   const router = useRouter();
   const [busy, startTransition] = useTransition();
   const base = `/dashboard/${slug}/settings/cards`;
-  const items = [{ id: null as string | null, name: "Organisation design", own: true }, ...plans.map((plan) => ({ id: plan.id as string | null, name: plan.name, own: plan.ownDesign }))];
+  const chip = (key: string, href: string, name: string, current: boolean, own: boolean) => (
+    <Link
+      key={key}
+      href={href}
+      aria-current={current ? "page" : undefined}
+      className={cn(
+        "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3.5 text-[14px] transition-colors duration-[120ms]",
+        current ? "border-primary bg-primary font-semibold text-on-primary" : "border-line bg-panel text-ink hover:bg-muted",
+      )}
+    >
+      {name}
+      {own ? <span className={cn("text-caption", current ? "text-on-primary" : "text-ink-muted")}>· own design</span> : null}
+    </Link>
+  );
+  const scoped = planId ? "plan" : roleId ? "role" : null;
+  const ownName = scoped === "plan" ? "This plan" : "This role";
   return (
     <div className="flex flex-col gap-3">
-      <nav aria-label="Design for" className="flex flex-wrap gap-2">
-        {items.map((item) => (
-          <Link
-            key={item.id ?? "organisation"}
-            href={item.id ? `${base}?plan=${item.id}` : base}
-            aria-current={item.id === planId ? "page" : undefined}
-            className={cn(
-              "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3.5 text-[14px] transition-colors duration-[120ms]",
-              item.id === planId ? "border-primary bg-primary font-semibold text-on-primary" : "border-line bg-panel text-ink hover:bg-muted",
-            )}
-          >
-            {item.name}
-            {item.id && item.own ? <span className={cn("text-caption", item.id === planId ? "text-on-primary" : "text-ink-muted")}>· own design</span> : null}
-          </Link>
-        ))}
+      <nav aria-label="Design for" className="flex flex-col gap-2">
+        <div className="flex flex-wrap gap-2">
+          {chip("organisation", base, "Organisation design", !planId && !roleId, false)}
+          {plans.map((plan) => chip(`plan-${plan.id}`, `${base}?plan=${plan.id}`, plan.name, plan.id === planId, plan.ownDesign))}
+        </div>
+        {roles.length ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-caption text-ink-muted">Member roles</span>
+            {roles.map((role) => chip(`role-${role.id}`, `${base}?role=${role.id}`, role.name, role.id === roleId, role.ownDesign))}
+          </div>
+        ) : null}
       </nav>
-      {planId && source !== "plan" ? (
-        <Callout tone="info">This plan&apos;s cards use the organisation design. Change anything below to give this plan its own.</Callout>
+      {scoped && source !== scoped ? (
+        <Callout tone="info">
+          {scoped === "plan"
+            ? "This plan's cards use the organisation design. Change anything below to give this plan its own."
+            : "Members with this primary role use the organisation design. Change anything below to give the role its own design and card numbers."}
+        </Callout>
       ) : null}
-      {planId && source === "plan" ? (
+      {scoped && source === scoped ? (
         <Callout
           tone="info"
           action={disabled ? undefined : (
-            <Button size="sm" variant="secondary" loading={busy} onClick={() => startTransition(async () => { await revertToOrganisationCardDesign({ organisationSlug: slug, planId }); router.refresh(); })}>
+            <Button size="sm" variant="secondary" loading={busy} onClick={() => startTransition(async () => { await revertToOrganisationCardDesign({ organisationSlug: slug, planId, roleId }); router.refresh(); })}>
               Use organisation design
             </Button>
           )}
         >
-          This plan has its own card design. Its cards change as soon as you save.
+          {ownName} has its own card design{scoped === "role" ? ", used before any plan design" : ""}. Its cards change as soon as you save.
         </Callout>
       ) : null}
     </div>

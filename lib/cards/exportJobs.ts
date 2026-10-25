@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { teamScope } from "@/lib/membership/scope";
 import { slugForFile } from "@/lib/downloads";
 import { deletePrivateExports, privateExportKey, uploadPrivateExport } from "@/lib/storage/private";
-import { CARD_INCLUDE, designFor, holderFor, loadCardOrgContext, type CardOrgContext } from "./data";
+import { CARD_INCLUDE, cardRoleId, designFor, holderFor, loadCardOrgContext, type CardOrgContext } from "./data";
 import { exportCardsWhere, parseExportFilter, type CardExportFormat } from "./exportFilter";
 import { BULK_PDF_LIMIT, BULK_ZIP_LIMIT, renderMemberCardsPdf, renderMemberCardsZip, type CardInput } from "./render";
 import { tryAcquireRenderSlot } from "./renderSlot";
@@ -42,7 +42,7 @@ async function* exportCards(job: CardExportJob, ctx: CardOrgContext) {
     for (const card of cards) {
       let input = designs.get(card.planId);
       if (!input) {
-        const { design, branding } = designFor(ctx, card.plan);
+        const { design, branding } = designFor(ctx, card.plan, cardRoleId(card));
         input = { design, branding };
         designs.set(card.planId, input);
       }
