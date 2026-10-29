@@ -93,6 +93,20 @@ describe.sequential("member answers across plans", () => {
     expect(await stored()).toMatchObject({ employed: true, other: "both", score: "7", notes: "old" });
   });
 
+  it("never loses a key when two first saves create the same member at once", async () => {
+    const email = `first-${suffix}@example.test`;
+    const save = (planKey: string, values: Record<string, unknown>, pause: number) => prisma.$transaction(async (tx) => {
+      const locked = await lockMemberByEmail(tx, orgId, email);
+      await new Promise((resolve) => setTimeout(resolve, pause));
+      const fields = await tx.planField.findMany({ where: { planId: plans[planKey] } });
+      const fieldValues = replacePlanAnswers((locked?.fieldValues ?? {}) as Record<string, unknown>, fields, values, false);
+      return upsertMember(tx, orgId, { email, name: "First Member", fieldValues, fieldValuesMode: "replace", source: "JOIN_FORM" });
+    });
+    await Promise.all([save("a", { employed: true }, 300), save("c", { other: "both" }, 0)]);
+    const member = await prisma.member.findUniqueOrThrow({ where: { organisationId_email: { organisationId: orgId, email } } });
+    expect(member.fieldValues).toMatchObject({ employed: true, other: "both" });
+  });
+
   it("lets staff answer the union once per key, clearing emptied and hidden answers and keeping other plans'", async () => {
     signIn("owner");
     expect(await updateMember({ organisationSlug: slug, memberId, profile: profile({ employed: true }) })).toMatchObject({ ok: false, fieldErrors: { "fieldValues.company": ["company is required"] } });

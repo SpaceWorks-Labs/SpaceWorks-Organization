@@ -13,9 +13,14 @@ export async function lockMember(tx: Tx, organisationId: string, memberId: strin
   return rows.length ? tx.member.findUnique({ where: { id: memberId } }) : null;
 }
 
-/** The organisation's member with this email, locked, or null when there is none. */
+/**
+ * The organisation's member with this email, locked, or null when there is none. The email itself is locked first
+ * (a transaction-scoped advisory lock), so two transactions creating the same member are serialised: the second
+ * waits, then finds and locks the row the first created instead of replacing its answers from nothing.
+ */
 export async function lockMemberByEmail(tx: Tx, organisationId: string, email: string) {
   const address = email.trim().toLowerCase();
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`swo:member:${organisationId}:${address}`}))`;
   const found = await tx.member.findUnique({ where: { organisationId_email: { organisationId, email: address } }, select: { id: true } });
   const member = found ? await lockMember(tx, organisationId, found.id) : null;
   // The email may have changed while we waited for the lock.
