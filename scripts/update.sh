@@ -126,6 +126,15 @@ if [[ "${SWO_UPDATE_STAGED:-0}" != 1 ]]; then
   exec 8>&-
   trap - EXIT
   [[ "$ROLLBACK" == 0 ]] || ARGUMENTS=(--version "$version")
+  if [[ "$ROLLBACK" == 1 ]]; then
+    # An older release's updater doesn't know this release's services, so this one removes them afterwards.
+    status=0
+    env SWO_UPDATE_STAGED=1 SWO_UPDATE_STAGE_DIR="$stage" SWO_ROLLBACK="$ROLLBACK" \
+      bash "$stage/scripts/update.sh" ${ARGUMENTS[@]+"${ARGUMENTS[@]}"} || status=$?
+    [[ "$status" != 0 ]] || remove_undefined_services
+    rm -rf -- "$stage"
+    exit "$status"
+  fi
   exec env SWO_UPDATE_STAGED=1 SWO_UPDATE_STAGE_DIR="$stage" SWO_ROLLBACK="$ROLLBACK" \
     bash "$stage/scripts/update.sh" ${ARGUMENTS[@]+"${ARGUMENTS[@]}"}
 fi

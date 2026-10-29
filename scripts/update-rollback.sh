@@ -13,6 +13,7 @@ rollback_application_images() {
     say "Could not refresh previous images; trying the host's cached copies."
   # --no-deps prevents old migrations from being applied to the forward schema.
   if "${COMPOSE[@]}" up -d --wait --wait-timeout 300 --no-deps "${SERVING_SERVICES[@]}"; then
+    remove_undefined_services
     say "Rollback complete: $previous_version is healthy."
     say "Database changes remain; backup retained at backups/${backup_name:-<none>}."
   else

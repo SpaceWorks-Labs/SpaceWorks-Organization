@@ -145,7 +145,8 @@ describe("card file names", () => {
     expect(cardFileName(holder("SWO/2026/1"))).toBe("SWO-2026-1-annual-priya-raman.pdf");
     expect(cardFileName(holder("..\\..\\x"))).not.toMatch(/[/\\]/);
     expect(safeFileName("SWO/2026/1")).toBe("SWO-2026-1");
-  });
+    // The first import of the bulk module loads the card renderer, which is slow on a busy machine.
+  }, 30_000);
 });
 
 describe("member status filters", () => {

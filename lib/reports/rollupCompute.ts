@@ -62,7 +62,9 @@ export function computeDayStats(data: Dataset, from: Date, to: Date): DayStatsRo
     for (const term of terms) byPlan.set(term.planId, [...(byPlan.get(term.planId) ?? []), term]);
     for (const [planId, planTerms] of byPlan) countMember(row(unitId, planId), planTerms, from, to, terms);
   }
-  return [...rows.values()].filter((entry) => entry.active + entry.grace + entry.expired + entry.joined + entry.reactivated + entry.due + entry.renewed + entry.lapsed + entry.applications > 0);
+  const counted = [...rows.values()].filter((entry) => entry.active + entry.grace + entry.expired + entry.joined + entry.reactivated + entry.due + entry.renewed + entry.lapsed + entry.applications > 0);
+  // A computed day always keeps one all-plans row, so a day with nothing to count reads as zero, not as never computed.
+  return counted.length ? counted : [{ unitId: null, planId: null, ...empty() }];
 }
 
 /** Add rows together (a unit subtree, or every organisation for the platform reports). */

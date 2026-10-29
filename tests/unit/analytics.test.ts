@@ -43,6 +43,11 @@ describe("expired stock in the daily rollup", () => {
     expect(sumStats(stats.filter((row) => row.planId === null)).expired).toBe(1);
   });
 
+  it("keeps one zero all-plans row for a day with nothing to count", () => {
+    const quiet = computeDayStats(build([], []), day("2026-06-20").from, day("2026-06-20").to);
+    expect(quiet).toEqual([expect.objectContaining({ unitId: null, planId: null, active: 0, grace: 0, expired: 0, joined: 0 })]);
+  });
+
   it("is not expired while in grace, and the upcoming term only counts once it was paid", () => {
     expect(expiredAt(data.termsByMember.get("m1")!, data.termsByMember.get("m1")!, ist("2026-06-10"))).toBe(false);
     expect(expiredAt(data.termsByMember.get("m1")!, data.termsByMember.get("m1")!, ist("2026-06-17"))).toBe(true);
@@ -120,6 +125,16 @@ describe("analytics shapers", () => {
     const [sep, oct] = monthlyFromDays(rows, [{ key: "2026-09", label: "Sep 26", first: new Date("2026-09-01"), last: new Date("2026-09-30") }, { key: "2026-10", label: "Oct 26", first: new Date("2026-10-01"), last: new Date("2026-10-29") }]);
     expect(sep).toMatchObject({ active: 6, expired: 3, joined: 3, lapsed: 1, renewed: 1 });
     expect(oct).toMatchObject({ active: null, joined: 0 });
+  });
+
+  it("closes a month at zero when its last members ended mid-month", () => {
+    // The rollup keeps a zero row for a computed day with nothing to count (computeDayStats).
+    const rows = [
+      { day: new Date("2026-09-14"), active: 1, grace: 0, expired: 0, joined: 0, lapsed: 0, renewed: 0 },
+      { day: new Date("2026-09-30"), active: 0, grace: 0, expired: 0, joined: 0, lapsed: 0, renewed: 0 },
+    ];
+    const [sep] = monthlyFromDays(rows, [{ key: "2026-09", label: "Sep 26", first: new Date("2026-09-01"), last: new Date("2026-09-30") }]);
+    expect(sep).toMatchObject({ active: 0 });
   });
 });
 

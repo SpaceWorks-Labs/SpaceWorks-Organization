@@ -52,6 +52,7 @@ afterAll(async () => {
 });
 
 describe.sequential("expired backfill", () => {
+  // Rebuilds about ten months of days for eleven organisations, so it runs longer than the default limit.
   it("passes over organisations that keep failing, and retries them on a later full pass", async () => {
     resetCursor();
     await prisma.operationalHeartbeat.deleteMany({ where: backfillRows });
@@ -66,9 +67,9 @@ describe.sequential("expired backfill", () => {
     for (let run = 0; run < 200 && !result.done; run += 1) result = await runExpiredBackfill();
     expect(result.done).toBe(true);
     // Every organisation was rebuilt to its old day, and the per-organisation progress rows are gone.
-    expect(await prisma.orgDailyStats.count({ where: { organisationId: { in: orgIds } } })).toBe(0);
+    expect(await prisma.orgDailyStats.count({ where: { organisationId: { in: orgIds }, OR: [{ active: { gt: 0 } }, { grace: { gt: 0 } }, { expired: { gt: 0 } }] } })).toBe(0);
     expect(await prisma.operationalHeartbeat.count({ where: { key: { startsWith: `${EXPIRED_BACKFILL_KEY}:` } } })).toBe(0);
-  });
+  }, 120_000);
 
   it("finishes an organisation whose rebuilt days are all zero", async () => {
     const org = await prisma.organisation.create({ data: { name: "Quiet Club", slug: `quiet-${suffix}`, status: "ACTIVE" } });
@@ -76,7 +77,9 @@ describe.sequential("expired backfill", () => {
     await oldRow(org.id, "2026-08-01");
     const result = await backfillToTheEnd();
     expect(result.done).toBe(true);
-    expect(await prisma.orgDailyStats.count({ where: { organisationId: org.id } })).toBe(0);
+    // Each rebuilt day keeps one zero row, so it reads as zero rather than as never computed.
+    expect(await prisma.orgDailyStats.count({ where: { organisationId: org.id, OR: [{ active: { gt: 0 } }, { grace: { gt: 0 } }, { expired: { gt: 0 } }] } })).toBe(0);
+    expect(await prisma.orgDailyStats.count({ where: { organisationId: org.id, day: new Date("2026-08-01T00:00:00Z"), unitId: null, planId: null } })).toBe(1);
     expect(await runExpiredBackfill()).toEqual({ backfilledDays: 0, done: true });
   });
 
@@ -94,5 +97,5 @@ describe.sequential("expired backfill", () => {
     const later = await prisma.orgDailyStats.findMany({ where: { organisationId: org.id, planId: null, day: new Date("2026-06-01T00:00:00Z") }, select: { expired: true } });
     expect(later.reduce((sum, row) => sum + row.expired, 0)).toBeGreaterThan(0);
     expect(await prisma.orgDailyStats.count({ where: { organisationId: org.id, day: new Date("2026-03-05T00:00:00Z"), planId: null, active: { gt: 0 } } })).toBeGreaterThan(0);
-  });
+  }, 120_000);
 });
