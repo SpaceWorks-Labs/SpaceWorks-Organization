@@ -6,7 +6,7 @@ const MAX_BODY_BYTES = 256 * 1024;
 const tooLarge = () => new Response("Payload too large", { status: 413 });
 
 /** Read a request body up to `limit` bytes, giving up as soon as it grows past it (chunked bodies included). */
-export async function readCapped(request: Request, limit: number): Promise<string | null> {
+async function readCapped(request: Request, limit: number): Promise<string | null> {
   if (Number(request.headers.get("content-length") ?? 0) > limit) return null;
   if (!request.body) return "";
   const reader = request.body.getReader();

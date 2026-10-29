@@ -67,7 +67,7 @@ export function MembershipPanel({ slug, memberId, memberships, plans, canManage 
                     {canManage ? (
                       <span className="flex flex-wrap gap-1.5">
                         {term.status === "PENDING_APPROVAL" ? (<>
-                          <Button size="sm" variant="primary" disabled={busy} onClick={() => decide(term.id, "approve", "Approved. The member has been emailed.")}>Approve</Button>
+                          <Button size="sm" variant="primary" disabled={busy} onClick={() => decide(term.id, "approve", "Verified. The member has been emailed.")}>Verify</Button>
                           <Button size="sm" variant="dangerOutline" disabled={busy} onClick={() => setDialog({ kind: "reject", termId: term.id })}>Decline</Button>
                         </>) : null}
                         {term.status === "PENDING_PAYMENT" ? <Button size="sm" variant="ghost" disabled={busy} onClick={() => setDialog({ kind: "cancel", termId: term.id })}>Cancel</Button> : null}

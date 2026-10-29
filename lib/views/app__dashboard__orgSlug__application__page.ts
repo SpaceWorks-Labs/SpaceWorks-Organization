@@ -27,7 +27,7 @@ export async function loadOrgApplicationView({ params }: { params: Promise<{ org
     organisation: details,
     reviews,
     latestNote,
-    canEdit: can(membership.role, "org.settings") && canResubmit(details.status),
-    isManager: can(membership.role, "org.settings"),
+    canEdit: can(membership, "org.settings", { write: true }) && canResubmit(details.status),
+    isManager: can(membership, "org.settings"),
   };
 }

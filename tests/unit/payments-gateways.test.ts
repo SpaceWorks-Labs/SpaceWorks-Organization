@@ -37,6 +37,25 @@ describe("Razorpay", () => {
     expect(razorpay.parseEvent(JSON.stringify({ event: "order.paid", created_at: 5 }), new Headers({ "x-razorpay-event-id": "e2" }))).toEqual({ type: "ignored", eventId: "order.paid::5" });
   });
 
+  it("keys refund events on the refund, so two partial refunds of one payment in the same second both apply", () => {
+    const refund = (id: string) => JSON.stringify({ event: "refund.processed", created_at: created, payload: { payment: { entity: { id: "pay_1" } }, refund: { entity: { id, amount: 100, notes: {} } } } });
+    expect(razorpay.parseEvent(refund("rfnd_a"), new Headers()).eventId).toBe(`refund.processed:rfnd_a:${created}`);
+    expect(razorpay.parseEvent(refund("rfnd_b"), new Headers()).eventId).toBe(`refund.processed:rfnd_b:${created}`);
+  });
+
+  it("leaves the attempt open on a failed payment, because the member can retry the same order", () => {
+    const failed = JSON.stringify({ event: "payment.failed", created_at: created, payload: { payment: { entity: { id: "pay_f", order_id: "order_1", notes: { paymentId: "p1" }, error_description: "Bank declined" } } } });
+    expect(razorpay.parseEvent(failed, new Headers())).toEqual({ type: "ignored", eventId: `payment.failed:pay_f:${created}` });
+  });
+
+  it("reads an order whose attempts all failed as still pending, and a later capture as paid", async () => {
+    const items: Array<Record<string, unknown>> = [{ id: "pay_f", status: "failed" }];
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ items }), { status: 200 })));
+    expect(await razorpay.fetchPayment(credentials, "order_1")).toEqual({ status: "pending" });
+    items.push({ id: "pay_ok", status: "captured", amount: 118000, currency: "INR", method: "upi" });
+    expect(await razorpay.fetchPayment(credentials, "order_1")).toEqual({ status: "paid", gatewayPaymentId: "pay_ok", amountMinor: 118000, currency: "INR", method: "upi" });
+  });
+
   it("verifies the Checkout.js signature over order and payment ids", () => {
     expect(verifyCheckoutSignature("secret_key", "order_1", "pay_1", hmac("secret_key", "order_1|pay_1"))).toBe(true);
     expect(verifyCheckoutSignature("secret_key", "order_1", "pay_2", hmac("secret_key", "order_1|pay_1"))).toBe(false);

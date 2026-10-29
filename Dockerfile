@@ -5,7 +5,7 @@
 #
 # Two published images come from this file (see .github/workflows/release.yml):
 #   runner    -> ghcr.io/<owner>/spaceworks-organization-backend   every backend role: the app and API,
-#                migrations, the scheduler and operator checks (scripts/docker-entrypoint.sh --role)
+#                migrations, the BullMQ worker and beat, and operator checks (scripts/docker-entrypoint.sh --role)
 #   frontend  -> ghcr.io/<owner>/spaceworks-organization-frontend  the website alone, for the split layout
 # Release images are the same for every installation: public origins are
 # placeholders (spaceworks-organization-origin.invalid, -backend.invalid) that
@@ -79,6 +79,8 @@ RUN --mount=type=secret,id=NEXT_SERVER_ACTIONS_ENCRYPTION_KEY \
     fi; \
     export NEXT_SERVER_ACTIONS_ENCRYPTION_KEY; \
     npm run build
+# The worker and beat roles: esbuild bundles of scripts/queue/*.ts (dist/worker.js, dist/beat.js).
+RUN node scripts/build-jobs.mjs
 
 # The separately deployable rendering frontend (the frontend/ workspace, the
 # same build Netlify runs), published as spaceworks-organization-frontend. It
@@ -123,7 +125,7 @@ CMD ["--role", "frontend", "node", "frontend/server.js"]
 
 # Stage 3: Production runner (keep this the LAST stage: Render builds the final
 # stage because a Blueprint cannot select a build target). The same image runs
-# every backend role: migrations, the scheduler and the operator checks.
+# every backend role: the web app, migrations, the worker, beat and the operator checks.
 FROM node:22-alpine AS runner
 WORKDIR /app
 
@@ -151,7 +153,9 @@ COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 # Prisma CLI for the migrate role and MIGRATE_ON_START=1 (root-owned, read-only).
 COPY --from=prisma-cli /opt/prisma-cli/node_modules /opt/prisma-cli/node_modules
 COPY --chmod=755 scripts/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-# Scheduler and operator checks (docker/ops), root-owned.
+# Worker and beat bundles (they import the standalone @prisma/client and sharp), root-owned.
+COPY --from=builder /app/dist ./dist
+# Operator tools (docker/ops), root-owned.
 COPY docker/ops ./docker/ops
 COPY --from=ops-modules /opt/ops/node_modules ./docker/ops/node_modules
 

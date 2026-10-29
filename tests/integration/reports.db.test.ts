@@ -12,8 +12,8 @@ import { loadDataset, reportScope } from "@/lib/reports/source";
 import { membershipSummary } from "@/lib/reports/metrics/flows";
 import { dateColumn, daysToRecompute, markStatsDirty, recomputeOrgDays } from "@/lib/reports/rollup";
 import { queueManualReminders } from "@/lib/reports/reminders";
-import { loadMemberReport } from "@/lib/reports/memberSource";
 import { GET } from "@/app/api/exports/reports/[orgSlug]/[report]/route";
+import { addStaff } from "../helpers/staff";
 
 const suffix = randomUUID().replace(/-/g, "").slice(0, 10);
 const NOW = new Date("2026-10-20T06:30:00Z");
@@ -30,11 +30,11 @@ beforeAll(async () => {
   const created = await prisma.organisation.create({ data: { name: "Reports", slug: `reports-${suffix}`, status: "ACTIVE", createdAt: new Date("2026-01-01T00:00:00Z") } });
   org = { id: created.id, slug: created.slug, timezone: created.timezone, financialYearStartMonth: created.financialYearStartMonth, createdAt: created.createdAt };
   other = await prisma.organisation.create({ data: { name: "Other", slug: `other-${suffix}`, status: "ACTIVE" } });
-  const north = await prisma.orgUnit.create({ data: { organisationId: org.id, name: "North", slug: "north", path: "x" } });
+  const north = await prisma.orgUnit.create({ data: { organisationId: org.id, name: "North", slug: "north", code: "NORTH", path: "x" } });
   await prisma.orgUnit.update({ where: { id: north.id }, data: { path: north.id } });
-  const south = await prisma.orgUnit.create({ data: { organisationId: org.id, name: "South", slug: "south", path: "y" } });
+  const south = await prisma.orgUnit.create({ data: { organisationId: org.id, name: "South", slug: "south", code: "SOUTH", path: "y" } });
   await prisma.orgUnit.update({ where: { id: south.id }, data: { path: south.id } });
-  const foreign = await prisma.orgUnit.create({ data: { organisationId: other.id, name: "Elsewhere", slug: "elsewhere", path: "z" } });
+  const foreign = await prisma.orgUnit.create({ data: { organisationId: other.id, name: "Elsewhere", slug: "elsewhere", code: "ELSE", path: "z" } });
   Object.assign(ids, { north: north.id, south: south.id, foreign: foreign.id });
   const plan = await prisma.membershipPlan.create({ data: { organisationId: org.id, name: "Free", slug: `free-${suffix}`, currency: "INR", priceNewMinor: 0, joinMode: "OPEN", durationType: "ORG_YEAR" } });
   for (const [key, unitId, when] of [["n1", north.id, "2026-05-10T06:00:00Z"], ["n2", north.id, "2026-07-01T06:00:00Z"], ["s1", south.id, "2026-06-01T06:00:00Z"]] as const) {
@@ -47,12 +47,10 @@ beforeAll(async () => {
   const viewer = await user("viewer");
   const southAdmin = await user("south");
   const stranger = await user("stranger");
-  await prisma.teamMember.createMany({ data: [
-    { userId: owner.id, organisationId: org.id, role: "OWNER" },
-    { userId: viewer.id, organisationId: org.id, role: "VIEWER" },
-    { userId: southAdmin.id, organisationId: org.id, role: "ADMIN", unitId: south.id },
-    { userId: stranger.id, organisationId: other.id, role: "OWNER" },
-  ] });
+  await addStaff(org.id, owner.id, "OWNER");
+  await addStaff(org.id, viewer.id, "VIEWER");
+  await addStaff(org.id, southAdmin.id, "ADMIN", south.id);
+  await addStaff(other.id, stranger.id, "OWNER");
   Object.assign(ids, { owner: owner.id, viewer: viewer.id, southAdmin: southAdmin.id, stranger: stranger.id });
 });
 
@@ -73,13 +71,6 @@ describe.sequential("report loaders", () => {
     const orgWide = await teamScope(org.id, null);
     expect((await reportScope(orgWide, { unit: ids.foreign })).unitPath).toBeNull();
     expect(membershipSummary(await loadDataset(await reportScope(orgWide, { unit: ids.north })), fy, NOW).joined).toBe(2);
-  });
-
-  it("returns nothing for another organisation's member", async () => {
-    expect(await loadMemberReport(other.id, ids.n1)).toBeNull();
-    const report = await loadMemberReport(org.id, ids.n1, NOW);
-    expect(report?.membership[0]).toMatchObject({ status: "ACTIVE" });
-    expect(report?.history.length).toBeGreaterThan(0);
   });
 });
 

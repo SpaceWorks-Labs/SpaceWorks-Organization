@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { checkRateLimitById } from "@/lib/rateLimit";
 import { can, organisationAllows } from "@/lib/permissionRoles";
-import { hasAuthenticator, STAFF_AUTHENTICATOR_MESSAGE } from "@/lib/permissions";
+import { getMembership, hasAuthenticator, STAFF_AUTHENTICATOR_MESSAGE } from "@/lib/permissions";
 import { toCsvRow } from "@/lib/csv";
 import { deriveStatus, TERM_STATUS_LABELS } from "@/lib/membership/lifecycle";
 import { formatCalendarDate, lastValidDay } from "@/lib/membership/periods";
@@ -27,13 +27,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ org
   if (!userId) return refuse(401, "Sign in to export members.");
   const { orgSlug } = await params;
   const org = await prisma.organisation.findUnique({ where: { slug: orgSlug }, select: { id: true, slug: true, status: true, timezone: true } });
-  const membership = org ? await prisma.teamMember.findUnique({ where: { userId_organisationId: { userId, organisationId: org.id } } }) : null;
+  const membership = org ? await getMembership(userId, org.id) : null;
   if (!org || !membership) return refuse(404, "Not found.");
   if (!(await hasAuthenticator(userId))) return refuse(403, STAFF_AUTHENTICATOR_MESSAGE);
-  if (!organisationAllows(org.status, "members.export") || !can(membership.role, "members.export")) return refuse(403, "Your role can't export members.");
+  if (!organisationAllows(org.status, "members.export") || !can(membership, "members.export")) return refuse(403, "Your role can't export members.");
   if (!(await checkRateLimitById("reportExport", `user:${userId}`))) return refuse(429, "Too many exports. Try again later.");
 
   const scope = await teamScope(org.id, membership.unitId);
+  // Email and phone stay blank for staff who may not see members' contact details.
+  const showContact = can(membership, "members.contact");
   const plans = await prisma.membershipPlan.findMany({ where: { organisationId: org.id }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } });
   const fields = await prisma.planField.findMany({ where: { organisationId: org.id }, distinct: ["key"], select: { key: true, label: true } });
   const now = new Date();
@@ -67,7 +69,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ org
             return [TERM_STATUS_LABELS[standing.status], end ? formatCalendarDate(lastValidDay(end, org.timezone)) : standing.current?.startsAt ? "Lifetime" : ""];
           });
           const row = [
-            member.memberNumber, member.name, member.email, member.phone ?? "", member.stateCode ?? "", member.unit?.name ?? "",
+            member.memberNumber, member.name, showContact ? member.email : "", showContact ? (member.phone ?? "") : "", member.stateCode ?? "", member.unit?.name ?? "",
             member.roles.map((assignment) => assignment.role.name).join("; "),
             ...planCells,
             ...fields.map((field) => values[field.key] ?? ""),

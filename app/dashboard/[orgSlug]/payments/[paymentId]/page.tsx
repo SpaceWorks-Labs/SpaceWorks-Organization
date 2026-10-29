@@ -140,6 +140,7 @@ export default async function PaymentPage({ params }: { params: Promise<{ orgSlu
               currency={payment.currency}
               flagged={Boolean(payment.flaggedAt)}
               documentHeld={payment.documentHeld}
+              memberClaim={payment.memberClaim}
               refundableMinor={refundableMinor}
               refundable={amount(refundableMinor)}
               blockedConfirm={org.offlineConfirmationRequired && isRecorder ? "You recorded this payment, so someone else on the team confirms it." : null}

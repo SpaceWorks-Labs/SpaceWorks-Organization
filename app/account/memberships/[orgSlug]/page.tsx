@@ -9,6 +9,7 @@ import { TermStatusChip } from "@/components/members/TermStatusChip";
 import { MembershipActions } from "@/components/portal/MembershipActions";
 import { MembershipHistory } from "@/components/portal/MembershipHistory";
 import { RefundRequestPanel } from "@/components/portal/RefundRequestPanel";
+import { PortalPhotoField } from "@/components/portal/PortalPhotoField";
 import { PortalProfileForm } from "@/components/portal/PortalProfileForm";
 import { ReceiptsSlot } from "@/components/portal/Slots";
 import { standingLine } from "@/components/portal/WalletCard";
@@ -89,6 +90,7 @@ export default async function MembershipDetailPage({ params }: { params: Promise
         </div>
         <Card as="section" className="h-fit rounded-xl">
           <CardHeader title="Your details" description={`What ${org.name} knows about you. Keep it up to date.`} />
+          <PortalPhotoField organisationSlug={org.slug} organisationName={org.name} name={member.name} photoUrl={member.photoUrl} canUpload={org.photoUpload} />
           <PortalProfileForm
             organisationSlug={org.slug}
             organisationName={org.name}

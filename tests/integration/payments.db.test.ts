@@ -21,6 +21,9 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
+const rejectionNotices = (paymentId: string) =>
+  prisma.outboxMessage.count({ where: { kind: "payment-notice", payload: { path: ["paymentId"], equals: paymentId }, AND: { payload: { path: ["notice"], equals: "claim-rejected" } } } });
+
 describe.sequential("offline payments", () => {
   it("waits for a second person, then receipts with a GST tax invoice and starts the membership", async () => {
     const term = await unpaidTerm(org, plan, "shaan", june);
@@ -45,8 +48,17 @@ describe.sequential("offline payments", () => {
     await expect(prisma.$transaction((tx) => createTermPayment(tx, { org, termId: term.id, provider: "RAZORPAY", status: "PENDING", now: june }))).rejects.toThrow(/waiting for the team/);
 
     await prisma.$transaction((tx) => rejectOfflinePayment(tx, { org, paymentId: claim.id, actorUserId: staff[1].id, reason: "No such transfer" }));
+    expect(await rejectionNotices(claim.id)).toBe(1);
     const again = await prisma.$transaction((tx) => claimOfflinePayment(tx, { org, termId: other.id, method: "upi", utr: "612345678901", userId: staff[0].id, now: june }));
     expect(again.status).toBe("AWAITING_CONFIRMATION");
+  });
+
+  it("closes a payment the team recorded without telling the member their claim was turned down", async () => {
+    const term = await unpaidTerm(org, plan, "fathima", june);
+    const { payment } = await prisma.$transaction((tx) => recordOfflinePayment(tx, { org, termId: term.id, method: "cash", reference: "Book 4/13", actorUserId: staff[0].id, now: june }));
+    await prisma.$transaction((tx) => rejectOfflinePayment(tx, { org, paymentId: payment.id, actorUserId: staff[1].id, reason: "Entered against the wrong member" }));
+    expect((await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).status).toBe("FAILED");
+    expect(await rejectionNotices(payment.id)).toBe(0);
   });
 
   it("waives a fee without a document and cancels only open payments", async () => {

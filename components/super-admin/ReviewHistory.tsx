@@ -1,7 +1,7 @@
 import type { OrganisationReviewAction } from "@prisma/client";
 import { REVIEW_ACTION_LABELS } from "@/lib/organisationLifecycle";
 
-export type ReviewRow = {
+type ReviewRow = {
   id: string;
   action: OrganisationReviewAction;
   reason: string | null;

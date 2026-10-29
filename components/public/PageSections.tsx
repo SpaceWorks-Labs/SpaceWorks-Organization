@@ -9,7 +9,7 @@ export type PageUnit = { id: string; name: string; level: number; parentId: stri
 type Live = { org: PageOrg; plans: PublicPlan[]; units: PageUnit[]; takingMembers: boolean; preview: boolean };
 
 /** The top of a custom page: cover, logo, name and tagline. The tagline is the layout's one Unbounded phrase. */
-export function PageHero({ document, org }: { document: Pick<PageDocument, "tagline" | "coverAssetKey">; org: PageOrg }) {
+function PageHero({ document, org }: { document: Pick<PageDocument, "tagline" | "coverAssetKey">; org: PageOrg }) {
   return (
     <section aria-labelledby="org-name" className="flex flex-col gap-8">
       {document.coverAssetKey ? (

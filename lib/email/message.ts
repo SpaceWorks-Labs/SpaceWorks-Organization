@@ -2,11 +2,11 @@ import { assertEmailAccepted, getEmailTransport } from "./transporter";
 import { organisationEmailTransport } from "./orgTransport";
 import { EMAIL_BUTTON_STYLE, EMAIL_COLORS, emailLayout } from "./brand";
 
-export function escapeHtml(value: string) {
+function escapeHtml(value: string) {
   return value.replace(/[&<>'"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[char]!);
 }
 
-export type BrandedEmail = {
+type BrandedEmail = {
   to: string;
   subject: string;
   heading: string;
@@ -38,7 +38,7 @@ export function renderBrandedEmail(email: Omit<BrandedEmail, "to" | "messageId" 
 }
 
 /** Subjects carry user-entered names: keep them to one line. */
-export function cleanSubject(subject: string) {
+function cleanSubject(subject: string) {
   return subject.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s{2,}/g, " ").trim().slice(0, 200);
 }
 

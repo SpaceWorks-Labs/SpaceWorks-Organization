@@ -2,19 +2,20 @@
 
 import { Field, Input } from "@/components/ui/field";
 import { formatCardNumberFrom, normalizeNumberFormat, numberFormatError } from "@/lib/cards/numbering";
+import { sampleNumberUnits } from "./sample";
 
 export type Numbering = { prefix: string; format: string };
 
-const TOKENS = ["{PREFIX}", "{SEQ:4}", "{MEMBER:4}", "{YYYY}", "{YY}"] as const;
+const TOKENS = ["{PREFIX}", "{SEQ:4}", "{MEMBER:4}", "{YYYY}", "{YY}", "{UNIT}", "{U1}", "{U2}"] as const;
 
 /**
  * The card number prefix and pattern for the organisation default or a member role. The preview uses
- * the running number 42 and member number 7.
+ * the running number 42, member number 7 and the sample member's unit codes.
  */
-export function NumberingSection({ value, onChange, role }: { value: Numbering; onChange: (next: Numbering) => void; role: boolean }) {
+export function NumberingSection({ value, onChange, role, unitLevels }: { value: Numbering; onChange: (next: Numbering) => void; role: boolean; unitLevels?: readonly string[] }) {
   const error = numberFormatError(value.format);
   const prefixError = /^[A-Z0-9]{2,6}$/.test(value.prefix) ? null : "Use 2 to 6 capital letters or digits. The prefix isn't saved until then.";
-  const example = error ? "" : formatCardNumberFrom(normalizeNumberFormat(value.format), { prefix: value.prefix || "M", seq: 42, memberNumber: 7, year: new Date().getFullYear() });
+  const example = error ? "" : formatCardNumberFrom(normalizeNumberFormat(value.format), { prefix: value.prefix || "M", seq: 42, memberNumber: 7, year: new Date().getFullYear(), ...sampleNumberUnits(unitLevels) });
   return (
     <div className="flex flex-col gap-3">
       <Field label="Card number prefix" error={prefixError ?? undefined} helperText={role ? "New cards for members with this primary role use this prefix and pattern." : "New cards use this prefix and pattern, unless the member's role has its own."}>
@@ -30,6 +31,7 @@ export function NumberingSection({ value, onChange, role }: { value: Numbering; 
           </button>
         ))}
       </div>
+      <p className="text-caption text-ink-muted">{"{UNIT} is the member's unit code and {U1} to {U4} the code at each level, {U1} being the top. A member without one gets NA. The codes are fixed when the number is given, so a later move keeps the number."}</p>
     </div>
   );
 }

@@ -2,9 +2,10 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { staffWithCapability } from "@/lib/team/roles";
 import { absoluteUrl, sendBrandedEmail } from "./message";
 
-export const ERASURE_EVENTS = ["requested", "approved", "rejected"] as const;
+const ERASURE_EVENTS = ["requested", "approved", "rejected"] as const;
 type ErasureEvent = (typeof ERASURE_EVENTS)[number];
 type ErasurePayload = { requestId: string; organisationId: string; event: ErasureEvent };
 
@@ -18,7 +19,7 @@ export function asErasurePayload(value: Prisma.JsonValue): ErasurePayload | null
 }
 
 /**
- * Erasure emails. "requested" tells the organisation's owners and managers (by member number, not name);
+ * Erasure emails. "requested" tells org-wide staff who can decide it (by member number, not name);
  * the decision goes to the account that asked, which is never the erased member record itself.
  */
 export async function deliverErasureNotice(payload: ErasurePayload, messageId: string): Promise<"sent" | "dropped"> {
@@ -31,12 +32,8 @@ export async function deliverErasureNotice(payload: ErasurePayload, messageId: s
 
   if (payload.event === "requested") {
     if (request.status !== "PENDING") return "dropped";
-    const managers = await prisma.teamMember.findMany({
-      where: { organisationId: payload.organisationId, role: { in: ["OWNER", "ADMIN"] }, unitId: null, user: { emailVerified: { not: null } } },
-      select: { user: { select: { email: true } } },
-      take: 20,
-    });
-    const to = managers.map((manager) => manager.user.email).filter((email): email is string => Boolean(email));
+    const managers = await staffWithCapability(prisma, payload.organisationId, "erasure.decide", { orgWide: true, where: { user: { emailVerified: { not: null } } } });
+    const to = managers.slice(0, 20).map((manager) => manager.user.email).filter((email): email is string => Boolean(email));
     if (to.length === 0) return "dropped";
     await sendBrandedEmail({ organisationId: payload.organisationId,
       to: to.join(", "),

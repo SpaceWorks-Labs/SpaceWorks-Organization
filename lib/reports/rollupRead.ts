@@ -6,7 +6,7 @@ import type { Bucket } from "./period";
 import { dateColumn } from "./rollup";
 import type { ReportScope } from "./source";
 
-export type RollupPoint = { key: string; label: string; active: number; grace: number; joined: number; lapsed: number; renewed: number; due: number; applications: number };
+type RollupPoint = { key: string; label: string; active: number; grace: number; expired: number; joined: number; lapsed: number; renewed: number; due: number; applications: number };
 
 /**
  * A trend from OrgDailyStats: stocks read on each bucket's last day, flows summed over its days. Rows are
@@ -24,7 +24,7 @@ export async function rollupTrend(scope: ReportScope, buckets: Bucket[], timezon
   const rows = await prisma.orgDailyStats.groupBy({
     by: ["day"],
     where: { organisationId: scope.organisationId, planId: scope.planId, day: { gte: dateColumn(first), lte: dateColumn(last) }, ...(unitIds ? { unitId: { in: unitIds } } : {}) },
-    _sum: { active: true, grace: true, joined: true, lapsed: true, renewed: true, due: true, applications: true },
+    _sum: { active: true, grace: true, expired: true, joined: true, lapsed: true, renewed: true, due: true, applications: true },
   });
   // Coverage: the rollup must reach back to the trend's first day and be fresh (computed within a day).
   // Days with nothing in them have no rows, so coverage is judged by the oldest day and the latest run.
@@ -37,7 +37,7 @@ export async function rollupTrend(scope: ReportScope, buckets: Bucket[], timezon
   return live.map((bucket) => {
     const start = localDate(bucket.from, timezone);
     const end = localDate(new Date(Math.min(bucket.to.getTime(), now.getTime() + 1) - 1), timezone);
-    const point: RollupPoint = { key: bucket.key, label: bucket.label, active: 0, grace: 0, joined: 0, lapsed: 0, renewed: 0, due: 0, applications: 0 };
+    const point: RollupPoint = { key: bucket.key, label: bucket.label, active: 0, grace: 0, expired: 0, joined: 0, lapsed: 0, renewed: 0, due: 0, applications: 0 };
     for (let day = start, guard = 0; dateColumn(day) <= dateColumn(end) && guard < 400; day = addDays(day, 1), guard += 1) {
       const sum = byDay.get(dateColumn(day).toISOString().slice(0, 10));
       if (!sum) continue;
@@ -50,6 +50,7 @@ export async function rollupTrend(scope: ReportScope, buckets: Bucket[], timezon
     const close = byDay.get(dateColumn(end).toISOString().slice(0, 10));
     point.active = close?.active ?? 0;
     point.grace = close?.grace ?? 0;
+    point.expired = close?.expired ?? 0;
     return point;
   });
 }

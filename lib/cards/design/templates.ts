@@ -1,4 +1,5 @@
-import type { CardSideSettings } from "./elements";
+import { CARD_LINE_HEIGHT, CR80, paperScale, PT_TO_MM, round1, type CardSideSettings } from "./elements";
+import { layoutForPaper } from "./geometry";
 import { DEFAULT_ORDER } from "./layers";
 import { normalizeCardSide, type CardDesignContext } from "./normalize";
 import { defaultCardDesign, type CardDesign, type CardPreset } from "./presets";
@@ -6,7 +7,8 @@ import { defaultCardDesign, type CardDesign, type CardPreset } from "./presets";
 /*
  * Ready-made card designs for the gallery: a preset's layout with its own colours, fonts and layers.
  * Decorative layers go under the built-in items unless they are meant to sit on top. Choosing one
- * keeps the answers a design prints.
+ * keeps the answers a design prints. The two standard formats print everything a member card usually
+ * carries, the member's units included, as a starting point for the organisation's own card.
  */
 
 type Layer = Record<string, unknown> & { id: string; kind: string };
@@ -25,7 +27,37 @@ const goldBorders = (prefix: string, width: number, height: number) => [
   line(`${prefix}bot2`, 0, height - 3.45, width, 0.35, GOLD),
 ];
 
+/**
+ * A standard front: photo, name, role, the member's units ("North · North 1", the `{units}` placeholder),
+ * plan, number, validity and QR. The units line takes the plan's place and everything under it moves
+ * down one line.
+ */
+function standardFront(widthMm: number, heightMm: number): SideLook {
+  const flags = { showLogo: true, showSymbol: false, showPhoto: true, showRole: true, showPlan: true, showIdNumber: true, showValidUntil: true };
+  const layout = layoutForPaper("bold", widthMm, heightMm, flags);
+  const at = layout.elementPositions;
+  const sizePt = layout.elementTextSizes.plan;
+  const lineMm = round1(sizePt * PT_TO_MM * CARD_LINE_HEIGHT.body + paperScale(widthMm, heightMm));
+  const units = text("lstdunits", "{units}", at.plan.xMm, at.plan.yMm, layout.elementSizes.plan, round1(lineMm), { name: "Units", sizePt, bold: true, color: "#142C2A", lineHeight: CARD_LINE_HEIGHT.body });
+  for (const item of ["plan", "idNumber", "validUntil", "details"] as const) at[item] = { ...at[item], yMm: round1(at[item].yMm + lineMm) };
+  return { patch: { ...layout, ...flags }, above: [units] };
+}
+
 const TEMPLATES = {
+  "standard-portrait": {
+    label: "Standard portrait",
+    hint: "Photo, name, role, units, plan, number, validity and QR, portrait",
+    preset: "corporate",
+    front: standardFront(round1(CR80.heightMm), round1(CR80.widthMm)),
+    back: {},
+  },
+  "standard-landscape": {
+    label: "Standard landscape",
+    hint: "Photo, name, role, units, plan, number, validity and QR, landscape",
+    preset: "student",
+    front: standardFront(round1(CR80.widthMm), round1(CR80.heightMm)),
+    back: {},
+  },
   aurora: {
     label: "Aurora",
     hint: "Deep violet with glowing shapes, portrait",

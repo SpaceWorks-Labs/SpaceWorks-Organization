@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Callout, Card, CardHeader } from "@/components/ui/display";
 import type { PaymentStatusName } from "@/lib/payments/labels";
 
-export type MemberPaymentRow = {
+type MemberPaymentRow = {
   id: string;
   status: PaymentStatusName;
   flagged: boolean;

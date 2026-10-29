@@ -3,7 +3,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { deriveStatus, type TermStatus } from "@/lib/membership/lifecycle";
 import { verifyPath } from "./core";
-import { CARD_INCLUDE, cardRoleId, designFor, holderFor, loadCardOrgContext, type CardOrgContext } from "./data";
+import { CARD_INCLUDE, cardRoleId, designFor, holderFor, loadCardOrgContext, loadCardUnits, type CardOrgContext } from "./data";
 import type { CardDesign } from "./design/presets";
 import type { CardBranding, CardHolder } from "./types";
 
@@ -35,7 +35,7 @@ export function cardDownloadPath(cardId: string, format: "pdf" | "png", side: "f
   return `/api/cards/${cardId}?format=${format}${format === "png" && side === "back" ? "&side=back" : ""}`;
 }
 
-/** Live cards for this account, newest first. Members of organisations that are not running are left out. */
+/** Live cards for this account, newest first. Organisations that are not running, or have member accounts off, are left out. */
 export async function listCardsForUser(userId: string, now = new Date()): Promise<WalletCard[]> {
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, emailVerified: true } });
   if (!user) return [];
@@ -43,7 +43,7 @@ export async function listCardsForUser(userId: string, now = new Date()): Promis
   const cards = await prisma.memberCard.findMany({
     where: {
       revokedAt: null,
-      organisation: { status: { in: ["ACTIVE", "SUSPENDED"] } },
+      organisation: { status: { in: ["ACTIVE", "SUSPENDED"] }, memberPortal: true },
       member: { anonymisedAt: null, OR: [{ userId }, ...(email ? [{ email }] : [])] },
     },
     include: CARD_INCLUDE,
@@ -53,7 +53,11 @@ export async function listCardsForUser(userId: string, now = new Date()): Promis
   const contexts = new Map<string, CardOrgContext | null>();
   const out: WalletCard[] = [];
   for (const card of cards) {
-    if (!contexts.has(card.organisationId)) contexts.set(card.organisationId, await loadCardOrgContext(card.organisationId));
+    if (!contexts.has(card.organisationId)) {
+      const loaded = await loadCardOrgContext(card.organisationId);
+      if (loaded) await loadCardUnits(loaded, cards.filter((other) => other.organisationId === card.organisationId));
+      contexts.set(card.organisationId, loaded);
+    }
     const ctx = contexts.get(card.organisationId);
     if (!ctx) continue;
     const { design, branding } = designFor(ctx, card.plan, cardRoleId(card));

@@ -4,11 +4,11 @@
  */
 import { bucketIndex, type Bucket } from "../period";
 import { totals, type CurrencyTotal } from "../money";
-import type { FinancePayment, FinancePlan, FinanceRows, FinanceTaxDocument, PaymentProvider } from "./types";
+import type { FinancePayment, FinancePlan, FinanceRows, PaymentProvider } from "./types";
 
-export type ForecastTerm = { id: string; planId: string; memberId: string; endsAt: Date | null; renewed: boolean; active: boolean; renewedFromId: string | null };
+type ForecastTerm = { id: string; planId: string; memberId: string; endsAt: Date | null; renewed: boolean; active: boolean; renewedFromId: string | null };
 
-export type ForecastWindow = { days: number; terms: number; atStake: CurrencyTotal[]; expected: CurrencyTotal[] };
+type ForecastWindow = { days: number; terms: number; atStake: CurrencyTotal[]; expected: CurrencyTotal[] };
 
 /**
  * Expected renewal revenue in the next 30, 60 and 90 days: active terms ending in that time with nothing
@@ -55,7 +55,7 @@ export function forecastVsActual(terms: ForecastTerm[], plans: FinancePlan[], ro
   return buckets.map((bucket, index) => ({ key: bucket.key, label: bucket.label, due: totals(due[index], (e) => e, primary), actual: totals(actual[index], (e) => e, primary) }));
 }
 
-export type VolumeRow = { currency: string; payments: number; minor: number; organisations: number; byProvider: Record<PaymentProvider, number> };
+type VolumeRow = { currency: string; payments: number; minor: number; organisations: number; byProvider: Record<PaymentProvider, number> };
 
 /** A4: paid payment volume across organisations, per currency (never converted). */
 export function paymentVolume(payments: Array<FinancePayment & { organisationId: string }>, window: { from: Date; to: Date }): VolumeRow[] {
@@ -70,35 +70,4 @@ export function paymentVolume(payments: Array<FinancePayment & { organisationId:
     rows.set(payment.currency, row);
   }
   return [...rows.values()].map(({ orgs, ...row }) => ({ ...row, organisations: orgs.size })).sort((a, b) => b.payments - a.payments || a.currency.localeCompare(b.currency));
-}
-
-export type MemberPaymentEntry = {
-  payment: FinancePayment;
-  documents: FinanceTaxDocument[];
-  refunded: CurrencyTotal[];
-};
-
-/**
- * C3: one member's payments, newest first, each with its receipts or invoices and credit notes, and the
- * member's totals paid per currency (net of processed refunds). The portal (P8) renders this.
- */
-export function memberPayments(rows: FinanceRows, memberId: string, primary?: string): { entries: MemberPaymentEntry[]; paid: CurrencyTotal[]; outstanding: CurrencyTotal[] } {
-  const payments = rows.payments.filter((payment) => payment.memberId === memberId).sort((a, b) => (b.paidAt ?? b.createdAt).getTime() - (a.paidAt ?? a.createdAt).getTime());
-  const ids = new Set(payments.map((payment) => payment.id));
-  const refunds = rows.refunds.filter((refund) => ids.has(refund.paymentId));
-  const refundToPayment = new Map(refunds.map((refund) => [refund.id, refund.paymentId]));
-  const entries = payments.map((payment) => ({
-    payment,
-    documents: rows.documents.filter((doc) => doc.paymentId === payment.id || (doc.refundId && refundToPayment.get(doc.refundId) === payment.id)).sort((a, b) => a.issuedAt.getTime() - b.issuedAt.getTime()),
-    refunded: totals(refunds.filter((refund) => refund.paymentId === payment.id && refund.status === "PROCESSED"), (refund) => ({ currency: refund.currency, minor: refund.amountMinor }), primary),
-  }));
-  const processed = refunds.filter((refund) => refund.status === "PROCESSED").map((refund) => ({ currency: refund.currency, minor: -refund.amountMinor }));
-  return {
-    entries,
-    paid: totals([...payments.filter((payment) => payment.status === "PAID").map((payment) => ({ currency: payment.currency, minor: payment.amountMinor })), ...processed], (entry) => entry, primary),
-    outstanding: totals([
-      ...payments.filter((payment) => payment.status === "PENDING" || payment.status === "AWAITING_CONFIRMATION").map((payment) => ({ currency: payment.currency, minor: payment.amountMinor })),
-      ...rows.unpaidTerms.filter((term) => term.memberId === memberId).map((term) => ({ currency: term.currency, minor: term.amountMinor })),
-    ], (entry) => entry, primary),
-  };
 }

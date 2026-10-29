@@ -3,9 +3,11 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { Prisma, type MemberCard } from "@prisma/client";
 import { recordAuditEvent } from "@/lib/audit";
+import { enqueueOutbox } from "@/lib/outbox";
 import { statusAt, TIMED_STATUSES } from "@/lib/membership/lifecycle";
 import { deriveCardPrefix } from "./core";
-import { DEFAULT_NUMBER_FORMAT, formatCardNumberFrom, formatUsesYear, numberCounterName, yearIn } from "./numbering";
+import { DEFAULT_NUMBER_FORMAT, formatCardNumberFrom, formatUsesUnits, formatUsesYear, numberCounterName, yearIn, type NumberParts } from "./numbering";
+import { pathIds } from "./units";
 
 /*
  * Issuing, reissuing and revoking member cards. Every change locks the member row first, so two
@@ -23,7 +25,7 @@ export class CardError extends Error {
 }
 
 /** The card number pattern has no free number left. Managers see the message; activations log it. */
-export class CardNumberError extends CardError {
+class CardNumberError extends CardError {
   override name = "CardNumberError";
 }
 
@@ -49,6 +51,19 @@ async function bumpCounter(tx: Tx, organisationId: string, name: string) {
 }
 
 /**
+ * The member's unit codes as they are now, for a pattern with {UNIT} or {U1}…{U4}. The number keeps
+ * them: a later move or a renamed code never changes it.
+ */
+async function unitCodesNow(tx: Tx, organisationId: string, memberId: string): Promise<Pick<NumberParts, "unitCode" | "unitCodes">> {
+  const member = await tx.member.findFirst({ where: { id: memberId, organisationId }, select: { unit: { select: { code: true, path: true } } } });
+  if (!member?.unit) return {};
+  const chain = await tx.orgUnit.findMany({ where: { organisationId, id: { in: pathIds(member.unit.path) } }, select: { code: true, level: true } });
+  const unitCodes: string[] = [];
+  for (const unit of chain) unitCodes[unit.level] = unit.code;
+  return { unitCode: member.unit.code, unitCodes };
+}
+
+/**
  * A new card number: the member's primary role design numbers its own cards, else the organisation
  * default does. Numbering is locked per organisation until the transaction ends, so concurrent issues
  * (even under different patterns) queue; a number some card already has (an older pattern, an earlier
@@ -67,8 +82,9 @@ async function nextCardNumber(tx: Tx, organisationId: string, memberId: string, 
   const prefix = scheme?.numberPrefix ?? deriveCardPrefix(org.name);
   const year = yearIn(org.timezone);
   const counter = numberCounterName({ roleId: byRole ? primary!.roleId : null }, formatUsesYear(format) ? year : null);
+  const units = formatUsesUnits(format) ? await unitCodesNow(tx, organisationId, memberId) : {};
   for (let attempt = 0; attempt < 50; attempt += 1) {
-    const number = formatCardNumberFrom(format, { prefix, seq: await bumpCounter(tx, organisationId, counter), memberNumber, year });
+    const number = formatCardNumberFrom(format, { prefix, seq: await bumpCounter(tx, organisationId, counter), memberNumber, year, ...units });
     if (!(await tx.memberCard.findFirst({ where: { organisationId, cardNumber: number }, select: { id: true } }))) return number;
   }
   throw new CardNumberError("No free card number is left in this pattern. Change the card number pattern or its prefix.");
@@ -105,6 +121,17 @@ export async function issueCard(tx: Tx, ref: CardRef, actorUserId: string | null
 }
 
 /**
+ * A card first issued on activation goes to the member by email (rendered when sent; nothing is stored). Only
+ * a new card is sent, so one activation sends at most one; the manual "Email card" cooldown starts now.
+ */
+async function queueCardEmail(tx: Tx, card: MemberCard, now: Date) {
+  const member = await tx.member.findFirst({ where: { id: card.memberId, organisationId: card.organisationId, anonymisedAt: null }, select: { email: true, organisation: { select: { status: true } } } });
+  if (!member?.email || member.organisation.status !== "ACTIVE") return;
+  await tx.memberCard.update({ where: { id: card.id }, data: { lastEmailedAt: now } });
+  await enqueueOutbox(tx, "member-card", { cardId: card.id, organisationId: card.organisationId });
+}
+
+/**
  * Called when a term starts (lib/membership/service.ts activateTerm). A first activation issues the
  * card; renewals keep the card they have. A renewal for someone who never had a card on this plan
  * (members from before cards existed) also gets one, but a card a manager revoked is never brought
@@ -122,7 +149,9 @@ export async function issueCardOnActivation(tx: Tx, term: { id: string; organisa
     fresh = !others.some((other) => TIMED_STATUSES.has(statusAt(other as Parameters<typeof statusAt>[0], now)));
   }
   try {
-    return await issueCard(tx, ref, actorUserId, { fresh });
+    const issued = await issueCard(tx, ref, actorUserId, { fresh });
+    if (issued.created) await queueCardEmail(tx, issued.card, now);
+    return issued;
   } catch (error) {
     // The membership change still goes through: an erased member gets no card, and a pattern with no
     // free number left is logged for the managers to fix.

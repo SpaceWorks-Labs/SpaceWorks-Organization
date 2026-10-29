@@ -68,7 +68,7 @@ export function wrapText(text: string, maxMm: number, measure: (value: string) =
   return lines;
 }
 
-export type TextStyle = { sizePt: number; weight: FontWeight; color: string; trackingEm?: number; lineHeight: number; font?: string };
+type TextStyle = { sizePt: number; weight: FontWeight; color: string; trackingEm?: number; lineHeight: number; font?: string };
 
 /**
  * Lay out a left-, centre- or right-aligned paragraph whose first line box starts at `top`, using CSS

@@ -1,5 +1,4 @@
 import { requireSuperAdmin } from "@/lib/permissions";
-import { TeamRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { DAY_MS, SECURITY_AUDIT_ACTIONS } from "@/lib/superAdminInsights";
 import { auditRowSelect } from "@/components/super-admin/AuditTable";
@@ -11,7 +10,7 @@ export async function loadSuperAdminSecurityView() {
   const now = new Date();
   const actionSince = new Date(now.getTime() - ACTION_WINDOW_DAYS * DAY_MS);
   // Every staff role needs an authenticator before the dashboard opens.
-  const managerWhere = { teamMembers: { some: { role: { in: [TeamRole.OWNER, TeamRole.ADMIN, TeamRole.TREASURER, TeamRole.VIEWER] } } } };
+  const managerWhere = { teamMembers: { some: {} } };
   const [
     users,
     mfaUsers,

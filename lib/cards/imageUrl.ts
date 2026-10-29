@@ -12,9 +12,12 @@ const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12
 const OWNER = "[A-Za-z0-9_-]{1,128}";
 const ORGANISATION_KEY = new RegExp(`^organisations/(${OWNER})/(organisation-logos|member-id-photos|member-id-watermarks|member-id-artwork)/${UUID}\\.webp$`, "i");
 const USER_KEY = new RegExp(`^users/(${OWNER})/profile-images/${UUID}\\.webp$`, "i");
+/** A member's own photo (lib/storage/memberPhotos.ts); older photos still sit under member-id-photos. */
+const MEMBER_PHOTO_KEY = new RegExp(`^organisations/(${OWNER})/members/([A-Za-z0-9_-]{1,64})/photo-${UUID}\\.webp$`, "i");
 
-export type ManagedImageScope =
+type ManagedImageScope =
   | { kind: "organisation"; organisationId: string; category: "organisation-logos" | "member-id-photos" | "member-id-watermarks" | "member-id-artwork" }
+  | { kind: "member"; organisationId: string; memberId: string }
   | { kind: "user"; userId: string };
 
 /** The path of an upload URL. Absolute URLs are reduced to their path: the host is never contacted. */
@@ -39,9 +42,14 @@ export function managedImageKey(value: string | null | undefined, scope?: Manage
   const key = match[1]!;
   if (key.includes("..")) return null;
   const organisation = ORGANISATION_KEY.exec(key);
+  const memberPhoto = MEMBER_PHOTO_KEY.exec(key);
   const user = USER_KEY.exec(key);
-  if (!scope) return organisation || user ? key : null;
+  if (!scope) return organisation || memberPhoto || user ? key : null;
   if (scope.kind === "organisation") return organisation && organisation[1] === scope.organisationId && organisation[2] === scope.category ? key : null;
+  if (scope.kind === "member") {
+    if (memberPhoto) return memberPhoto[1] === scope.organisationId && memberPhoto[2] === scope.memberId ? key : null;
+    return organisation && organisation[1] === scope.organisationId && organisation[2] === "member-id-photos" ? key : null;
+  }
   return user && user[1] === scope.userId ? key : null;
 }
 
@@ -52,7 +60,7 @@ export function managedImageUrl(value: string | null | undefined, scope?: Manage
 }
 
 /** A member's photo: one uploaded for them by the organisation, else their own account picture. */
-export function memberPhotoUrl(member: { organisationId: string; photoUrl: string | null; user?: { id: string; profileImageUrl: string | null } | null }) {
-  return managedImageUrl(member.photoUrl, { kind: "organisation", organisationId: member.organisationId, category: "member-id-photos" })
+export function memberPhotoUrl(member: { id: string; organisationId: string; photoUrl: string | null; user?: { id: string; profileImageUrl: string | null } | null }) {
+  return managedImageUrl(member.photoUrl, { kind: "member", organisationId: member.organisationId, memberId: member.id })
     ?? (member.user ? managedImageUrl(member.user.profileImageUrl, { kind: "user", userId: member.user.id }) : null);
 }

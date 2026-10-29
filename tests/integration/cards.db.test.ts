@@ -10,10 +10,7 @@ import { lookupVerification } from "@/lib/cards/verifyLookup";
 import { loadCardForRender } from "@/lib/cards/data";
 import { renderMemberCard } from "@/lib/cards/render";
 import { listCardsForUser } from "@/lib/cards/wallet";
-import { runCardExportJobs } from "@/lib/cards/exportJobs";
-import { downloadPrivateExport } from "@/lib/storage/private";
 import { deliverMemberCard } from "@/lib/email/memberCard";
-import { readZip } from "@/lib/cards/zip";
 
 const suffix = randomUUID().replace(/-/g, "").slice(0, 10);
 let org: { id: string; timezone: string; financialYearStartMonth: number };
@@ -101,28 +98,6 @@ describe.sequential("member cards", () => {
     const card = await prisma.memberCard.findFirstOrThrow({ where: { memberId, revokedAt: null } });
     expect(await deliverMemberCard({ cardId: card.id, organisationId: org.id }, "<test@outbox.invalid>")).toBe("sent");
     expect(await deliverMemberCard({ cardId: card.id, organisationId: "another-org" }, "<test@outbox.invalid>")).toBe("dropped");
-  });
-
-  it("builds a bulk export in the background and stores it privately", async () => {
-    const owner = await prisma.user.findFirstOrThrow({ where: { email: `owner-${suffix}@example.test` } });
-    await join(`second-${suffix}@example.test`, "Abhiram NJ").then(({ term }) => prisma.$transaction((tx) => decideTerm(tx, { org, termId: term.id, action: "approve", actorUserId: owner.id })));
-    const job = await prisma.cardExportJob.create({ data: { organisationId: org.id, requestedById: null, format: "zip", filter: { status: "all", planId: plan.id } } });
-    // Other suites' jobs may wait in the shared queue; run until this one is done.
-    for (let pass = 0; pass < 5; pass += 1) {
-      await runCardExportJobs(5);
-      if ((await prisma.cardExportJob.findUniqueOrThrow({ where: { id: job.id } })).status !== "PENDING") break;
-    }
-    const done = await prisma.cardExportJob.findUniqueOrThrow({ where: { id: job.id } });
-    expect(done).toMatchObject({ status: "DONE", cardCount: 2 });
-    const file = await downloadPrivateExport(done.storageKey!);
-    expect(file?.contentType).toBe("application/zip");
-    expect(readZip(Buffer.from(file!.body)).map((entry) => entry.name)).toHaveLength(2);
-  });
-
-  it("fails an export that keeps crashing its worker instead of reclaiming it again", async () => {
-    const stuck = await prisma.cardExportJob.create({ data: { organisationId: org.id, format: "sheet", filter: {}, status: "PROCESSING", attempts: 3, lockedAt: new Date(Date.now() - 60 * 60_000) } });
-    await runCardExportJobs(0);
-    expect(await prisma.cardExportJob.findUniqueOrThrow({ where: { id: stuck.id } })).toMatchObject({ status: "FAILED" });
   });
 
   it("reissue replaces the old QR; revoke turns the new one off", async () => {

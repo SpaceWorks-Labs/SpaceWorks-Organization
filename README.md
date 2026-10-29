@@ -174,7 +174,7 @@ again later to update, back up or roll back. Details, requirements and options f
 
 Everything runs through Docker Compose: **PostgreSQL 16, Redis 7 and Silo object storage** (the maintained,
 S3-compatible fork of the archived MinIO), each speaking TLS signed by the install's own private CA, plus the
-**migrations, the app, the scheduler, scheduled backups and the Caddy web edge**. Every application process
+**migrations, the app, the background worker and beat, scheduled backups and the Caddy web edge**. Every application process
 runs from one published image, `ghcr.io/spaceworks-labs/spaceworks-organization-backend`, in a different role.
 
 **Before you start, you need:**
@@ -257,7 +257,7 @@ bash "$SWO_DIR/scripts/update.sh" --force --version <that release>
 ```bash
 bash scripts/update.sh --force
 # Or deploy an exact published main release:
-bash scripts/update.sh --force --version 0.7.0-main.42.a1b2c3d4e5f6
+bash scripts/update.sh --force --version 0.8.0-main.42.a1b2c3d4e5f6
 # Return to the release that ran before the last update:
 bash scripts/update.sh --rollback
 ```
@@ -276,7 +276,7 @@ its label to a `pull_request` workflow, and keep runner auto-updates on. See [do
 
 ## Cloud mode
 
-Run the app and scheduler on any Docker host with managed PostgreSQL, Redis (TLS), S3/R2 and SMTP:
+Run the app, worker and beat on any Docker host with managed PostgreSQL, Redis (TLS), S3/R2 and SMTP:
 
 ```bash
 sudo install -D -m 600 .env.production.example /etc/spaceworks-organization/cloud.env   # then fill it in

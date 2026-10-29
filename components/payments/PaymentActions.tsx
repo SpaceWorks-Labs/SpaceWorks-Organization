@@ -22,6 +22,8 @@ type Props = {
   refundableMinor: number;
   refundable: string;
   blockedConfirm: string | null;
+  /** The member said they'd paid, so turning it down emails them. */
+  memberClaim: boolean;
   /** The membership this paid for is still running, so a refund may end it. */
   canEndMembership: boolean;
 };
@@ -76,8 +78,8 @@ export function PaymentActions(props: Props) {
         {props.blockedConfirm && awaiting ? <p className="text-caption text-ink-muted">{props.blockedConfirm}</p> : null}
       </div>
 
-      <ConfirmDialog open={open === "reject"} title="Mark as not received?" message="The member is emailed and can submit a corrected reference." confirmLabel="Mark not received" loading={busy} onCancel={() => setOpen(null)} onConfirm={() => run(() => rejectPayment({ ...ref, reason }), "Marked as not received.")}>
-        <Field label="Reason" helperText="Shown to the member."><Textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} maxLength={300} /></Field>
+      <ConfirmDialog open={open === "reject"} title="Mark as not received?" message={props.memberClaim ? "The member is emailed and can submit a corrected reference." : "The payment is closed. The member isn't emailed."} confirmLabel="Mark not received" loading={busy} onCancel={() => setOpen(null)} onConfirm={() => run(() => rejectPayment({ ...ref, reason }), "Marked as not received.")}>
+        <Field label="Reason" helperText={props.memberClaim ? "Shown to the member." : "Kept with the payment."}><Textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} maxLength={300} /></Field>
       </ConfirmDialog>
       <ConfirmDialog open={open === "cancel"} title="Cancel this payment attempt?" message="Only an unfinished attempt is cancelled. A capture that still arrives later is receipted and flagged." confirmLabel="Cancel attempt" loading={busy} onCancel={() => setOpen(null)} onConfirm={() => run(() => cancelOpenPayment(ref), "Attempt cancelled.")} />
       <ConfirmDialog open={open === "release"} title="Issue the receipt on the amount received?" message="The receipt's lines are shared out across the amount actually received." confirmLabel="Issue receipt" destructive={false} loading={busy} onCancel={() => setOpen(null)} onConfirm={() => run(() => releaseDocument(ref), "Receipt issued.")} />

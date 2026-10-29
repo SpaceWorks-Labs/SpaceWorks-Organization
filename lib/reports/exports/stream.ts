@@ -3,13 +3,13 @@ import "server-only";
 import { recordAuditEvent } from "@/lib/audit";
 import { toCsvRow } from "@/lib/csv";
 
-export type ExportRows = AsyncIterable<unknown[]> | Iterable<unknown[]>;
+type ExportRows = AsyncIterable<unknown[]> | Iterable<unknown[]>;
 
-export type AuditedExport = {
+type AuditedExport = {
   header: string[];
   rows: ExportRows;
   filename: string;
-  audit: { action: "REPORT_EXPORTED" | "FINANCE_REPORT_EXPORTED"; actorUserId: string; organisationId: string | null; report: string; filters: Record<string, string | number | boolean | null> };
+  audit: { action: "REPORT_EXPORTED" | "FINANCE_REPORT_EXPORTED" | "PLATFORM_REPORT_EXPORTED"; actorUserId: string; organisationId: string | null; report: string; filters: Record<string, string | number | boolean | null> };
 };
 
 /**

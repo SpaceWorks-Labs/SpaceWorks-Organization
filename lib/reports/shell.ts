@@ -28,6 +28,7 @@ export function reportShell(ctx: ReportContext, tab: string) {
     tabs: {
       finance: ctx.can("reports.finance"),
       activity: ctx.can("audit.view"),
+      units: ctx.allUnits.length > 0,
       financeReady: FINANCE_TABLES_READY,
     },
     canExport: ctx.can("reports.membership"),
@@ -38,7 +39,7 @@ export function reportShell(ctx: ReportContext, tab: string) {
 
 export type ReportShell = ReturnType<typeof reportShell>;
 
-export function periodInfo(period: ReportPeriod) {
+function periodInfo(period: ReportPeriod) {
   return { label: period.label, preset: period.preset, firstDay: dayKey(period.firstDay), lastDay: dayKey(period.lastDay) };
 }
 

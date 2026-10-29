@@ -51,33 +51,6 @@ export function CheckboxField({
   );
 }
 
-/** Option with a description, selected with a 1.5px ink border (API scopes, audience pickers). */
-export function CheckboxCard({
-  label,
-  description,
-  className,
-  id,
-  ...props
-}: ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root> & { label: ReactNode; description?: ReactNode }) {
-  const generatedId = useId();
-  const controlId = id ?? generatedId;
-  return (
-    <label
-      htmlFor={controlId}
-      className={cn(
-        "flex cursor-pointer items-start gap-3 rounded-lg border border-line bg-panel p-4 transition-colors duration-[120ms] ease-sw hover:bg-subtle has-[[data-state=checked]]:border-[1.5px] has-[[data-state=checked]]:border-primary has-[:disabled]:cursor-not-allowed has-[:disabled]:bg-surface",
-        className,
-      )}
-    >
-      <Checkbox id={controlId} className="mt-0.5" {...props} />
-      <span className="min-w-0">
-        <span className="block text-label text-ink">{label}</span>
-        {description ? <span className="block text-caption text-ink-muted">{description}</span> : null}
-      </span>
-    </label>
-  );
-}
-
 /* ---------- Radio ---------- */
 
 export const RadioGroup = forwardRef<ElementRef<typeof RadioGroupPrimitive.Root>, ComponentPropsWithoutRef<typeof RadioGroupPrimitive.Root>>(function RadioGroup(
@@ -224,26 +197,3 @@ export function SegmentedControl<T extends string>({
     </ToggleGroupPrimitive.Root>
   );
 }
-
-/* ---------- Filter chip ---------- */
-
-export const FilterChip = forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement> & { selected: boolean }>(function FilterChip(
-  { selected, className, children, type, ...props },
-  ref,
-) {
-  return (
-    <button
-      ref={ref}
-      type={type ?? "button"}
-      aria-pressed={selected}
-      className={cn(
-        "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm font-semibold transition-colors duration-[180ms] ease-sw [&_svg]:size-4",
-        selected ? "border-[1.5px] border-primary bg-primary text-on-primary" : "border-line-strong bg-panel text-ink-secondary hover:bg-subtle hover:text-ink",
-        className,
-      )}
-      {...props}
-    >
-      {children}
-    </button>
-  );
-});

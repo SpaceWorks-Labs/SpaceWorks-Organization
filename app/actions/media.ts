@@ -1,9 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/db";
-import { can, getMembership, hasAuthenticator, organisationAllows, STAFF_AUTHENTICATOR_MESSAGE } from "@/lib/permissions";
-import { ORGANISATION_LOCKED } from "@/lib/organisationLifecycle";
+import { orgActionAccess } from "@/lib/permissions";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { createSafeWebpDerivative } from "@/lib/imageValidation";
 import { getPublicUrl, uploadFile } from "@/lib/storage";
@@ -29,23 +27,12 @@ async function imageFile(formData: FormData) {
 export async function uploadOrganisationLogo(
   formData: FormData,
 ): Promise<ActionResult<{ url: string }>> {
-  const session = await auth();
-  if (!session?.user?.id) return { ok: false, error: "You must be signed in." };
-  if (await isActionRateLimited("upload", session.user.id))
+  // `org.settings` is org-wide to change: staff limited to one unit can't change the logo.
+  const access = await orgActionAccess(String(formData.get("organisationSlug") ?? "").trim(), "org.settings");
+  if (!access.ok) return access;
+  if (await isActionRateLimited("upload", access.userId))
     return { ok: false, error: "Too many uploads. Please try again later." };
-  const slug = String(formData.get("organisationSlug") ?? "").trim();
-  const org = slug
-    ? await prisma.organisation.findUnique({
-        where: { slug },
-        select: { id: true, slug: true, status: true },
-      })
-    : null;
-  if (!org) return { ok: false, error: "Organisation not found." };
-  if (!organisationAllows(org.status, "org.settings")) return { ok: false, error: ORGANISATION_LOCKED };
-  const membership = await getMembership(session.user.id, org.id);
-  if (!membership || !can(membership.role, "org.settings"))
-    return { ok: false, error: "Only organisation owners and managers can upload logos." };
-  if (!(await hasAuthenticator(session.user.id))) return { ok: false, error: STAFF_AUTHENTICATOR_MESSAGE };
+  const org = access.organisation;
   const derivative = await imageFile(formData);
   if ("error" in derivative) return { ok: false, error: derivative.error };
   try {
@@ -58,7 +45,7 @@ export async function uploadOrganisationLogo(
     });
     await recordAuditEvent({
       action: "ORGANISATION_LOGO_UPLOADED",
-      actorUserId: session.user.id,
+      actorUserId: access.userId,
       organisationId: org.id,
       targetType: "Organisation",
       targetId: org.id,

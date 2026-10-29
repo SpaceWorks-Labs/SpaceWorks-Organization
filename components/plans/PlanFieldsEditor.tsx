@@ -10,7 +10,7 @@ import { Callout, EmptyState } from "@/components/ui/display";
 import { Dropdown, Field, Input } from "@/components/ui/field";
 
 type FieldType = "TEXT" | "LONG_TEXT" | "SELECT" | "DATE" | "EMAIL" | "PHONE" | "NUMBER" | "CHECKBOX";
-export type QuestionValue = { key: string; label: string; helpText: string; type: FieldType; required: boolean; options: string[]; adminOnly: boolean };
+type QuestionValue = { key: string; label: string; helpText: string; type: FieldType; required: boolean; options: string[]; adminOnly: boolean };
 
 const TYPES: Array<[FieldType, string]> = [
   ["TEXT", "Short answer"], ["LONG_TEXT", "Paragraph"], ["SELECT", "Choose one"], ["DATE", "Date"],

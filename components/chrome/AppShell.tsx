@@ -8,13 +8,14 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { ArrowUpRight, ChevronsUpDown, Home, LogOut, Menu as MenuIcon, Moon, Plus, Sun, UserRound, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { ShellOrganisation, ShellUser } from "@/lib/appShell";
-import { can, organisationAllows, ROLE_LABELS, type Capability } from "@/lib/permissionRoles";
+import { organisationAllows, type Capability } from "@/lib/permissionRoles";
 import { SpaceWorksProductLogo } from "@/components/brand/SpaceWorksLogo";
 import { useAppColorMode } from "@/components/providers";
 import { Avatar, OrgLogo } from "@/components/ui/display";
 import { IconButton } from "@/components/ui/button";
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { BrandHomeLink } from "./SiteHeader";
+import { PlatformOrganisationProvider, usePlatformOrganisation } from "./PlatformOrganisation";
 
 /** Organisation navigation, in order. Each entry shows only when the role has the capability. */
 const ORG_NAV: Array<{ path: string; label: string; capability: Capability; exact?: boolean }> = [
@@ -25,7 +26,15 @@ const ORG_NAV: Array<{ path: string; label: string; capability: Capability; exac
   { path: "/accounts", label: "Accounts", capability: "payments.view" },
   { path: "/reports", label: "Reports", capability: "reports.membership" },
   { path: "/team", label: "Team", capability: "org.view" },
-  { path: "/settings", label: "Settings", capability: "org.settings" },
+];
+
+/** Settings opens on the first section the person's role reaches; custom roles may hold only some of them. */
+const SETTINGS_ENTRY: Array<{ path: string; capability: Capability }> = [
+  { path: "/settings", capability: "org.settings" },
+  { path: "/settings/structure", capability: "structure.manage" },
+  { path: "/settings/roles", capability: "roles.manage" },
+  { path: "/settings/cards", capability: "cards.design" },
+  { path: "/settings/payments", capability: "payments.settings" },
 ];
 
 function NavItem({ href, children, active, onNavigate, badge }: { href: string; children: string; active: boolean; onNavigate?: () => void; badge?: ReactNode }) {
@@ -105,7 +114,7 @@ function OrganisationSwitcher({ current, organisations, onNavigate }: { current:
           <OrgLogo name={current.name} src={current.logoUrl} size="md" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[15px] font-semibold text-ink">{current.name}</span>
-            <span className="block text-caption text-ink-muted">{ROLE_LABELS[current.role]}</span>
+            <span className="block text-caption text-ink-muted">{current.roleName}</span>
           </span>
           <ChevronsUpDown aria-hidden className="mt-1 size-4 shrink-0 text-ink-muted" />
           <span className="sr-only">Switch organisation</span>
@@ -135,7 +144,10 @@ function OrganisationSwitcher({ current, organisations, onNavigate }: { current:
   );
 }
 
-function SidebarContents({ user, organisations, onNavigate }: { user: ShellUser; organisations: ShellOrganisation[]; onNavigate?: () => void }) {
+function SidebarContents({ user, organisations: teams, onNavigate }: { user: ShellUser; organisations: ShellOrganisation[]; onNavigate?: () => void }) {
+  // A super admin inside an organisation they aren't on the team of (platform access) sees it here too.
+  const platform = usePlatformOrganisation();
+  const organisations = platform && !teams.some((organisation) => organisation.slug === platform.slug) ? [...teams, platform] : teams;
   const pathname = usePathname() ?? "";
   const slug = currentOrganisationSlug(pathname);
   const current = slug ? organisations.find((organisation) => organisation.slug === slug) ?? null : null;
@@ -152,7 +164,7 @@ function SidebarContents({ user, organisations, onNavigate }: { user: ShellUser;
         <>
           <OrganisationSwitcher current={current} organisations={organisations} onNavigate={onNavigate} />
           <nav aria-label="Organisation" className="flex flex-col gap-1">
-            {ORG_NAV.filter((item) => organisationAllows(current.status, item.capability) && can(current.role, item.capability)).map((item) => {
+            {ORG_NAV.filter((item) => organisationAllows(current.status, item.capability) && current.capabilities.includes(item.capability)).map((item) => {
               const href = `${base}${item.path}`;
               const isActive = item.exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
               return (
@@ -161,6 +173,14 @@ function SidebarContents({ user, organisations, onNavigate }: { user: ShellUser;
                 </NavItem>
               );
             })}
+            {(() => {
+              const entry = SETTINGS_ENTRY.find((item) => organisationAllows(current.status, item.capability) && current.capabilities.includes(item.capability));
+              return entry ? (
+                <NavItem href={`${base}${entry.path}`} active={pathname.startsWith(`${base}/settings`)} onNavigate={onNavigate}>
+                  Settings
+                </NavItem>
+              ) : null;
+            })()}
             {active ? null : (
               // Under review, declined, suspended or archived: the status page explains what is open.
               <NavItem href={`${base}/application`} active={pathname.startsWith(`${base}/application`)} onNavigate={onNavigate}>
@@ -212,40 +232,42 @@ function SidebarContents({ user, organisations, onNavigate }: { user: ShellUser;
 export function AppShell({ user, organisations, children }: { user: ShellUser; organisations: ShellOrganisation[]; children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   return (
-    <div className="flex min-h-dvh flex-col lg:flex-row">
-      <aside className="sticky top-0 hidden h-dvh w-[256px] shrink-0 overflow-y-auto overflow-x-hidden border-r border-line bg-sidebar lg:block">
-        <SidebarContents user={user} organisations={organisations} />
-      </aside>
+    <PlatformOrganisationProvider>
+      <div className="flex min-h-dvh flex-col lg:flex-row">
+        <aside className="sticky top-0 hidden h-dvh w-[256px] shrink-0 overflow-y-auto overflow-x-hidden border-r border-line bg-sidebar lg:block">
+          <SidebarContents user={user} organisations={organisations} />
+        </aside>
 
-      <div className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-line bg-canvas px-4 lg:hidden">
-        <Link href="/dashboard" aria-label="Space Works Organization home" className="inline-flex shrink-0 items-center rounded-md">
-          <SpaceWorksProductLogo height={30} label={null} />
-        </Link>
-        <DialogPrimitive.Root open={menuOpen} onOpenChange={setMenuOpen}>
-          <DialogPrimitive.Trigger asChild>
-            <IconButton label="Open navigation menu">
-              <MenuIcon />
-            </IconButton>
-          </DialogPrimitive.Trigger>
-          <DialogPrimitive.Portal>
-            <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[rgb(var(--sw-color-ink)/0.48)] dark:bg-[rgb(0_0_0/0.48)]" />
-            <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 w-[min(280px,86vw)] overflow-y-auto border-r border-line bg-sidebar shadow-float focus:outline-none">
-              <DialogPrimitive.Title className="sr-only">Navigation</DialogPrimitive.Title>
-              <DialogPrimitive.Description className="sr-only">Dashboard navigation</DialogPrimitive.Description>
-              <DialogPrimitive.Close asChild>
-                <IconButton label="Close navigation menu" size="sm" className="absolute right-3 top-3 z-10">
-                  <X />
-                </IconButton>
-              </DialogPrimitive.Close>
-              <SidebarContents user={user} organisations={organisations} onNavigate={() => setMenuOpen(false)} />
-            </DialogPrimitive.Content>
-          </DialogPrimitive.Portal>
-        </DialogPrimitive.Root>
+        <div className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-line bg-canvas px-4 lg:hidden">
+          <Link href="/dashboard" aria-label="Space Works Organization home" className="inline-flex shrink-0 items-center rounded-md">
+            <SpaceWorksProductLogo height={30} label={null} />
+          </Link>
+          <DialogPrimitive.Root open={menuOpen} onOpenChange={setMenuOpen}>
+            <DialogPrimitive.Trigger asChild>
+              <IconButton label="Open navigation menu">
+                <MenuIcon />
+              </IconButton>
+            </DialogPrimitive.Trigger>
+            <DialogPrimitive.Portal>
+              <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[rgb(var(--sw-color-ink)/0.48)] dark:bg-[rgb(0_0_0/0.48)]" />
+              <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 w-[min(280px,86vw)] overflow-y-auto border-r border-line bg-sidebar shadow-float focus:outline-none">
+                <DialogPrimitive.Title className="sr-only">Navigation</DialogPrimitive.Title>
+                <DialogPrimitive.Description className="sr-only">Dashboard navigation</DialogPrimitive.Description>
+                <DialogPrimitive.Close asChild>
+                  <IconButton label="Close navigation menu" size="sm" className="absolute right-3 top-3 z-10">
+                    <X />
+                  </IconButton>
+                </DialogPrimitive.Close>
+                <SidebarContents user={user} organisations={organisations} onNavigate={() => setMenuOpen(false)} />
+              </DialogPrimitive.Content>
+            </DialogPrimitive.Portal>
+          </DialogPrimitive.Root>
+        </div>
+
+        <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 px-4 py-6 focus:outline-none sm:px-6 lg:px-9 lg:py-9">
+          <div className="mx-auto w-full max-w-[1120px]">{children}</div>
+        </main>
       </div>
-
-      <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 px-4 py-6 focus:outline-none sm:px-6 lg:px-9 lg:py-9">
-        <div className="mx-auto w-full max-w-[1120px]">{children}</div>
-      </main>
-    </div>
+    </PlatformOrganisationProvider>
   );
 }

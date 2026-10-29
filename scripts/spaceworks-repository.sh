@@ -32,8 +32,14 @@ configure_release_repository() {
   export SWO_REPOSITORY
 }
 
-# The bundled services that serve requests, as this installation runs them.
+# The bundled services that serve requests, as this installation's compose file defines them
+# (a rollback can restore a release before 0.8, which ran a scheduler instead of worker and beat).
 serving_services() {
-  SERVING_SERVICES=(backend scheduler)
+  local defined service
+  defined="$("${COMPOSE[@]}" config --services 2>/dev/null || true)"
+  SERVING_SERVICES=(backend)
+  for service in worker beat scheduler; do
+    grep -qx "$service" <<< "$defined" && SERVING_SERVICES+=("$service")
+  done
   [[ "$(repository_env_value SWO_LAYER)" == proxy ]] || SERVING_SERVICES+=(caddy)
 }

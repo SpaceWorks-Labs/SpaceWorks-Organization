@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { buildDigest, queueMonthlyDigests } from "@/lib/reports/digest";
+import { addStaff } from "../helpers/staff";
 
 const suffix = randomUUID().slice(0, 8);
 let orgId = "";
@@ -13,7 +14,7 @@ beforeAll(async () => {
   for (const [role, digest] of [["OWNER", true], ["TREASURER", false], ["VIEWER", true]] as const) {
     const user = await prisma.user.create({ data: { email: `${role.toLowerCase()}-${suffix}@example.test`, name: `${role} Person`, emailVerified: new Date() } });
     users.push(user.id);
-    await prisma.teamMember.create({ data: { userId: user.id, organisationId: org.id, role, reportDigest: digest } });
+    await prisma.teamMember.update({ where: { id: (await addStaff(org.id, user.id, role)).id }, data: { reportDigest: digest } });
   }
 });
 

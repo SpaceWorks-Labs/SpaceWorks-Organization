@@ -1,21 +1,36 @@
-import type { OrganisationStatus, TeamMember, TeamRole } from "@prisma/client";
+import type { OrganisationStatus, OrgRole, TeamMember } from "@prisma/client";
 import { notFound, redirect } from "next/navigation";
-import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { recordAuditEvent, recordThrottledAuditEvent } from "@/lib/audit";
 import type { Session } from "next-auth";
+import { can, organisationAllows, STAFF_AUTHENTICATOR_MESSAGE, STAFF_AUTHENTICATOR_SETUP, type Capability } from "./permissionRoles";
 
+/**
+ * A team member with the role they hold: what every permission check reads. `superAdmin` marks platform access: a
+ * super admin who isn't on this organisation's team, standing in as its owner (no team row behind it).
+ */
+export type StaffMembership = TeamMember & { orgRole: OrgRole; superAdmin?: true };
 
-
-export async function getMembership(
-  userId: string,
-  organisationId: string,
-): Promise<TeamMember | null> {
-  return prisma.teamMember.findUnique({
-    where: {
-      userId_organisationId: { userId, organisationId },
-    },
+export async function getMembership(userId: string, organisationId: string): Promise<StaffMembership | null> {
+  const membership = await prisma.teamMember.findUnique({
+    where: { userId_organisationId: { userId, organisationId } },
+    include: { orgRole: true },
   });
+  return membership ?? platformAccess(userId, organisationId);
+}
+
+/**
+ * Owner decision (2026-10-29): platform super admins have full owner-level access to every organisation, with no
+ * session or time limit. They still need an authenticator like all staff, and everything they do is audited and
+ * shown on the organisation's audit log. They are never on the team: not listed, not counted, not emailed.
+ */
+async function platformAccess(userId: string, organisationId: string): Promise<StaffMembership | null> {
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { isSuperAdmin: true, emailVerified: true } });
+  if (!user?.isSuperAdmin || !user.emailVerified) return null;
+  const orgRole = await prisma.orgRole.findFirst({ where: { organisationId, isOwner: true } });
+  if (!orgRole) return null;
+  return { id: `platform:${userId}`, userId, organisationId, role: "OWNER", roleId: orgRole.id, unitId: null, reportDigest: false, createdAt: new Date(0), orgRole, superAdmin: true };
 }
 
 /** Read from the database for mutation gates; session JWTs can be stale. */
@@ -57,13 +72,13 @@ export async function requireSuperAdmin(): Promise<
 
 export type OrgAccessContext = {
   organisation: { id: string; slug: string; name: string; status: OrganisationStatus; };
-  membership: TeamMember;
+  membership: StaffMembership;
   userId: string;
 };
 
 /**
  * Team access to an organisation, whatever its status. Use only for the application page and other
- * screens that must work before approval; everything else goes through requireOrgRole/Capability.
+ * screens that must work before approval; everything else goes through requireOrgCapability.
  */
 export async function requireOrgTeam(orgSlug: string): Promise<OrgAccessContext> {
   const session = await requireAuth();
@@ -72,6 +87,10 @@ export async function requireOrgTeam(orgSlug: string): Promise<OrgAccessContext>
   const membership = await getMembership(session.user.id, org.id);
   if (!membership) redirect("/dashboard");
   if (!(await hasAuthenticator(session.user.id))) redirect(STAFF_AUTHENTICATOR_SETUP);
+  if (membership.superAdmin) {
+    // Platform access into an organisation is recorded (once per half hour per organisation, like SUPER_ADMIN_ORG_VIEWED).
+    await recordThrottledAuditEvent({ action: "SUPER_ADMIN_ORG_ENTERED", actorUserId: session.user.id, organisationId: org.id, targetType: "Organisation", targetId: org.id, windowMs: 30 * 60_000 }).catch(() => undefined);
+  }
   return { organisation: org, membership, userId: session.user.id };
 }
 
@@ -81,43 +100,22 @@ export async function hasAuthenticator(userId: string) {
   return Boolean(user?.mfaEnabledAt);
 }
 
-/** Team access with a minimum role. Organisations that are not active are sent to their application page. */
-export async function requireOrgRole(
-  orgSlug: string,
-  minRole: TeamRole,
-): Promise<OrgAccessContext> {
-  const access = await requireOrgTeam(orgSlug);
-  if (access.organisation.status !== "ACTIVE") redirect(`/dashboard/${orgSlug}/application`);
-  if (!hasRoleAtLeast(access.membership.role, minRole)) redirect(`/dashboard/${orgSlug}`);
-  return access;
-}
-
-export async function requireOrgMembership(
-  orgSlug: string,
-): Promise<OrgAccessContext> {
-  return requireOrgRole(orgSlug, "VIEWER");
-}
-
-/** Any team member may open the organisation dashboard; what they see is gated by capability. */
-export async function requireOrgDashboardAccess(orgSlug: string): Promise<OrgAccessContext> {
-  return requireOrgMembership(orgSlug);
-}
-
-/** Team access for one capability, honouring the organisation's status (suspended keeps finance). */
+/** Team access for one permission, to read, honouring the organisation's status (suspended keeps finance). */
 export async function requireOrgCapability(orgSlug: string, capability: Capability): Promise<OrgAccessContext> {
   const access = await requireOrgTeam(orgSlug);
   if (!organisationAllows(access.organisation.status, capability)) redirect(`/dashboard/${orgSlug}/application`);
-  if (!can(access.membership.role, capability)) redirect(`/dashboard/${orgSlug}`);
+  if (!can(access.membership, capability)) redirect(`/dashboard/${orgSlug}`);
   return access;
 }
 
 export type OrgActionAccess =
-  | { ok: true; organisation: OrgAccessContext["organisation"]; membership: TeamMember; userId: string }
+  | { ok: true; organisation: OrgAccessContext["organisation"]; membership: StaffMembership; userId: string }
   | { ok: false; error: string };
 
 /**
- * The server-action counterpart of requireOrgCapability: returns an error instead of redirecting, so
- * every action applies the same tenant, status and role checks before touching data.
+ * The server-action counterpart of requireOrgCapability: returns an error instead of redirecting, so every action
+ * applies the same tenant, status and permission checks before touching data. Actions change things, so someone
+ * holding their role for one unit is refused the org-wide-to-change permissions here.
  */
 export async function orgActionAccess(orgSlug: unknown, capability: Capability): Promise<OrgActionAccess> {
   const session = await auth();
@@ -130,11 +128,14 @@ export async function orgActionAccess(orgSlug: unknown, capability: Capability):
   if (!organisationAllows(org.status, capability)) {
     return { ok: false, error: org.status === "SUSPENDED" ? "This organisation is suspended, so this can't be changed right now." : "This organisation isn't approved yet." };
   }
-  if (!can(membership.role, capability)) return { ok: false, error: "Your role doesn't allow this." };
+  if (!can(membership, capability, { write: true })) {
+    return { ok: false, error: membership.unitId && can(membership, capability) ? "Only staff for the whole organisation can change this." : "Your role doesn't allow this." };
+  }
   if (!(await hasAuthenticator(session.user.id))) return { ok: false, error: STAFF_AUTHENTICATOR_MESSAGE };
+  if (membership.superAdmin) {
+    await recordAuditEvent({ action: "SUPER_ADMIN_ORG_ACTION", actorUserId: session.user.id, organisationId: org.id, targetType: "Organisation", targetId: org.id, metadata: { capability } });
+  }
   return { ok: true, organisation: org, membership, userId: session.user.id };
 }
 
-export { can, hasRoleAtLeast, isOrgAdmin, canManageTeam, canManageTeamMember, canDeleteOrg, organisationAllows, STAFF_AUTHENTICATOR_MESSAGE, STAFF_AUTHENTICATOR_SETUP } from "@/lib/permissionRoles";
-
-import { can, hasRoleAtLeast, organisationAllows, STAFF_AUTHENTICATOR_MESSAGE, STAFF_AUTHENTICATOR_SETUP, type Capability } from "./permissionRoles";
+export { can, organisationAllows, STAFF_AUTHENTICATOR_MESSAGE, STAFF_AUTHENTICATOR_SETUP } from "@/lib/permissionRoles";

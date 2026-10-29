@@ -70,8 +70,8 @@ envVarGroups:
         sync: false
       - key: S3_FORCE_PATH_STYLE
         value: "1"
-      - key: SCHEDULER_MODE
-        value: external
+      - key: JOBS_QUEUE_PREFIX
+        value: "swo:jobs"
 
 services:
   - type: web
@@ -86,16 +86,25 @@ services:
       - key: MIGRATE_ON_START
         value: "1"
 
-  # The scheduler: one pass a minute against the web service's internal endpoint.
+  # BullMQ worker: outbox delivery and every job in lib/queue/registry.ts.
+  # Render background workers need a paid plan; see docs/DEPLOYMENT_CLOUD.md for the cron fallback.
   - type: worker
-    name: sworg-scheduler
+    name: sworg-worker
     runtime: docker
     plan: starter
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    dockerCommand: --role scheduler node docker/ops/scheduler.mjs
+    dockerCommand: --role worker node dist/worker.js
     envVars:
       - fromGroup: sworg-prod
-      # https://<your web service host>/api/internal/outbox
-      - key: SWO_SCHEDULER_TARGET
-        sync: false
+
+  # BullMQ beat: keeps the repeatable schedules (membership sweep and outbox relay every minute, ...) in Redis.
+  - type: worker
+    name: sworg-beat
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: --role beat node dist/beat.js
+    envVars:
+      - fromGroup: sworg-prod

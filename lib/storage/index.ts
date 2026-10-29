@@ -1,14 +1,13 @@
 import "server-only";
 
 import {
-  DeleteObjectsCommand,
   GetObjectCommand,
   PutObjectCommand,
-  S3Client,
 } from "@aws-sdk/client-s3";
 import { prisma } from "@/lib/db";
+import { storageBucket, storageClient as client, storageConfigured } from "./client";
 
-export type UploadInput = {
+type UploadInput = {
   key: string;
   body: Buffer | Uint8Array | Blob;
   contentType?: string;
@@ -17,29 +16,15 @@ export type UploadInput = {
 };
 
 const ORGANISATION_DERIVATIVE_KEY =
-  /^organisations\/([A-Za-z0-9_-]{1,128})\/(certificate-backgrounds|certificate-assets|event-covers|event-speakers|event-sponsors|organisation-logos|event-page-logos|member-id-photos|member-id-watermarks|member-id-artwork|page-images)\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.webp$/i;
+  /^organisations\/([A-Za-z0-9_-]{1,128})\/(organisation-logos|member-id-photos|member-id-watermarks|member-id-artwork|page-images)\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.webp$/i;
 const USER_DERIVATIVE_KEY =
   /^users\/([A-Za-z0-9_-]{1,128})\/profile-images\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.webp$/i;
+/** A member's own photos: organisations/<org>/members/<member>/photo-<uuid>.webp (lib/storage/memberPhotos.ts). */
+const MEMBER_PHOTO_KEY =
+  /^organisations\/([A-Za-z0-9_-]{1,128})\/members\/[A-Za-z0-9_-]{1,64}\/photo-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.webp$/i;
 
 export function isPublicDerivativeKey(key: string) {
-  return ORGANISATION_DERIVATIVE_KEY.test(key) || USER_DERIVATIVE_KEY.test(key);
-}
-
-function storageConfigured() {
-  return Boolean(process.env.S3_BUCKET && process.env.S3_REGION);
-}
-
-function client() {
-  const accessKeyId = process.env.S3_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.S3_SECRET_ACCESS_KEY;
-  return new S3Client({
-    region: process.env.S3_REGION!,
-    ...(process.env.S3_ENDPOINT ? { endpoint: process.env.S3_ENDPOINT } : {}),
-    forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "1",
-    ...(accessKeyId && secretAccessKey
-      ? { credentials: { accessKeyId, secretAccessKey } }
-      : {}),
-  });
+  return ORGANISATION_DERIVATIVE_KEY.test(key) || MEMBER_PHOTO_KEY.test(key) || USER_DERIVATIVE_KEY.test(key);
 }
 
 async function bytes(input: UploadInput["body"]) {
@@ -49,7 +34,7 @@ async function bytes(input: UploadInput["body"]) {
 }
 
 export async function uploadFile(input: UploadInput): Promise<{ key: string }> {
-  const organisationKeyMatch = ORGANISATION_DERIVATIVE_KEY.exec(input.key);
+  const organisationKeyMatch = ORGANISATION_DERIVATIVE_KEY.exec(input.key) ?? MEMBER_PHOTO_KEY.exec(input.key);
   const userKeyMatch = USER_DERIVATIVE_KEY.exec(input.key);
   const validOwner =
     (organisationKeyMatch &&
@@ -62,7 +47,7 @@ export async function uploadFile(input: UploadInput): Promise<{ key: string }> {
   if (storageConfigured()) {
     await client().send(
       new PutObjectCommand({
-        Bucket: process.env.S3_BUCKET!,
+        Bucket: storageBucket(),
         Key: input.key,
         Body: uploadBody,
         ContentType: input.contentType || "application/octet-stream",
@@ -122,7 +107,7 @@ export async function downloadFile(key: string) {
     if (!storageConfigured())
       throw new Error("Private object storage is not configured.");
     const object = await client().send(
-      new GetObjectCommand({ Bucket: process.env.S3_BUCKET!, Key: key }),
+      new GetObjectCommand({ Bucket: storageBucket(), Key: key }),
     );
     if (!object.Body) return null;
     return {
@@ -137,37 +122,6 @@ export async function downloadFile(key: string) {
         contentType: asset.contentType || "application/octet-stream",
       }
     : null;
-}
-
-/**
- * Remove stored derivatives (object and Asset row). Keys that aren't
- * application derivatives are ignored. Callers treat this as best effort:
- * the database row that referenced the file is already gone.
- */
-export async function deleteFiles(keys: string[]) {
-  const valid = [...new Set(keys.filter(isPublicDerivativeKey))];
-  if (valid.length === 0) return;
-  const stored = await prisma.asset.findMany({
-    where: { key: { in: valid }, provider: "s3" },
-    select: { key: true },
-  });
-  if (stored.length > 0) {
-    if (!storageConfigured())
-      throw new Error("Private object storage is not configured.");
-    const s3 = client();
-    for (let start = 0; start < stored.length; start += 1000) {
-      await s3.send(
-        new DeleteObjectsCommand({
-          Bucket: process.env.S3_BUCKET!,
-          Delete: {
-            Objects: stored.slice(start, start + 1000).map(({ key }) => ({ Key: key })),
-            Quiet: true,
-          },
-        }),
-      );
-    }
-  }
-  await prisma.asset.deleteMany({ where: { key: { in: valid } } });
 }
 
 export function getPublicUrl(key: string): string {

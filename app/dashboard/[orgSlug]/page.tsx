@@ -2,10 +2,10 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { ArrowRight, Check } from "lucide-react";
 import { loadOrgOverviewView } from "@/lib/views/app__dashboard__orgSlug__page";
-import { ROLE_LABELS } from "@/lib/permissionRoles";
 import { STATUS_EXPLANATIONS } from "@/lib/organisationLifecycle";
 import { OrgPageHeader } from "@/components/dashboard/org/OrgPageHeader";
 import { DigestToggle } from "@/components/dashboard/org/DigestToggle";
+import { HomeCharts } from "@/components/dashboard/org/HomeCharts";
 import { buttonClasses } from "@/components/ui/button";
 import { Callout, Card, CardHeader, StatTile } from "@/components/ui/display";
 import { cn } from "@/lib/cn";
@@ -13,12 +13,12 @@ import { cn } from "@/lib/cn";
 export const metadata: Metadata = { title: "Overview", robots: { index: false, follow: false } };
 
 export default async function OrgOverviewPage({ params }: { params: Promise<{ orgSlug: string }> }) {
-  const { organisation, role, teamCount, openInvites, members, steps, digest } = await loadOrgOverviewView({ params });
+  const { organisation, roleName, teamCount, openInvites, members, steps, digest, analytics } = await loadOrgOverviewView({ params });
   const remaining = steps.filter((step) => !step.done).length;
   const base = `/dashboard/${organisation.slug}`;
   return (
     <div className="flex flex-col gap-6">
-      <OrgPageHeader organisation={organisation} title="Overview" description={`You're ${role === "ADMIN" || role === "OWNER" ? "an" : "a"} ${ROLE_LABELS[role].toLowerCase()} here.`} />
+      <OrgPageHeader organisation={organisation} title="Overview" description={`You're ${/^[aeiou]/i.test(roleName) ? "an" : "a"} ${roleName.toLowerCase()} here.`} />
 
       {organisation.status !== "ACTIVE" ? (
         <Callout
@@ -72,6 +72,7 @@ export default async function OrgOverviewPage({ params }: { params: Promise<{ or
           </ol>
         </Card>
       ) : null}
+      {analytics ? <HomeCharts slug={organisation.slug} analytics={analytics} /> : null}
       {digest !== null ? <DigestToggle slug={organisation.slug} initial={digest} /> : null}
     </div>
   );

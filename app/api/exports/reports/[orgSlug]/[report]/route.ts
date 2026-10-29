@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { checkRateLimitById } from "@/lib/rateLimit";
 import { can, organisationAllows, type Capability } from "@/lib/permissionRoles";
-import { hasAuthenticator, STAFF_AUTHENTICATOR_MESSAGE } from "@/lib/permissions";
+import { getMembership, hasAuthenticator, STAFF_AUTHENTICATOR_MESSAGE } from "@/lib/permissions";
 import { buildReportContext } from "@/lib/reports/context";
 import { auditedCsvResponse } from "@/lib/reports/exports/stream";
 import { approvalsExport, cohortsExport, lapsedExport, registerExport, unitsExport, worklistExport, type Built } from "@/lib/reports/exports/membership";
@@ -42,10 +42,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ orgS
   const { orgSlug, report } = await params;
   const definition = Object.hasOwn(REPORTS, report) ? REPORTS[report] : null;
   const org = await prisma.organisation.findUnique({ where: { slug: orgSlug }, select: { id: true, slug: true, status: true } });
-  const membership = org ? await prisma.teamMember.findUnique({ where: { userId_organisationId: { userId, organisationId: org.id } } }) : null;
+  const membership = org ? await getMembership(userId, org.id) : null;
   if (!org || !membership || !definition) return refuse(404, "Not found.");
   if (!(await hasAuthenticator(userId))) return refuse(403, STAFF_AUTHENTICATOR_MESSAGE);
-  if (!organisationAllows(org.status, definition.capability) || !can(membership.role, definition.capability)) return refuse(403, "Your role can't export this report.");
+  if (!organisationAllows(org.status, definition.capability) || !can(membership, definition.capability)) return refuse(403, "Your role can't export this report.");
   if (!(await checkRateLimitById("reportExport", `user:${userId}`))) return refuse(429, "Too many exports. Try again later.");
 
   const search = new URL(request.url).searchParams;

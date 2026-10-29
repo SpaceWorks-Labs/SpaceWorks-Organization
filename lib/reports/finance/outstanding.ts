@@ -9,16 +9,16 @@ import type { Window } from "./revenue";
 
 const DAY_MS = 86_400_000;
 
-export const AGEING_BUCKETS = [
+const AGEING_BUCKETS = [
   { key: "current", label: "Not yet due", min: -Infinity, max: 0 },
   { key: "0-30", label: "0–30 days", min: 0, max: 31 },
   { key: "31-60", label: "31–60 days", min: 31, max: 61 },
   { key: "61-90", label: "61–90 days", min: 61, max: 91 },
   { key: "90+", label: "Over 90 days", min: 91, max: Infinity },
 ] as const;
-export type AgeingKey = (typeof AGEING_BUCKETS)[number]["key"];
+type AgeingKey = (typeof AGEING_BUCKETS)[number]["key"];
 
-export type OutstandingItem = {
+type OutstandingItem = {
   kind: "payment" | "unpaid-term";
   id: string;
   memberId: string;
@@ -61,7 +61,7 @@ export function outstandingItems(rows: FinanceRows, now: Date, termDueBy: Map<st
   return [...payments, ...terms].sort((a, b) => b.daysPastDue - a.daysPastDue);
 }
 
-export type AgeingRow = { key: AgeingKey; label: string; count: number; totals: CurrencyTotal[] };
+type AgeingRow = { key: AgeingKey; label: string; count: number; totals: CurrencyTotal[] };
 
 export function ageingTable(items: OutstandingItem[], primary?: string): AgeingRow[] {
   return AGEING_BUCKETS.map((bucket) => {
@@ -86,7 +86,7 @@ export function collectionRate(rows: FinanceRows, window: Window, primary?: stri
   });
 }
 
-export type OfflineQueue = {
+type OfflineQueue = {
   /** Offline claims waiting for a treasurer, oldest first. */
   awaiting: FinancePayment[];
   awaitingTotals: CurrencyTotal[];

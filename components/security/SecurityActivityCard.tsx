@@ -5,7 +5,7 @@ import { History } from "lucide-react";
 import { AccountCard } from "@/components/account/AccountCard";
 import { formatDate, formatDayTime, formatRelativeTime, viewerTimeZone } from "@/lib/format/datetime";
 
-export type SecurityActivityItem = { id: string; label: string; at: string };
+type SecurityActivityItem = { id: string; label: string; at: string };
 
 const subscribe = () => () => {};
 

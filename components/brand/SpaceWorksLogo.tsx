@@ -41,7 +41,7 @@ export function spaceWorksLogoSize(variant: SpaceWorksLogoVariant, height?: numb
 const SHOW_IN_LIGHT = "dark:hidden";
 const SHOW_IN_DARK = "hidden dark:block";
 
-export type SpaceWorksLogoProps = {
+type SpaceWorksLogoProps = {
   variant?: SpaceWorksLogoVariant;
   /** full colour on cream/light, ink on white, reversed (cream) on Deep Ink or teal. Ignored for app-icon. */
   tone?: SpaceWorksLogoTone;

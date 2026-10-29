@@ -10,7 +10,7 @@ import { Callout, Chip, EmptyState } from "@/components/ui/display";
 import { Dropdown, Field, Input } from "@/components/ui/field";
 import { cn } from "@/lib/cn";
 
-export type RoleRow = { id: string; name: string; description: string; color: string; unitId: string | null; archivedAt: Date | null; members: number };
+type RoleRow = { id: string; name: string; description: string; color: string; unitId: string | null; archivedAt: Date | null; members: number };
 type UnitOption = { id: string; name: string; level: number };
 
 function RoleForm({ slug, units, role, onDone }: { slug: string; units: UnitOption[]; role?: RoleRow; onDone: () => void }) {

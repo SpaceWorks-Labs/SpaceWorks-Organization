@@ -3,14 +3,14 @@ run-name: Release ${{ github.ref_name }}@${{ github.sha }}
 
 # Every commit that reaches main is a releasable build; dev is staging. VERSION
 # selects the release series shown to users; the run number and commit SHA keep
-# each image retry-safe, for example: 0.7.0-main.42.a1b2c3d4e5f6.
+# each image retry-safe, for example: 0.8.0-main.42.a1b2c3d4e5f6.
 #   main  publishes both images, a GitHub release, then promotes the images to
 #         latest, main and the series (0.1) and optionally deploys a server.
 #   dev   publishes both images tagged dev and <VERSION>-dev.<run>.<sha>; never
 #         latest, never a release, never a deploy.
 # Images (linux/amd64 and linux/arm64), the same for every installation:
 #   ghcr.io/<owner>/spaceworks-organization-backend   every backend role (app and
-#       API, migrate, scheduler, ops) through scripts/docker-entrypoint.sh --role
+#       API, migrate, worker, beat, ops) through scripts/docker-entrypoint.sh --role
 #   ghcr.io/<owner>/spaceworks-organization-frontend  the website alone, for the split
 # Public origins are placeholders the entrypoint replaces at start, and each
 # installation supplies its own NEXT_SERVER_ACTIONS_ENCRYPTION_KEY at runtime.
@@ -229,7 +229,7 @@ jobs:
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
           target_commitish: ${{ github.sha }}
-          # Product name then version, e.g. "Space Works Organization 0.7.0". The immutable
+          # Product name then version, e.g. "Space Works Organization 0.8.0". The immutable
           # `tag_name` keeps its full `v<base>-main.<run>.<sha>` form: the title is what a
           # human reads on the releases page, the tag is what a deployment pins to.
           name: Space Works Organization ${{ needs.prepare.outputs.base }}
@@ -246,7 +246,7 @@ jobs:
 
             Docker images (linux/amd64, linux/arm64):
 
-            - `ghcr.io/${{ needs.prepare.outputs.registry_owner }}/spaceworks-organization-backend:${{ needs.prepare.outputs.version }}` (app and API, migrations, scheduler, operator checks)
+            - `ghcr.io/${{ needs.prepare.outputs.registry_owner }}/spaceworks-organization-backend:${{ needs.prepare.outputs.version }}` (app and API, migrations, worker and beat, operator checks)
             - `ghcr.io/${{ needs.prepare.outputs.registry_owner }}/spaceworks-organization-frontend:${{ needs.prepare.outputs.version }}` (website only, for the split layout)
 
   promote-latest:

@@ -3,9 +3,11 @@ import { loadOrgCardSettingsView } from "@/lib/views/app__dashboard__orgSlug__se
 import { OrgPageHeader } from "@/components/dashboard/org/OrgPageHeader";
 import { SettingsTabs } from "@/components/settings/SettingsTabs";
 import { CardDesigner } from "@/components/cards/designer/CardDesigner";
-import { CardExportsList } from "@/components/cards/CardExportsList";
 import { DesignScopePicker } from "@/components/cards/DesignScopePicker";
-import { Callout, Card, CardHeader } from "@/components/ui/display";
+import Link from "next/link";
+import { Callout, Card, CardHeader, Chip } from "@/components/ui/display";
+
+const ROLE_CARD_STATUS = { organisation: "Uses the organisation's card", draft: "Draft waiting for approval", approved: "Own card", changes: "Own card, changes waiting" } as const;
 
 export const metadata: Metadata = { title: "Cards", robots: { index: false, follow: false } };
 
@@ -36,12 +38,21 @@ export default async function OrgCardSettingsPage({ params, searchParams }: { pa
           fields={view.fields}
           numbering={view.numbering}
           approval={view.approval}
+          unitLevels={view.unitLevels}
         />
       ) : null}
-      {view.canExport ? (
+      {view.roleCards.length ? (
         <Card as="section" className="rounded-xl">
-          <CardHeader title="Your card downloads" description="Bulk downloads you started from the Members page. Files are kept for seven days." />
-          <CardExportsList rows={view.exports} />
+          <CardHeader title="Role cards" description="Every member uses the organisation's card unless their main role has its own. Only the owner approves a role's card." />
+          <ul className="flex flex-col gap-2">
+            {view.roleCards.map((row) => (
+              <li key={row.roleId} className="flex flex-wrap items-center gap-2">
+                <Link href={`/dashboard/${org.slug}/settings/cards?role=${row.roleId}`} className="text-label font-semibold text-ink underline-offset-4 hover:underline">{row.name}</Link>
+                <Chip size="sm" tone={row.status === "organisation" ? "neutral" : row.status === "approved" ? "success" : "warning"}>{ROLE_CARD_STATUS[row.status]}</Chip>
+                <span className="text-caption text-ink-muted">{row.liveCards.toLocaleString("en-IN")} live {row.liveCards === 1 ? "card" : "cards"}</span>
+              </li>
+            ))}
+          </ul>
         </Card>
       ) : null}
     </div>

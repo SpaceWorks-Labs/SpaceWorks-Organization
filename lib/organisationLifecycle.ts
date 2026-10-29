@@ -75,7 +75,7 @@ export const REVIEW_DECISIONS: Record<ReviewDecision, Transition> = {
   },
 };
 
-export const REVIEW_DECISION_ORDER: readonly ReviewDecision[] = ["approve", "request-changes", "reject", "reactivate", "suspend", "archive"];
+const REVIEW_DECISION_ORDER: readonly ReviewDecision[] = ["approve", "request-changes", "reject", "reactivate", "suspend", "archive"];
 
 /** Decisions open to a platform admin for an organisation in this status, in display order. */
 export function decisionsFor(status: OrganisationStatus): ReviewDecision[] {
@@ -85,9 +85,6 @@ export function decisionsFor(status: OrganisationStatus): ReviewDecision[] {
 export function isReviewDecision(value: unknown): value is ReviewDecision {
   return typeof value === "string" && Object.hasOwn(REVIEW_DECISIONS, value);
 }
-
-/** Why an action is refused for an organisation that isn't active. */
-export const ORGANISATION_LOCKED = "This can't be changed while the organisation is under review, suspended or archived.";
 
 /** Suspended and archived organisations keep their records for finance and members' rights. */
 export function canDeleteInStatus(status: OrganisationStatus): boolean {

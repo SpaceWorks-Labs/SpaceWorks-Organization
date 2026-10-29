@@ -73,12 +73,12 @@ export const UNITS = [
 
 /** The SpaceWorks team as the sample committee: their organisation role, and the access it gives them. */
 export const TEAM = [
-  { name: "Shaan Shoukath", role: "Systems Engineer", access: "OWNER" },
-  { name: "Abhiram NJ", role: "Cloud Specialist", access: "ADMIN" },
-  { name: "Abdul Samad MJ", role: "Full Stack Developer", access: "TREASURER" },
-  { name: "Midlaj C", role: "Backend Engineer", access: "ADMIN" },
-  { name: "Ajzal P", role: "Marketing Specialist", access: "VIEWER" },
-  { name: "Anin Arafath", role: "App Developer", access: "VIEWER" },
+  { name: "Shaan Shoukath", role: "Systems Engineer", access: "Owner" },
+  { name: "Abhiram NJ", role: "Cloud Specialist", access: "Manager" },
+  { name: "Abdul Samad MJ", role: "Full Stack Developer", access: "Treasurer" },
+  { name: "Midlaj C", role: "Backend Engineer", access: "Manager" },
+  { name: "Ajzal P", role: "Marketing Specialist", access: "Viewer" },
+  { name: "Anin Arafath", role: "App Developer", access: "Viewer" },
 ] as const;
 
 /** Sample active members per month for the report preview. */

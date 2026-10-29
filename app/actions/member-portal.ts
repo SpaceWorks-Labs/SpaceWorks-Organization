@@ -19,9 +19,21 @@ export async function setMemberPortal(input: unknown): Promise<ActionResult> {
   if (!parsed.success) return { ok: false, error: "Invalid request." };
   const ctx = await orgActionAccess(parsed.data.organisationSlug, "org.settings");
   if (!ctx.ok) return ctx;
-  if (ctx.membership.unitId) return { ok: false, error: "This applies to the whole organisation, so a manager limited to one unit can't change it." };
   await prisma.organisation.update({ where: { id: ctx.organisation.id }, data: { memberPortal: parsed.data.enabled } });
   await recordAuditEvent({ action: "MEMBER_PORTAL_SET", actorUserId: ctx.userId, organisationId: ctx.organisation.id, targetType: "Organisation", targetId: ctx.organisation.id, metadata: { enabled: parsed.data.enabled } });
+  revalidatePath(`/dashboard/${ctx.organisation.slug}/settings`);
+  revalidatePath("/account");
+  return { ok: true };
+}
+
+/** Whether members may upload or replace the photo on their own card from their account. Managers always can. */
+export async function setMemberPhotoUpload(input: unknown): Promise<ActionResult> {
+  const parsed = z.object({ organisationSlug: z.string().trim().min(1).max(64), enabled: z.boolean() }).safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid request." };
+  const ctx = await orgActionAccess(parsed.data.organisationSlug, "org.settings");
+  if (!ctx.ok) return ctx;
+  await prisma.organisation.update({ where: { id: ctx.organisation.id }, data: { memberPhotoUpload: parsed.data.enabled } });
+  await recordAuditEvent({ action: "MEMBER_PHOTO_UPLOAD_SET", actorUserId: ctx.userId, organisationId: ctx.organisation.id, targetType: "Organisation", targetId: ctx.organisation.id, metadata: { enabled: parsed.data.enabled } });
   revalidatePath(`/dashboard/${ctx.organisation.slug}/settings`);
   revalidatePath("/account");
   return { ok: true };

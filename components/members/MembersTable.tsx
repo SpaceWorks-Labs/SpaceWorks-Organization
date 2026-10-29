@@ -14,7 +14,7 @@ import { Field, Textarea } from "@/components/ui/field";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import type { TermStatus } from "@/lib/membership/lifecycle";
 
-export type MemberRowData = {
+type MemberRowData = {
   id: string;
   memberNumber: number;
   name: string;
@@ -24,7 +24,7 @@ export type MemberRowData = {
   standings: Array<{ planId: string; planName: string; status: TermStatus | "NONE"; endsAt: Date | null; pendingTermId: string | null }>;
 };
 
-/** Members, with bulk approve and decline for applications waiting on a decision. */
+/** Members, with bulk verify (approve) and decline for applications and imports waiting on a decision. */
 export function MembersTable({ slug, rows, canManage, showUnit, validUntil }: { slug: string; rows: MemberRowData[]; canManage: boolean; showUnit: boolean; validUntil: Record<string, string> }) {
   const router = useRouter();
   const pending = useMemo(() => rows.flatMap((row) => row.standings.filter((s) => s.pendingTermId).map((s) => s.pendingTermId!)), [rows]);
@@ -36,7 +36,7 @@ export function MembersTable({ slug, rows, canManage, showUnit, validUntil }: { 
 
   const decide = (action: "approve" | "reject") => startTransition(async () => {
     const result = await decideMemberships({ organisationSlug: slug, termIds: selected, action, reason: action === "reject" ? reason : undefined });
-    setStatus(result.ok ? { ok: true, text: `${result.data?.done ?? 0} ${action === "approve" ? "approved" : "declined"}${result.data?.skipped ? `, ${result.data.skipped} skipped` : ""}.` } : { ok: false, text: result.error });
+    setStatus(result.ok ? { ok: true, text: `${result.data?.done ?? 0} ${action === "approve" ? "verified" : "declined"}${result.data?.skipped ? `, ${result.data.skipped} skipped` : ""}.` } : { ok: false, text: result.error });
     setDeclining(false);
     setReason("");
     setSelected([]);
@@ -49,7 +49,7 @@ export function MembersTable({ slug, rows, canManage, showUnit, validUntil }: { 
       {canManage && selected.length ? (
         <div className="sticky top-2 z-10 flex flex-wrap items-center gap-3 rounded-xl border border-line bg-panel px-4 py-2.5 shadow-float">
           <span className="text-label text-ink">{selected.length} selected</span>
-          <Button size="sm" variant="primary" loading={busy} onClick={() => decide("approve")}>Approve</Button>
+          <Button size="sm" variant="primary" loading={busy} onClick={() => decide("approve")}>Verify</Button>
           <Button size="sm" variant="dangerOutline" disabled={busy} onClick={() => setDeclining(true)}>Decline…</Button>
           <Button size="sm" variant="ghost" onClick={() => setSelected([])}>Clear</Button>
         </div>

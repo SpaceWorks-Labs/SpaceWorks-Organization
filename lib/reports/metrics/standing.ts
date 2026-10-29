@@ -21,7 +21,7 @@ export function termGraceAt(term: PreparedTerm, t: Date): boolean {
   return true;
 }
 
-export type Standing = "ACTIVE" | "GRACE" | null;
+type Standing = "ACTIVE" | "GRACE" | null;
 
 /** A member's standing across their terms: active on any term wins over grace on another. */
 export function standingAt(terms: PreparedTerm[] | undefined, t: Date): Standing {
@@ -44,12 +44,6 @@ export function countStanding(data: Dataset, t: Date): { active: number; grace: 
     else if (standing === "GRACE") grace += 1;
   }
   return { active, grace };
-}
-
-export function membersWithStanding(data: Dataset, t: Date, wanted: Standing): string[] {
-  const ids: string[] = [];
-  for (const [memberId, terms] of data.termsByMember) if (standingAt(terms, t) === wanted) ids.push(memberId);
-  return ids;
 }
 
 /** The instant a period's closing standing is read at: just before its end, and never in the future. */
@@ -76,4 +70,17 @@ export function lapseInstant(term: PreparedTerm): Date | null {
 /** A term that came up for renewal: it ended (or will) and was not revoked. Lifetime terms never do. */
 export function isRenewable(term: PreparedTerm): boolean {
   return term.activatedAt !== null && term.endsAt !== null && term.revokedAt === null;
+}
+
+/**
+ * Expired at `t` (docs/REPORTS.md "Expired"): the member holds no live term on any plan (not active, not in
+ * grace, nothing paid for that starts later), and the latest term in `own` that had started by `t` ended or
+ * lapsed rather than being revoked. `own` is one plan's terms on a plan row, or all of them.
+ */
+export function expiredAt(all: PreparedTerm[], own: PreparedTerm[], t: Date): boolean {
+  if (standingAt(all, t) !== null) return false;
+  if (all.some((term) => term.activatedAt && term.activatedAt <= t && term.startsAt && term.startsAt > t && !(term.revokedAt && term.revokedAt <= t))) return false;
+  let latest: PreparedTerm | null = null;
+  for (const term of own) if (term.activatedAt && term.startsAt && term.startsAt <= t && (!latest || term.startsAt > latest.startsAt!)) latest = term;
+  return latest !== null && !(latest.revokedAt && latest.revokedAt <= t);
 }

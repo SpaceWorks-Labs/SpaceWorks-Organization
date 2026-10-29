@@ -11,7 +11,7 @@ import { Dropdown, Field, Input } from "@/components/ui/field";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-export type MoneyValues = { currency: string; locale: string; timezone: string; financialYearStartMonth: number; offlineConfirmationRequired: boolean };
+type MoneyValues = { currency: string; locale: string; timezone: string; financialYearStartMonth: number; offlineConfirmationRequired: boolean };
 
 /** Default currency, number style, financial year and timezone, plus the offline maker-checker switch. */
 export function MoneySettingsForm({ slug, initial, calendarLocked, timezones, disabled }: { slug: string; initial: MoneyValues; calendarLocked: boolean; timezones: string[]; disabled: boolean }) {

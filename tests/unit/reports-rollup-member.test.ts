@@ -2,9 +2,8 @@ import { describe, expect, it } from "vitest";
 import { computeDayStats, sumStats } from "@/lib/reports/rollupCompute";
 import { membershipTrend, cohortRetention } from "@/lib/reports/metrics/series";
 import { periodBuckets, resolvePeriod } from "@/lib/reports/period";
-import { memberHistory, memberMembership } from "@/lib/reports/member";
 import { activityCategory, actionLabel } from "@/lib/reports/activity";
-import { build, event, ist, member, term } from "../helpers/reportFixtures";
+import { build, ist, member, term } from "../helpers/reportFixtures";
 
 const day = (d: string) => ({ from: ist(d), to: new Date(ist(d).getTime() + 86_400_000) });
 
@@ -56,26 +55,6 @@ describe("daily rollup", () => {
     const cohorts = cohortRetention(build(rows, terms), "Asia/Kolkata", ist("2026-07-15"), 3, 3);
     expect(cohorts.map((row) => [row.label, row.size])).toEqual([["May 2026", 0], ["Jun 2026", 1], ["Jul 2026", 0]]);
     expect(cohorts[1].cells).toEqual([1, 1, null]);
-  });
-});
-
-describe("member reports for the portal (C1 and C2)", () => {
-  const terms = [
-    { id: "t1", planId: "p1", kind: "NEW" as const, status: "ENDED" as const, startsAt: ist("2025-04-01"), endsAt: ist("2026-04-01"), graceUntil: ist("2026-04-16"), renewedFromId: null, createdAt: ist("2025-03-20") },
-    { id: "t2", planId: "p1", kind: "RENEWAL" as const, status: "ACTIVE" as const, startsAt: ist("2026-04-01"), endsAt: ist("2027-04-01"), graceUntil: ist("2027-04-16"), renewedFromId: "t1", createdAt: ist("2026-03-25") },
-  ];
-  const plans = [{ id: "p1", name: "Annual", renewalWindowDays: 30 }];
-
-  it("C1: shows standing, valid-until, member-since and whether renewal is open", () => {
-    const [card] = memberMembership(terms, plans, ist("2027-03-15"), "Asia/Kolkata");
-    expect(card).toMatchObject({ planName: "Annual", status: "ACTIVE", validUntil: { year: 2027, month: 3, day: 31 }, memberSince: { year: 2025, month: 4, day: 1 }, termsHeld: 2, canRenew: true });
-    expect(memberMembership(terms, plans, ist("2026-10-20"), "Asia/Kolkata")[0].canRenew).toBe(false);
-  });
-
-  it("C2: lists status changes newest first, in words", () => {
-    const history = memberHistory(terms, [event("t1", null, "PENDING_PAYMENT", ist("2025-03-20"), "applied"), event("t1", "PENDING_PAYMENT", "ACTIVE", ist("2025-04-01"), "paid"), event("t2", "PENDING_PAYMENT", "UPCOMING", ist("2026-03-25"), "paid"), event("t1", "ACTIVE", "ENDED", ist("2026-04-01"), "sweep")], plans);
-    expect(history.map((entry) => entry.label)).toEqual(["Renewed", "Payment received", "Payment received", "Applied"]);
-    expect(history.every((entry) => entry.planName === "Annual")).toBe(true);
   });
 });
 

@@ -69,7 +69,7 @@ export async function queueRenewalReminders(now = new Date()) {
       renewals: { none: { status: { notIn: ["CANCELLED", "EXPIRED", "REJECTED"] } } },
       member: { anonymisedAt: null },
     },
-    select: { id: true, organisationId: true, endsAt: true, plan: { select: { reminderDaysBefore: true, reminderDaysAfter: true } }, reminders: { select: { key: true } } },
+    select: { id: true, organisationId: true, memberId: true, planId: true, endsAt: true, plan: { select: { reminderDaysBefore: true, reminderDaysAfter: true } }, reminders: { select: { key: true } } },
     take: BATCH,
   });
   for (const term of terms) {
@@ -83,6 +83,8 @@ export async function queueRenewalReminders(now = new Date()) {
       // Only the most recent due reminder; older missed ones are not sent late.
       .sort((a, b) => b.at - a.at)
       .slice(0, 1);
+    // A member who rejoined with a new term (not linked as a renewal) is not reminded about the old one.
+    if (due.length && (await prisma.membershipTerm.count({ where: { memberId: term.memberId, planId: term.planId, status: { in: ["UPCOMING", "ACTIVE", "GRACE"] }, startsAt: { gte: term.endsAt! } } }))) continue;
     for (const reminder of due) {
       try {
         await prisma.$transaction(async (tx) => {

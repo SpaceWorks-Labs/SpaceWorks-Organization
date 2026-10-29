@@ -23,7 +23,7 @@ export const MAX_SECTIONS = 20;
 export const MAX_GALLERY_IMAGES = 12;
 
 /** Upload keys the page may reference: the organisation's own page images only. */
-export const PAGE_IMAGE_KEY = /^organisations\/[A-Za-z0-9_-]{1,128}\/page-images\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.webp$/i;
+const PAGE_IMAGE_KEY = /^organisations\/[A-Za-z0-9_-]{1,128}\/page-images\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.webp$/i;
 
 export function isPageImageKeyFor(key: string, organisationId: string) {
   return PAGE_IMAGE_KEY.test(key) && key.startsWith(`organisations/${organisationId}/page-images/`);
@@ -114,7 +114,7 @@ export function readPageDocument(value: unknown): PageDocument {
   return { ...(rest.success ? rest.data : { tagline: "", coverAssetKey: null, accentColor: null }), sections: sections.slice(0, MAX_SECTIONS) };
 }
 
-export function newSectionId(random: () => number = Math.random) {
+function newSectionId(random: () => number = Math.random) {
   return Array.from({ length: 10 }, () => "abcdefghijklmnopqrstuvwxyz0123456789"[Math.floor(random() * 36)]).join("");
 }
 

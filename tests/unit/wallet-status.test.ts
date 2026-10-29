@@ -4,7 +4,7 @@ import { historyCause, historyLine } from "@/lib/portal/history";
 
 const TZ = "Asia/Kolkata";
 const at = (iso: string) => new Date(iso);
-const plan: WalletPlan = { durationType: "ORG_YEAR", renewalWindowDays: 30, joinMode: "APPROVAL", archivedAt: null };
+const plan: WalletPlan = { durationType: "ORG_YEAR", renewalWindowDays: 30, joinMode: "APPROVAL", archivedAt: null, fixedEndDate: null, lateRenewalBackdate: true };
 const args = (now: string, organisationActive = true) => ({ now: at(now), timeZone: TZ, organisationActive });
 
 /** A financial-year term: 1 Apr 2026 to 31 Mar 2027 (IST), with 15 days' grace. */

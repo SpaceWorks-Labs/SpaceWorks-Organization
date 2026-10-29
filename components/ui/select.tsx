@@ -23,8 +23,6 @@ import { controlClasses } from "./styles";
  * `<option>` lists use `Dropdown`, which wraps these parts.
  */
 export const Select = SelectPrimitive.Root;
-export const SelectGroup = SelectPrimitive.Group;
-export const SelectValue = SelectPrimitive.Value;
 
 export const SelectTrigger = forwardRef<ElementRef<typeof SelectPrimitive.Trigger>, ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>>(function SelectTrigger(
   { className, children, ...props },
@@ -79,14 +77,6 @@ export const SelectItem = forwardRef<
     </SelectPrimitive.Item>
   );
 });
-
-export function SelectLabel({ children }: { children: ReactNode }) {
-  return <SelectPrimitive.Label className="px-3 pb-1 pt-2 text-overline text-ink-muted">{children}</SelectPrimitive.Label>;
-}
-
-export function SelectSeparator() {
-  return <SelectPrimitive.Separator className="my-1.5 h-px bg-line" />;
-}
 
 /* ---------- Dropdown: a drop-in replacement for <select> ---------- */
 

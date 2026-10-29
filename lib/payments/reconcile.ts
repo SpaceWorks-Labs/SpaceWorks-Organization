@@ -6,7 +6,7 @@ import { refreshGatewayPayment } from "./checkout";
 const MINUTE = 60_000;
 /** Give webhooks a head start before polling, and keep asking for a week (late captures still settle). */
 const POLL_AFTER_MS = 5 * MINUTE;
-const POLL_FOR_MS = 7 * 24 * 60 * MINUTE;
+export const POLL_FOR_MS = 7 * 24 * 60 * MINUTE;
 const RUN_EVERY_MS = 5 * MINUTE;
 const BATCH = 50;
 

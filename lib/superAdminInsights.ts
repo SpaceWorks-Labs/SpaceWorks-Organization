@@ -30,7 +30,7 @@ export function shortDayLabel(key: string): string {
 }
 
 export type DailyRow = { series: string; day: string; n: number | bigint };
-export type DailyPoint = { day: string; xLabel: string; y: number };
+type DailyPoint = { day: string; xLabel: string; y: number };
 
 /**
  * Turns sparse grouped rows (only days with activity) into one zero-filled
@@ -88,8 +88,8 @@ export function formatBytes(bytes: number | null): string {
   return `${n.toFixed(i === 0 ? 0 : 2)} ${units[i]}`;
 }
 
-export type OutboxGroup = { kind: string; status: string; count: number };
-export type OutboxKindRow = { kind: string; pending: number; processing: number; sent: number; failed: number; total: number };
+type OutboxGroup = { kind: string; status: string; count: number };
+type OutboxKindRow = { kind: string; pending: number; processing: number; sent: number; failed: number; total: number };
 
 /** Pivots outbox (kind, status) counts into one row per kind, busiest first. */
 export function outboxByKind(groups: OutboxGroup[]): OutboxKindRow[] {
@@ -132,6 +132,7 @@ export const SECURITY_AUDIT_ACTIONS = [
   "FINANCE_REPORT_EXPORTED",
   "REPORT_EXPORTED",
   "SUPER_ADMIN_ORG_VIEWED",
+  "SUPER_ADMIN_ORG_ANALYTICS_VIEWED",
   "PLATFORM_REPORT_EXPORTED",
   "ID_CARDS_EXPORTED",
 ] as const;

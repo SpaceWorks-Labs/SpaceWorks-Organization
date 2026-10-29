@@ -10,7 +10,7 @@ import { loadDataset, reportScope } from "./source";
 
 export type DrillQuery = { drill?: string; period?: string; from?: string; to?: string; plan?: string; dunit?: string; dstate?: string; dsource?: string; dtenure?: string };
 
-export type DrillResult = { key: DrillKey; label: string; memberIds: string[] };
+type DrillResult = { key: DrillKey; label: string; memberIds: string[] };
 
 /**
  * The member ids behind a report tile, for the directory. Scope comes from the viewer's team role first,

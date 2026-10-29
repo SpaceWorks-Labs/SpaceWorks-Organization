@@ -1,7 +1,6 @@
 import "server-only";
 
 import type { Organisation, Payment, PaymentProvider, PaymentStatus, Prisma } from "@prisma/client";
-import { MembershipError } from "@/lib/membership/service";
 import { statusAt } from "@/lib/membership/lifecycle";
 import { chargeLines, placeOfSupply, resolveTaxSnapshot, sumSplits } from "./tax";
 
@@ -30,7 +29,7 @@ export async function lockTermForPayment(tx: Tx, organisationId: string, termId:
   });
 }
 
-export type LockedTerm = Awaited<ReturnType<typeof lockTermForPayment>>;
+type LockedTerm = Awaited<ReturnType<typeof lockTermForPayment>>;
 
 /** What is still owed on a term: nothing once a payment is settled or waived. */
 export function amountDue(term: Pick<LockedTerm, "priceMinor" | "joiningFeeMinor" | "payments">) {
@@ -52,7 +51,7 @@ export function payable(term: LockedTerm, now: Date) {
  */
 export async function createTermPayment(
   tx: Tx,
-  args: { org: OrgForPayments; termId: string; provider: PaymentProvider; status: Extract<PaymentStatus, "PENDING" | "AWAITING_CONFIRMATION">; method?: string | null; utr?: string | null; reference?: string | null; note?: string; recordedById?: string | null; now?: Date },
+  args: { org: OrgForPayments; termId: string; provider: PaymentProvider; status: Extract<PaymentStatus, "PENDING" | "AWAITING_CONFIRMATION">; method?: string | null; utr?: string | null; reference?: string | null; note?: string; recordedById?: string | null; memberClaim?: boolean; now?: Date },
 ): Promise<Payment> {
   const now = args.now ?? new Date();
   const term = await lockTermForPayment(tx, args.org.id, args.termId);
@@ -82,6 +81,7 @@ export async function createTermPayment(
       reference: args.reference ?? null,
       note: args.note ?? "",
       recordedById: args.recordedById ?? null,
+      memberClaim: args.memberClaim ?? false,
       taxSnapshot: snapshot as unknown as Prisma.InputJsonValue,
       lines: { create: lines.map((line) => ({ currency: term.currency, ...line })) },
     },
@@ -94,5 +94,3 @@ export async function lockPayment(tx: Tx, organisationId: string, paymentId: str
   if (rows.length === 0) throw new PaymentError("Payment not found.");
   return tx.payment.findUniqueOrThrow({ where: { id: paymentId } });
 }
-
-export { MembershipError };

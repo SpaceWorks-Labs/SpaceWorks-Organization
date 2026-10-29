@@ -33,7 +33,7 @@ const mfaEncryptionKey = z.string().refine((value) => {
   message: "must be valid base64 that decodes to a 32 byte AES key",
 });
 
-export const envSchema = z.object({
+const envSchema = z.object({
   DEPLOYMENT_MODE: z.enum(["backend", "monolith"]).optional(),
   FRONTEND_GATEWAY_SECRET: z.preprocess((value) => value === "" ? undefined : value, z.string().regex(/^[a-f0-9]{64}$/).optional()),
   DATABASE_URL: z.string().url("must be a valid database connection URL"),
@@ -72,8 +72,13 @@ export const envSchema = z.object({
   BACKUP_LAST_SUCCESS_AT: z.preprocess((value) => value === "" ? undefined : value, z.string().datetime().optional()),
   BACKUP_RETENTION_DAYS: z.coerce.number().int().positive().max(3650).optional(),
   OUTBOX_RETENTION_DAYS: z.coerce.number().int().positive().max(365).optional(),
-  // external: a scheduler container or cron calls POST /api/internal/outbox instead of the in-process worker.
-  SCHEDULER_MODE: z.enum(["in-process", "external"]).optional(),
+  // Background jobs (BullMQ worker and beat roles).
+  JOBS_QUEUE_PREFIX: z.string().regex(/^[a-z0-9:_-]{1,40}$/).optional(),
+  JOBS_HEALTH_PORT: z.coerce.number().int().min(1).max(65535).optional(),
+  // true: development without Redis runs the periodic jobs from a timer in the web process.
+  JOBS_INPROCESS: z.enum(["true", "false"]).optional(),
+  QUEUE_OUTBOX_CONCURRENCY: z.coerce.number().int().min(1).max(64).optional(),
+  QUEUE_SCHEDULED_CONCURRENCY: z.coerce.number().int().min(1).max(64).optional(),
   // 1 allows an http:// public origin, for a LAN or trial install behind plain HTTP. Never on the internet.
   ALLOW_PLAIN_HTTP: z.enum(["0", "1"]).optional(),
 });

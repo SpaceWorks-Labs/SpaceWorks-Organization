@@ -55,6 +55,8 @@ model User {
   teamMembers       TeamMember[]
   teamInvitesCreated TeamInvite[] @relation("TeamInviteCreatedBy")
   teamInvitesUsed    TeamInvite[] @relation("TeamInviteUsedBy")
+  ownershipTransfersFrom OwnershipTransfer[] @relation("OwnershipTransferFrom")
+  ownershipTransfersTo   OwnershipTransfer[] @relation("OwnershipTransferTo")
   auditEvents       AuditEvent[]
   organisationReviews OrganisationReview[]
   members           Member[]
@@ -228,6 +230,8 @@ model Organisation {
   managerLimit Int?
   /// Maker-checker for offline payments: the confirmer must differ from the recorder.
   offlineConfirmationRequired Boolean @default(false)
+  /// Members may upload their own photo for their card from their account.
+  memberPhotoUpload Boolean @default(false)
   /// PUBLIC organisations are listed at /organisations and take applications from anyone.
   visibility  OrganisationVisibility @default(UNLISTED)
   /// Names of the unit levels the organisation uses, top first, e.g. ["Region", "District", "Chapter"].
@@ -239,6 +243,9 @@ model Organisation {
 
   teamMembers   TeamMember[]
   teamInvites   TeamInvite[]
+  staffRoles    OrgRole[]
+  emailTemplates OrgEmailTemplate[]
+  ownershipTransfers OwnershipTransfer[]
   reviews       OrganisationReview[]
   assets        Asset[]
   auditEvents   AuditEvent[]
@@ -294,7 +301,11 @@ model TeamInvite {
   id              String   @id @default(cuid())
   organisationId  String
   token           String   @unique
+  /// The nearest fixed role, still written so an update rollback works; `roleId` is what counts.
   role            TeamRole @default(VIEWER)
+  roleId          String
+  /// Set to give the role for one unit's subtree instead of the whole organisation.
+  unitId          String?
   createdByUserId String?
   /// Set when the platform super-admin creates an organisation for someone: only this email may accept.
   email           String?
@@ -304,10 +315,13 @@ model TeamInvite {
   usedByUserId    String?
 
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  orgRole      OrgRole      @relation(fields: [organisationId, roleId], references: [organisationId, id], onDelete: Restrict, onUpdate: Restrict)
+  unit         OrgUnit?     @relation(fields: [organisationId, unitId], references: [organisationId, id], onDelete: Restrict, onUpdate: Restrict)
   createdBy    User?        @relation("TeamInviteCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   usedBy       User?        @relation("TeamInviteUsedBy", fields: [usedByUserId], references: [id], onDelete: SetNull)
 
   @@index([organisationId])
+  @@index([organisationId, roleId])
   @@index([organisationId, createdAt])
   @@index([usedAt])
 }
@@ -317,7 +331,9 @@ model TeamMember {
   id             String   @id @default(cuid())
   userId         String
   organisationId String
+  /// The nearest fixed role, still written so an update rollback works; `roleId` is what counts.
   role           TeamRole
+  roleId         String
   /// Set to limit this person to one unit's subtree (members, payments and reports there only).
   unitId         String?
   /// Email this person a monthly summary of the organisation (their own unit when scoped).
@@ -326,10 +342,63 @@ model TeamMember {
 
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  orgRole      OrgRole      @relation(fields: [organisationId, roleId], references: [organisationId, id], onDelete: Restrict, onUpdate: Restrict)
   unit         OrgUnit?     @relation(fields: [organisationId, unitId], references: [organisationId, id], onDelete: Restrict, onUpdate: Restrict)
 
   @@unique([userId, organisationId])
   @@index([organisationId])
+  @@index([organisationId, roleId])
+}
+
+/// A staff role an organisation defines: a name and permissions from the fixed list in lib/permissionRoles.ts. Where
+/// someone holds it (the whole organisation or one unit's subtree) belongs to the grant: TeamMember.unitId.
+model OrgRole {
+  id             String    @id @default(cuid())
+  organisationId String
+  name           String
+  description    String    @default("")
+  capabilities   String[]  @default([])
+  /// The organisation's one Owner role: every permission, never edited, archived or given by invite.
+  isOwner        Boolean   @default(false)
+  /// For the four starter roles, the fixed role each replaced. Lets a rolled-back release still give roles.
+  starterKey     TeamRole?
+  sortOrder      Int       @default(0)
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  teamMembers  TeamMember[]
+  invites      TeamInvite[]
+  ownershipTransfers OwnershipTransfer[]
+
+  @@unique([organisationId, id])
+  @@unique([organisationId, name])
+}
+
+/// The owner offering the organisation to another staff member who holds their role for the whole organisation; it
+/// moves when that person accepts. At most one open transfer per organisation (partial unique index, migration 0016).
+model OwnershipTransfer {
+  id             String    @id @default(cuid())
+  organisationId String
+  fromUserId     String
+  toUserId       String
+  /// The role the current owner keeps once the transfer is accepted.
+  keepRoleId     String
+  /// 32 random bytes, base64url: what the proposed owner accepts with.
+  token          String    @unique
+  createdAt      DateTime  @default(now())
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  cancelledAt    DateTime?
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  fromUser     User         @relation("OwnershipTransferFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUser       User         @relation("OwnershipTransferTo", fields: [toUserId], references: [id], onDelete: Cascade)
+  keepRole     OrgRole      @relation(fields: [organisationId, keepRoleId], references: [organisationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([organisationId, createdAt])
+  @@index([toUserId])
 }
 
 // ─── Operations ──────────────────────────────────────────────────────────────
@@ -436,6 +505,11 @@ model OrgUnit {
   parentId       String?
   name           String
   slug           String
+  /// Short code (1 to 6 of A-Z and 0-9), unique per organisation: card numbers and join links use it.
+  code           String
+  /// How members of this unit pay offline (whom to pay, when, the UPI id). Empty: the nearest unit above's, then the
+  /// organisation's offline instructions.
+  paymentInstructions String @default("")
   /// 0 for top-level units; indexes Organisation.unitLevels.
   level          Int       @default(0)
   path           String
@@ -450,10 +524,12 @@ model OrgUnit {
   roles        MemberRole[]
   planUnits    PlanUnit[]
   teamMembers  TeamMember[]
+  teamInvites  TeamInvite[]
   dailyStats   OrgDailyStats[]
 
   @@unique([organisationId, id])
   @@unique([organisationId, slug])
+  @@unique([organisationId, code])
   @@index([organisationId, path])
 }
 
@@ -877,6 +953,8 @@ model Payment {
   paidAt           DateTime?
   recordedById     String?
   confirmedById    String?
+  /// The member said "I've paid" (a UTR claim), rather than staff recording money they took.
+  memberClaim      Boolean         @default(false)
   /// Set when a captured payment needs a manager's attention (late, mismatched, duplicate).
   flaggedAt        DateTime?
   flagReason       String?
@@ -1182,6 +1260,8 @@ model OrgDailyStats {
   /// Stocks at the end of the day.
   active         Int      @default(0)
   grace          Int      @default(0)
+  /// Members whose last membership ended (lapsed or expired) and who hold no live one.
+  expired        Int      @default(0)
   /// Flows during the day.
   joined         Int      @default(0)
   reactivated    Int      @default(0)
@@ -1359,4 +1439,20 @@ model KnownDevice {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, lastSeenAt])
+}
+
+/// An organisation's own wording for one member-facing email (`kind`, e.g. "card-issued", "membership-activated").
+/// Plain text with {placeholders}, rendered as escaped paragraphs; without a row the platform's wording is used.
+model OrgEmailTemplate {
+  organisationId String
+  kind           String
+  subject        String
+  heading        String
+  body           String
+  updatedById    String?
+  updatedAt      DateTime @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@id([organisationId, kind])
 }

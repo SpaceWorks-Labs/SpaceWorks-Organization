@@ -13,7 +13,7 @@ export const REFUND_POLICY_LABELS: Record<RefundPolicyName, string> = {
   PRO_RATA: "Unused share of the membership fee, within the window",
 };
 
-export type RefundOfferInput = {
+type RefundOfferInput = {
   policy: RefundPolicyName;
   windowDays: number;
   paidAt: Date;

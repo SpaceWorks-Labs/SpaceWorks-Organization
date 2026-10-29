@@ -1,16 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { defaultCardDesign } from "@/lib/cards/design/presets";
 import { draftDiffers, readDraft } from "@/lib/cards/draft";
-import { can } from "@/lib/permissionRoles";
+import { STARTER_ROLES, can } from "@/lib/permissionRoles";
 
 const context = { organisationName: "Space Works Kochi", planName: "" };
 const live = { design: defaultCardDesign(context, "night"), draft: null, numberPrefix: "SWK", numberFormat: "{PREFIX}-{SEQ:4}", watermarkUrl: null };
 
 describe("card design drafts", () => {
   it("only the owner approves designs; managers draft them", () => {
-    expect(can("OWNER", "cards.approve")).toBe(true);
-    for (const role of ["ADMIN", "TREASURER", "VIEWER"] as const) expect(can(role, "cards.approve")).toBe(false);
-    expect(can("ADMIN", "org.settings")).toBe(true);
+    const holder = (key: string) => ({ orgRole: STARTER_ROLES.find((role) => role.key === key)!, unitId: null });
+    expect(can(holder("OWNER"), "cards.approve")).toBe(true);
+    for (const role of ["ADMIN", "TREASURER", "VIEWER"]) expect(can(holder(role), "cards.approve")).toBe(false);
+    expect(can(holder("ADMIN"), "cards.design", { write: true })).toBe(true);
   });
 
   it("edits the live design when there is no draft, and nothing is waiting", () => {

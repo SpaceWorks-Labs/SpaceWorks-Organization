@@ -45,17 +45,20 @@ project name `sworg`, and the overlays the settings select:
 | `minio` | `pgsty/silo` | TLS only, private bucket `spaceworks-organization`, versioning on |
 | `createbuckets` | `pgsty/silo` | Creates the bucket and the `sworg-app` identity limited to it, then exits |
 | `migrate` | backend, `--role migrate` | `prisma migrate deploy` as the owner role, then exits |
-| `backend` | backend, `--role backend` | The app and API (Next.js) as `sworg_app`; `SCHEDULER_MODE=external` |
-| `scheduler` | backend, `--role scheduler` | One scheduler pass a minute: email outbox, membership sweep, retention and every job in `runOutboxScheduler` |
+| `backend` | backend, `--role backend` | The app and API (Next.js) as `sworg_app` |
+| `worker` | backend, `--role worker` | BullMQ worker (`dist/worker.js`): email and chat delivery, the membership sweep, payment checks, retention and every job in `lib/queue/registry.ts`; health on `:3460/health` |
+| `beat` | backend, `--role beat` | BullMQ beat (`dist/beat.js`): keeps the repeatable schedules in Redis (outbox and membership sweep every minute); health on `:3460/health` |
 | `backup`, `backup-storage` | `postgres:16-alpine`, `pgsty/silo` | Scheduled database dumps and bucket mirror into `backups/` |
 | `caddy` | `caddy:2-alpine` | The web edge; blocks `/api/internal/*`; overwrites `X-Real-IP` |
 | `ops` (profile `tools`) | backend, `--role ops` | Operator checks, run on demand |
 
-The data services sit on an internal network with no route to the internet. Only Caddy publishes ports.
+The data services sit on an internal network with no route to the internet. The backend, worker and beat also
+join the edge network, so they can reach SMTP relays, payment gateways and chat services. Only Caddy publishes
+ports.
 
 ```bash
 scripts/spaceworks-compose.sh bundled ps
-scripts/spaceworks-compose.sh bundled logs -f backend scheduler
+scripts/spaceworks-compose.sh bundled logs -f backend worker beat
 scripts/spaceworks-compose.sh bundled run --rm ops      # TLS, roles, migrations, Redis, bucket, readiness
 ```
 
@@ -86,7 +89,7 @@ bash scripts/restore.sh backups/scheduled-20261020T020000Z.sql.gz               
 bash scripts/restore.sh backups/manual-20261020T090000Z.sql.gz --with-storage     # and the files
 ```
 
-Restore asks you to type `RESTORE`, takes a fresh `pre-restore` dump, stops the app, scheduler and edge,
+Restore asks you to type `RESTORE`, takes a fresh `pre-restore` dump, stops the app, worker, beat and edge,
 replaces the schema in one transaction, optionally copies the files back, and starts everything again;
 migrations bring an older dump up to the running release.
 
@@ -114,7 +117,7 @@ the existing `SUPER_ADMIN_EMAIL` account is kept as super admin automatically. W
 
 ```bash
 bash scripts/update.sh --force                                   # newest main release
-bash scripts/update.sh --force --version 0.7.0-main.42.a1b2c3d4e5f6
+bash scripts/update.sh --force --version 0.8.0-main.42.a1b2c3d4e5f6
 bash scripts/update.sh --rollback                                # the release before the last update
 ```
 
@@ -140,7 +143,7 @@ The service certificates last 825 days. Renew them from the same CA, then recrea
 ```bash
 docker run --rm --user "$(id -u):$(id -g)" --entrypoint sh -v "$PWD/tls:/tls" -v "$PWD/deploy/certificates.sh:/c.sh:ro" \
   "$(grep ^SWO_BACKEND_IMAGE= .env | cut -d"'" -f2):$(cat .spaceworks-version)" /c.sh --renew
-scripts/spaceworks-compose.sh bundled up -d --force-recreate db redis minio backend
+scripts/spaceworks-compose.sh bundled up -d --force-recreate db redis minio backend worker beat
 ```
 
 Caddy renews the public certificates by itself.
@@ -157,5 +160,7 @@ Caddy renews the public certificates by itself.
 
 - `scripts/spaceworks-compose.sh bundled logs migrate` shows a failed migration; the app never starts on a
   half-migrated database.
-- The scheduler is healthy only after a successful pass; `logs scheduler` shows HTTP errors from the app.
+- The worker and beat are healthy only while their Redis heartbeat is fresh; `logs worker beat` shows a
+  Redis or database connection problem. A worker that is up but sends nothing usually means beat is down:
+  check `ps` for both.
 - `run --rm ops` names the failing check without printing any connection detail.

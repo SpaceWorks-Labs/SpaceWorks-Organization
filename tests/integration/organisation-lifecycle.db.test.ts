@@ -137,11 +137,12 @@ describe.sequential("organisation application lifecycle", () => {
 
   it("opens team management once approved, and closes it again when suspended", async () => {
     signIn(users.applicant);
-    expect((await createOrgInvite({ organisationSlug: slug, role: "TREASURER" })).ok).toBe(true);
+    const treasurer = await prisma.orgRole.findFirstOrThrow({ where: { organisationId: orgId, starterKey: "TREASURER" } });
+    expect((await createOrgInvite({ organisationSlug: slug, roleId: treasurer.id })).ok).toBe(true);
     signIn(users.admin);
     expect(await reviewOrganisation({ organisationId: orgId, decision: "suspend", reason: "Unpaid hosting invoice." })).toEqual({ ok: true });
     signIn(users.applicant);
-    expect((await createOrgInvite({ organisationSlug: slug, role: "TREASURER" })).ok).toBe(false);
+    expect((await createOrgInvite({ organisationSlug: slug, roleId: treasurer.id })).ok).toBe(false);
     signIn(users.admin);
     expect(await reviewOrganisation({ organisationId: orgId, decision: "reactivate" })).toEqual({ ok: true });
   });

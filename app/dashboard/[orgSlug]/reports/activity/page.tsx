@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { loadOrgReportsActivity } from "@/lib/views/app__dashboard__orgSlug__reports__activity__page";
 import type { ReportSearch } from "@/lib/reports/context";
 import { actionLabel } from "@/lib/reports/activity";
-import { ROLE_LABELS } from "@/lib/permissionRoles";
 import { ReportShell } from "@/components/reports/ReportShell";
 import { CardIssuanceTile } from "@/components/reports/CardIssuanceTile";
 import { ChartFrame } from "@/components/reports/charts/ChartFrame";
@@ -38,7 +37,7 @@ export default async function OrgReportsActivityPage({ params, searchParams }: P
           <TBody>
             {view.people.map((person) => (
               <TR key={person.userId}>
-                <TD><span className="font-semibold text-ink">{person.name}</span><span className="block text-caption text-ink-muted">{ROLE_LABELS[person.role]}</span></TD>
+                <TD><span className="font-semibold text-ink">{person.name}</span><span className="block text-caption text-ink-muted">{person.roleName}</span></TD>
                 {used.map((category) => <TD key={category.key} className="text-right tabular-nums">{person.counts[category.key] ?? 0}</TD>)}
                 <TD className="text-right font-semibold tabular-nums">{person.total}</TD>
               </TR>

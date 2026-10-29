@@ -75,6 +75,6 @@ export async function invokeBackend<T>(kind: "view" | "action", id: string, args
   if (payload.navigation?.type === "redirect" && payload.navigation.location) redirect(payload.navigation.location);
   if (!payload.ok) throw new Error("The request could not be completed. Try again shortly.");
   // Backend readers have their own row caps; allow larger bounded view DTOs
-  // (for example bulk badge rosters) than untrusted action inputs.
+  // (for example bulk card rosters) than untrusted action inputs.
   return decodeWire(payload.value, 0, { entries: 200_000 }) as T;
 }

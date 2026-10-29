@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 
-/** Origin for absolute links (tickets, emails). Prefer forwarded headers when behind a proxy. */
+/** Origin for absolute links (emails, pay links). Prefer forwarded headers when behind a proxy. */
 export async function getRequestOrigin(): Promise<string> {
   const canonical = process.env.NEXT_PUBLIC_BASE_URL?.replace(/\/$/, "");
   if (canonical) return canonical;

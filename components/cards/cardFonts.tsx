@@ -23,7 +23,7 @@ export function cardFontStack(id: string | undefined) {
   return font.id === DEFAULT_CARD_FONT ? CARD_FONT_FAMILY : `"${cardFontCssName(font.id)}", "SWO Noto", system-ui, sans-serif`;
 }
 
-export function cardFontFaceCss(origin = "") {
+function cardFontFaceCss(origin = "") {
   const noto = (weight: number) => [
     [`/fonts/noto/NotoSans-LatinExt-${weight}.woff2`, LATIN_EXT],
     [`/fonts/noto/NotoSansMalayalam-${weight}.woff2`, MALAYALAM],
@@ -41,7 +41,7 @@ export function cardFontFaceCss(origin = "") {
 }
 
 /** @font-face rules for one library face; nothing for the default. */
-export function libraryFontFaceCss(id: string, origin = "") {
+function libraryFontFaceCss(id: string, origin = "") {
   const font = cardFont(id);
   if (font.id === DEFAULT_CARD_FONT) return "";
   return ([400, 700] as const).flatMap((weight) => font.files[weight].map((file) => face(cardFontCssName(font.id), `${origin}${file.path}`, weight, file.unicodeRange))).join("\n");

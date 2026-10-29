@@ -33,7 +33,7 @@ export async function loadPaymentView({ params }: { params: Promise<{ orgSlug: s
     payment,
     names,
     refundableMinor: payment.status === "PAID" ? Math.max(0, (payment.capturedMinor ?? payment.amountMinor) - refundedMinor) : 0,
-    canManage: can(membership.role, "payments.manage"),
+    canManage: can(membership, "payments.manage"),
     termLive: Boolean(payment.term && TIMED_STATUSES.has(statusAt(payment.term, new Date()))),
     isRecorder: payment.recordedById === membership.userId,
   };

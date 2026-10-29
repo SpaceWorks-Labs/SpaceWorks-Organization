@@ -10,7 +10,7 @@ import { failRefund, processRefund } from "./refunds";
 import { failPayment, settlePayment } from "./settle";
 
 type Tx = Prisma.TransactionClient;
-export type WebhookOutcome = { status: number; body: string };
+type WebhookOutcome = { status: number; body: string };
 
 async function findPayment(tx: Tx, organisationId: string, provider: PaymentProvider, paymentId: string | null, orderId: string | null) {
   if (paymentId) {

@@ -15,6 +15,8 @@ export async function setReportDigest(input: unknown): Promise<ActionResult> {
   const access = await orgActionAccess(parsed.data.organisationSlug, "org.view");
   if (!access.ok) return access;
   if (await isActionRateLimited("action", access.userId)) return { ok: false, error: "Too many requests. Try again shortly." };
+  // Platform access has no team row and gets no organisation's digest.
+  if (access.membership.superAdmin) return { ok: false, error: "Monthly summaries go to the organisation's team." };
   await prisma.teamMember.update({ where: { id: access.membership.id }, data: { reportDigest: parsed.data.enabled } });
   return { ok: true };
 }

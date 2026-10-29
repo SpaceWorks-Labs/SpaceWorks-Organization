@@ -33,7 +33,7 @@ export function applicationSnapshot(profile: OrganisationProfile & { slug: strin
 }
 
 /** Verified platform admins who should hear about new applications. */
-export async function platformAdminEmails(client: OutboxClient): Promise<string[]> {
+async function platformAdminEmails(client: OutboxClient): Promise<string[]> {
   const flagged = await client.user.findMany({
     where: { emailVerified: { not: null }, email: { not: null }, isSuperAdmin: true },
     select: { email: true },
@@ -45,7 +45,7 @@ export async function platformAdminEmails(client: OutboxClient): Promise<string[
 /** Queue a lifecycle email to every owner of an organisation (within the caller's transaction). */
 export async function notifyOwners(client: OutboxClient, organisationId: string, notice: OrganisationNotice, reason?: string | null) {
   const owners = await client.teamMember.findMany({
-    where: { organisationId, role: "OWNER", user: { email: { not: null } } },
+    where: { organisationId, orgRole: { is: { isOwner: true } }, user: { email: { not: null } } },
     select: { user: { select: { email: true } } },
     take: 20,
   });

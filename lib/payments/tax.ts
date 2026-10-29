@@ -5,7 +5,7 @@ import type { OrgTaxSettings, PaymentLineKind, TaxDocumentKind } from "@prisma/c
  * All amounts are integer minor units of one currency.
  */
 
-export const TAX_SNAPSHOT_VERSION = 1;
+const TAX_SNAPSHOT_VERSION = 1;
 
 /** Tax configuration frozen onto a payment when it is created. */
 export type TaxSnapshot = {
@@ -64,7 +64,7 @@ export function placeOfSupply(memberState: string | null | undefined, snapshot: 
   return memberState || snapshot.supplierState || null;
 }
 
-export type TaxSplit = { amountMinor: number; taxableMinor: number; cgstMinor: number; sgstMinor: number; igstMinor: number; otherTaxMinor: number };
+type TaxSplit = { amountMinor: number; taxableMinor: number; cgstMinor: number; sgstMinor: number; igstMinor: number; otherTaxMinor: number };
 
 /**
  * Split one charge into taxable value and tax. `priceMinor` is the plan price: the total when pricing is
@@ -88,7 +88,7 @@ export function splitTax(priceMinor: number, snapshot: TaxSnapshot, pos: string 
   return { amountMinor: amount, taxableMinor: taxable, ...zero, cgstMinor: tax / 2, sgstMinor: tax / 2 };
 }
 
-export type ChargeLine = TaxSplit & { kind: PaymentLineKind; description: string };
+type ChargeLine = TaxSplit & { kind: PaymentLineKind; description: string };
 
 /** The lines a term is charged: its fee and any joining (or rejoining) fee, each taxed separately. */
 export function chargeLines(

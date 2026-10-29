@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
-import { setUnitLevels } from "@/app/actions/structure";
+import { setUnitLevels } from "@/app/actions/units";
+import { UNIT_LEVEL_TEMPLATES } from "@/lib/structure/units";
 import { Button, IconButton } from "@/components/ui/button";
 import { Callout } from "@/components/ui/display";
 import { Field, Input } from "@/components/ui/field";
@@ -39,7 +40,16 @@ export function UnitLevelsEditor({ slug, initial, disabled }: { slug: string; in
       {error ? <Callout tone="danger" role="alert">{error}</Callout> : null}
       {saved ? <Callout tone="success" role="status">Levels saved.</Callout> : null}
       {levels.length === 0 ? (
-        <p className="text-body-ui text-ink-secondary">No levels yet. Add one to start dividing the organisation into units.</p>
+        <div className="flex flex-col gap-3">
+          <p className="text-body-ui text-ink-secondary">No levels yet. Start from a template or add your own, then save.</p>
+          {!disabled ? (
+            <div className="flex flex-wrap gap-2">
+              {UNIT_LEVEL_TEMPLATES.map((template) => (
+                <Button key={template.label} type="button" size="sm" variant="secondary" onClick={() => setLevels(template.levels)}>{template.label}</Button>
+              ))}
+            </div>
+          ) : null}
+        </div>
       ) : (
         <ol className="flex flex-col gap-3">
           {levels.map((level, index) => (

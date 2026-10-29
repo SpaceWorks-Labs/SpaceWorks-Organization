@@ -49,13 +49,13 @@ const fyEnd = (instant) => {
 await prisma.organisation.update({ where: { id: org.id }, data: { createdAt: new Date(now.getTime() - 760 * DAY), unitLevels: ["Region", "Chapter"] } });
 
 // Units: two regions with chapters.
-const unit = async (name, slug, parent) => {
-  const created = await prisma.orgUnit.create({ data: { organisationId: org.id, name, slug, parentId: parent?.id ?? null, level: parent ? 1 : 0, path: "pending" } });
+const unit = async (name, slug, code, parent) => {
+  const created = await prisma.orgUnit.create({ data: { organisationId: org.id, name, slug, code, parentId: parent?.id ?? null, level: parent ? 1 : 0, path: "pending" } });
   return prisma.orgUnit.update({ where: { id: created.id }, data: { path: parent ? `${parent.path}/${created.id}` : created.id } });
 };
-const north = await unit("North Kerala", "north-kerala");
-const south = await unit("South Kerala", "south-kerala");
-const chapters = [await unit("Kozhikode", "kozhikode", north), await unit("Kannur", "kannur", north), await unit("Kochi", "kochi", south), await unit("Thiruvananthapuram", "thiruvananthapuram", south), await unit("Thrissur", "thrissur", south)];
+const north = await unit("North Kerala", "north-kerala", "NKL");
+const south = await unit("South Kerala", "south-kerala", "SKL");
+const chapters = [await unit("Kozhikode", "kozhikode", "KKD", north), await unit("Kannur", "kannur", "KNR", north), await unit("Kochi", "kochi", "COK", south), await unit("Thiruvananthapuram", "thiruvananthapuram", "TVM", south), await unit("Thrissur", "thrissur", "TCR", south)];
 
 const plan = (data) => prisma.membershipPlan.create({ data: { organisationId: org.id, graceDays: 15, renewalWindowDays: 30, ...data } });
 const annual = await plan({ name: "Annual membership", slug: "annual", currency: "INR", durationType: "ORG_YEAR", priceNewMinor: 120_000, priceRenewalMinor: 100_000, joiningFeeMinor: 50_000, joinMode: "APPROVAL", sortOrder: 0 });
@@ -75,8 +75,12 @@ const teamUser = (email, name) => prisma.user.upsert({ where: { email }, create:
 const viewer = await teamUser("viewer@demo.test", "Ajzal P");
 const regional = await teamUser("south@demo.test", "Anin Arafath");
 const owner = await prisma.user.findUnique({ where: { email: "owner@demo.test" } });
-await prisma.teamMember.upsert({ where: { userId_organisationId: { userId: viewer.id, organisationId: org.id } }, create: { userId: viewer.id, organisationId: org.id, role: "VIEWER" }, update: {} });
-await prisma.teamMember.upsert({ where: { userId_organisationId: { userId: regional.id, organisationId: org.id } }, create: { userId: regional.id, organisationId: org.id, role: "ADMIN", unitId: south.id }, update: { unitId: south.id } });
+// The starter roles (lib/permissionRoles.ts STARTER_ROLES), created with the organisation by seed-demo or migration 0014.
+const starterRole = (name) => prisma.orgRole.findFirstOrThrow({ where: { organisationId: org.id, name }, select: { id: true } });
+const viewerRole = await starterRole("Viewer");
+const managerRole = await starterRole("Manager");
+await prisma.teamMember.upsert({ where: { userId_organisationId: { userId: viewer.id, organisationId: org.id } }, create: { userId: viewer.id, organisationId: org.id, role: "VIEWER", roleId: viewerRole.id }, update: {} });
+await prisma.teamMember.upsert({ where: { userId_organisationId: { userId: regional.id, organisationId: org.id } }, create: { userId: regional.id, organisationId: org.id, role: "ADMIN", roleId: managerRole.id, unitId: south.id }, update: { unitId: south.id } });
 const managers = [owner?.id, regional.id].filter(Boolean);
 
 const first = ["Shaan", "Abhiram", "Abdul", "Midlaj", "Ajzal", "Anin", "Fathima", "Nikhil", "Aisha", "Rahul", "Meera", "Arjun", "Sneha", "Vishnu", "Riya", "Hari", "Nandana", "Joel", "Anjali", "Faiz", "Gopika", "Adil", "Lakshmi", "Sanjay"];

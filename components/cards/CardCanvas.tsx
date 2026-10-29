@@ -17,7 +17,7 @@ import {
 } from "@/lib/cards/design/elements";
 import { cardImageUrls, watermarkImageBox } from "@/lib/cards/layout";
 import { resolveCardPalette, SYMBOL_ASSET } from "@/lib/cards/palette";
-import { holderInitials, labelledLine, printableFields, type CardBranding, type CardHolder } from "@/lib/cards/types";
+import { holderInitials, labelledLine, printableFields, validUntilLine, type CardBranding, type CardHolder } from "@/lib/cards/types";
 import { SAFE_MARGIN_MM, useCanvasItems, type CanvasInteraction } from "./canvasInteraction";
 import { CARD_FONT_FAMILY, cardFontStack, LayerFontFaces } from "./cardFonts";
 import { CardLayerView, LayerSelection } from "./CardLayerView";
@@ -134,7 +134,7 @@ export function CardCanvas({ settings, holder, branding, pxPerMm = 1, interactio
       {line("role", settings.showRole ? holder.role?.trim() ?? "" : "")}
       {line("plan", settings.showPlan ? holder.planName?.trim() ?? "" : "")}
       {line("idNumber", settings.showIdNumber ? labelledLine(settings.idNumberLabel, holder.idNumber) : "", { letterSpacing: "0.02em", fontVariantNumeric: "tabular-nums" })}
-      {line("validUntil", settings.showValidUntil ? labelledLine(settings.validUntilLabel, holder.validUntil) : "")}
+      {line("validUntil", settings.showValidUntil ? validUntilLine(settings.validUntilLabel, holder.validUntil) : "")}
 
       {fields.length > 0 ? (
         <div {...itemProps("details")} style={itemStyle("details", { width: px(settings.elementSizes.details), lineHeight: CARD_LINE_HEIGHT.body })}>

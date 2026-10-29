@@ -1,6 +1,5 @@
 import "server-only";
 
-import type { TeamRole } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { buildMembershipExport, loadMembershipExportSource, MEMBERSHIP_EXPORT_LIMIT, type MembershipExport } from "@/lib/portal/dataExport";
 
@@ -10,7 +9,7 @@ import { buildMembershipExport, loadMembershipExportSource, MEMBERSHIP_EXPORT_LI
  */
 export const ACCOUNT_EXPORT_LIMIT = 2000;
 
-export const ACCOUNT_EXPORT_FORMAT_VERSION = 3;
+const ACCOUNT_EXPORT_FORMAT_VERSION = 3;
 
 /* ---------- Raw input shapes (exactly what the loader selects) ---------- */
 
@@ -23,7 +22,7 @@ export type AccountExportSource = {
     mfaEnabledAt: Date | null;
   };
   signInProviders: Array<{ provider: string }>;
-  teamMembers: Array<{ role: TeamRole; createdAt: Date; organisation: { name: string; slug: string } }>;
+  teamMembers: Array<{ orgRole: { name: string }; createdAt: Date; organisation: { name: string; slug: string } }>;
   /** Member records in each organisation, already allow-list shaped (lib/portal/dataExport.ts). */
   memberships?: MembershipExport;
 };
@@ -54,7 +53,7 @@ export function buildAccountDataExport(source: AccountExportSource, generatedAt:
     organisationTeams: cap(source.teamMembers).map((team) => ({
       organisation: team.organisation.name,
       organisationSlug: team.organisation.slug,
-      role: team.role,
+      role: team.orgRole.name,
       joinedAt: team.createdAt.toISOString(),
     })),
     memberships: source.memberships ?? [],
@@ -64,8 +63,6 @@ export function buildAccountDataExport(source: AccountExportSource, generatedAt:
     },
   };
 }
-
-export type AccountDataExport = ReturnType<typeof buildAccountDataExport>;
 
 /**
  * Load only the signed-in user's own rows. Every query is keyed on `userId` and fetches one row beyond
@@ -83,7 +80,7 @@ export async function loadAccountExportSource(userId: string): Promise<AccountEx
       where: { userId },
       orderBy: { createdAt: "asc" },
       take,
-      select: { role: true, createdAt: true, organisation: { select: { name: true, slug: true } } },
+      select: { orgRole: { select: { name: true } }, createdAt: true, organisation: { select: { name: true, slug: true } } },
     }),
   ]);
   if (!user) return null;

@@ -49,7 +49,7 @@ export async function publishPage(organisationId: string, document: PageDocument
   });
 }
 
-export type StoredPage = { published: PageDocument | null; publishedAt: Date | null; draft: PageDocument | null; revision: string };
+type StoredPage = { published: PageDocument | null; publishedAt: Date | null; draft: PageDocument | null; revision: string };
 
 /** The stored page: what is live (null when unpublished) and any unpublished draft. */
 export async function loadStoredPage(organisationId: string): Promise<StoredPage> {

@@ -23,7 +23,8 @@ export type Bucket =
   | "dataExport"
   | "reportExport"
   | "documentView"
-  | "cardRender";
+  | "cardRender"
+  | "testEmail";
 
 const limits: Record<Bucket, { max: number; windowMs: number; }> = {
   global: { max: 300, windowMs: 60_000 },
@@ -56,6 +57,8 @@ const limits: Record<Bucket, { max: number; windowMs: number; }> = {
   documentView: { max: 300, windowMs: 60 * 60_000 },
   // Member card PDF/PNG renders: CPU-heavy, so per person per hour.
   cardRender: { max: 60, windowMs: 60 * 60_000 },
+  // "Send me a test" for an email template: to the sender's own address only.
+  testEmail: { max: 10, windowMs: 60 * 60_000 },
 };
 
 // Local fallback store
@@ -106,7 +109,7 @@ function keyFor(bucket: Bucket, id: string) {
   return `ratelimit:${bucket}:${id}`;
 }
 
-export function getClientIp(request: NextRequest): string {
+function getClientIp(request: NextRequest): string {
   const configuredHeader = process.env.TRUSTED_PROXY_IP_HEADER;
   if (isTrustedProxyHeader(configuredHeader)) return readConfiguredIp(request.headers, configuredHeader);
   return "unknown";

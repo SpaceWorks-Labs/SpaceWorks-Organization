@@ -16,6 +16,7 @@ const rate = (bps: number) => `${(bps / 100).toFixed(bps % 100 ? 2 : 0)}%`;
 const KIND_LABELS = { RECEIPT: "Receipt", TAX_INVOICE: "Tax invoice", BILL_OF_SUPPLY: "Bill of supply", CREDIT_NOTE: "Credit note" } as const;
 
 export function SeriesChecks({ view }: { view: View }) {
+  if (!view.checks) return null;
   if (!view.checks.length) return <EmptyState mood="sleepy" title="No receipts yet">Receipts, invoices and credit notes are listed here, with a check that every number in each series is used once and none is missing.</EmptyState>;
   return (
     <section aria-labelledby="checks-title" className="flex flex-col gap-3">
@@ -91,7 +92,7 @@ export function GstSection({ view }: { view: View }) {
         {view.shell.canExportFinance && view.month ? (
           <span className="flex flex-wrap gap-2">
             <ExportLink shell={view.shell} report="gstr1" label="Export GSTR-1 tables" extra={`month=${view.month.key}`} />
-            {!view.shell.scopedUnitName ? (
+            {view.canDownloadGstr1 ? (
               <a href={`/api/exports/gstr1/${view.shell.org.slug}${view.shell.query ? `${view.shell.query}&` : "?"}month=${view.month.key}`} className={buttonClasses({ variant: "secondary", size: "sm", className: "sw-print-hide" })} download>
                 <Download aria-hidden className="size-4" />
                 GSTR-1 JSON

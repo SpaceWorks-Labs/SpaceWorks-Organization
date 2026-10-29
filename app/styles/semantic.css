@@ -28,8 +28,6 @@
   --sw-ui-primary-hover: var(--sw-color-accent-hover);
   --sw-ui-primary-active: var(--sw-color-accent-active);
   --sw-ui-on-primary: var(--sw-color-on-accent);
-  --sw-ui-primary-soft: var(--sw-color-accent-soft);
-  --sw-ui-primary-text: var(--sw-color-accent-ink);
   --sw-ui-inverse: var(--sw-color-ink);
   --sw-ui-on-inverse: var(--sw-color-bg);
 

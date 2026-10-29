@@ -43,6 +43,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run test:unit
       - run: npm run build
+      - run: npm run build:jobs
 
   database:
     name: Integration and end-to-end tests (PostgreSQL, Redis, browser)
@@ -67,6 +68,8 @@ jobs:
       DATABASE_URL: postgresql://sworg:sworg@localhost:5432/sworg_e2e
       DIRECT_URL: postgresql://sworg:sworg@localhost:5432/sworg_e2e
       REDIS_URL: redis://localhost:6379
+      # The BullMQ suites (tests/integration/queue.db.test.ts) use their own Redis database.
+      TEST_QUEUE_REDIS_URL: redis://localhost:6379/1
       AUTH_TRUST_HOST: "true"
       AUTH_URL: http://127.0.0.1:3000
       NEXT_PUBLIC_BASE_URL: http://127.0.0.1:3000

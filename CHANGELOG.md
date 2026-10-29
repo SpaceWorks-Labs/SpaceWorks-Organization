@@ -4,9 +4,79 @@ Releases are published from `main` and titled **`Space Works Organization <versi
 file selects the series; each build is tagged `v<series>-main.<run>.<sha>`, which is what a deployment pins
 to. Pushes to `dev` publish staging images tagged `dev` without a release.
 
-## Unreleased
+## 0.8.0 (2026-10-29)
 
-A card designer that works like a design tool, and card designs and numbers per member role.
+Each organisation's own hierarchy and staff roles, offline fee collection through units, analytics, and ID cards
+drawn on demand with photos stored per member.
+
+- **Units:** the owner names up to four levels (for example Area → Unit) and builds the tree. Each unit has a short
+  code used in join links (`?unit=CODE`) and card numbers, its own page and its own payment instructions. Units
+  move between parents on the same level. A plan open to an area also admits members of its units.
+- **Custom staff roles:** Settings → Staff roles defines each organisation's roles from a fixed permission list, given
+  for the whole organisation or one unit. Nobody can give more access than they hold. The Owner, Manager,
+  Treasurer and Viewer roles become editable starters that behave exactly as before. Ownership moves in two
+  steps: the new owner accepts.
+- **Offline fees through units:** unit secretaries record fees on a collection sheet with receipt-book numbers,
+  members can say "I've paid", and the Cash in hand report shows what each collector holds.
+- **Cards:** the member's units print on cards (`{units}`, `{unit}`, `{level1}`…), unit codes go in card numbers
+  (`{U1}`…`{U4}`, `{UNIT}`), two standard templates, and card designs for chosen roles. Cards are never stored:
+  bulk downloads stream a ZIP or one PDF on demand.
+- **Member photos** are stored per member in Silo or Cloudflare R2; members can upload their own when the
+  organisation allows it, and erasure deletes every stored version.
+- **Sheet onboarding:** an imported sheet is checked row by row before saving, the unit's lead can verify the new
+  members, and each verified member is emailed their card in wording the organisation can change (Settings →
+  Email).
+- **Analytics:** charts on the dashboard home and a unit league table you drill into level by level; super admins
+  get a platform comparison, a page per organisation (totals only) and a CSV.
+- **Platform access:** a super admin with an authenticator can act in any organisation as its owner, under a
+  banner, with every action in the organisation's activity log. They can't transfer ownership.
+- **Background jobs on BullMQ:** a `worker` and a `beat` role (`npm run build:jobs`, `dist/worker.js` and
+  `dist/beat.js`) replace the scheduler pass. Email and chat alerts go out several at a time
+  (`QUEUE_OUTBOX_CONCURRENCY`, 5), and each periodic job (membership sweep, payment and refund checks, monthly
+  summary, clean-ups, retention) is its own entry in `lib/queue/registry.ts` with its own schedule, so a slow one
+  never holds up the rest. The SQL outbox stays the record: Redis carries only ids. `/health` on
+  `JOBS_HEALTH_PORT`. New settings `JOBS_QUEUE_PREFIX`, `JOBS_HEALTH_PORT`, `JOBS_INPROCESS` (development only),
+  `QUEUE_OUTBOX_CONCURRENCY` and `QUEUE_SCHEDULED_CONCURRENCY`. `POST /api/internal/jobs` joins
+  `/api/internal/outbox` as the `CRON_SECRET` fallback for hosts without a beat. The `scheduler` role, its
+  Compose service, `docker/ops/scheduler.mjs`, `SWO_SCHEDULER_TARGET` and `SCHEDULER_MODE` are removed.
+- **Read cache on Redis:** analytics and the public organisation page are cached for a few minutes per
+  organisation (and per unit for unit-limited staff), cleared when plans, the page or units change, and read
+  straight from the database when Redis is unavailable. Money state, permissions and members are never cached.
+- **Fixes from the release audit:**
+  - **Unit-limited staff:**
+    - can no longer take over a member from another unit by adding their email;
+    - plan unit limits now apply to staff adds, renewals and imports.
+  - **Settling payments:**
+    - a late gateway capture on a membership that overlaps a newer one is now receipted and flagged instead of failing;
+    - a fixed-end plan is no longer renewed past its last day;
+    - a Razorpay retry after a failed attempt is no longer flagged;
+    - two refunds in the same second are no longer merged;
+    - the gateway can't be switched while payments are in flight.
+  - **Payment emails:**
+    - payment-request emails state the amount with tax;
+    - "Not received" on a payment the team recorded no longer emails the member;
+    - members are told how to pay offline whenever online payment isn't usable.
+  - **Contact details and roles:**
+    - exports and searches hide contact details from roles without contact access;
+    - a deputy can no longer edit a peer's equal role.
+  - **Cards:**
+    - lifetime cards read "Lifetime";
+    - A4 sheets keep each back beside its front and never overlap mixed card sizes;
+    - a stalled bulk download frees the render slot;
+    - card numbers are made safe in file names.
+  - **Member accounts switched off:** the wallet and pay pages respect the switch.
+- **Upgrade notes:** run migrations 0013–0019 (the update does this). Super admins need an authenticator app to
+  open organisation dashboards. Self-managed buckets need the two version permissions in `docs/CONFIGURATION.md`.
+  Keep the database pool at two connections or more. Bundled installs: `scripts/update.sh` starts the new
+  `worker` and `beat` services and removes the old `scheduler` container. Cloud Compose installs: `pull` and
+  `up -d --wait --remove-orphans`. Render and other platforms: replace the scheduler worker with two background
+  workers, `--role worker node dist/worker.js` and `--role beat node dist/beat.js` (or the cron fallback in
+  `docs/DEPLOYMENT_CLOUD.md`), and drop `SCHEDULER_MODE` and `SWO_SCHEDULER_TARGET`. A web process no longer
+  sends email on its own in production. The old role columns and the card export table stay for
+  one release so an update can be rolled back.
+
+Also in 0.8.0, first published in later 0.7.0 builds from `main`: a card designer that works like a design tool,
+and card designs and numbers per member role.
 
 - **Layers on cards:** add text, images, rectangles, ellipses and lines; drag, resize, turn, fade, lock, hide and
   stack them with the built-in items, with undo and redo. Text fills in the member's name, role, plan, card number

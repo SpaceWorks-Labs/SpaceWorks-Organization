@@ -8,7 +8,7 @@ import { PaymentSecretsUnavailable } from "@/lib/payments/secrets";
  * same PAYMENT_SECRETS_KEY but a key derived per purpose, and bound to the organisation, so a ciphertext copied
  * to another tenant or another purpose will not decrypt.
  */
-export type OrgSecretPurpose = "email" | "chat";
+type OrgSecretPurpose = "email" | "chat";
 
 function key(purpose: OrgSecretPurpose) {
   const raw = process.env.PAYMENT_SECRETS_KEY ?? "";

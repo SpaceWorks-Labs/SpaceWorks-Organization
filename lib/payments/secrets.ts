@@ -44,9 +44,3 @@ export function decryptPaymentSecret(value: string, organisationId: string) {
   decipher.setAuthTag(Buffer.from(tag, "base64url"));
   return Buffer.concat([decipher.update(Buffer.from(encrypted, "base64url")), decipher.final()]).toString("utf8");
 }
-
-/** Last four characters only, for showing which key is saved. */
-export function maskSecret(value: string | null | undefined) {
-  if (!value) return null;
-  return `••••${value.slice(-4)}`;
-}

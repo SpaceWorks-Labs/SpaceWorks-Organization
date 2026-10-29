@@ -5,9 +5,9 @@ import { formatTick, formatValue, labelStride, niceTicks, type ValueFormat } fro
 import { ChartLegend, ChartTooltip } from "./ChartTooltip";
 import { slotColor, useIndexFocus, useWidth } from "./useChartPointer";
 
-export type ColumnSeries = { key: string; label: string; slot: number | "muted"; values: number[] };
+type ColumnSeries = { key: string; label: string; slot: number | "muted"; values: number[] };
 
-export type ColumnChartProps = {
+type ColumnChartProps = {
   labels: string[];
   /** One to three series, drawn side by side in each slot. */
   series: ColumnSeries[];

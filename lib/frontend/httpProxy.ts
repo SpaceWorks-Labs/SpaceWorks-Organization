@@ -20,13 +20,16 @@ export async function proxyBackendApi(request: Request) {
     const value = request.headers.get(name);
     if (value) outgoing.set(name, value);
   }
+  // The backend has a minute to answer; once it has, a streamed body (a bulk card download) may take longer.
+  const deadline = new AbortController();
+  const timer = setTimeout(() => deadline.abort(), 60_000);
   try {
     const init: RequestInit & { duplex?: "half"; } = {
       method: request.method, headers: outgoing, redirect: "manual", cache: "no-store",
-      signal: AbortSignal.timeout(60_000),
+      signal: deadline.signal,
       ...(!safe && request.body ? { body: request.body, duplex: "half" as const } : {}),
     };
-    const upstream = await fetch(backendUrl(url.pathname + url.search), init);
+    const upstream = await fetch(backendUrl(url.pathname + url.search), init).finally(() => clearTimeout(timer));
     const responseHeaders = new Headers({ "X-Frame-Options": "DENY" });
     for (const name of forwardedResponseHeaders) {
       const value = upstream.headers.get(name);

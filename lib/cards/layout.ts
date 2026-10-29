@@ -15,7 +15,7 @@ import {
 import { backgroundOps, layerOps } from "./layerLayout";
 import { resolveCardPalette, SYMBOL_ASPECT, type CardSymbolVariant } from "./palette";
 import { paragraph, type CardTextOp, type FontWeight, type TextMeasurer } from "./text";
-import { holderInitials, labelledLine, printableFields, type CardBranding, type CardHolder } from "./types";
+import { holderInitials, labelledLine, printableFields, validUntilLine, type CardBranding, type CardHolder } from "./types";
 
 /*
  * Turns a card side, a member and the organisation's artwork into a flat list of drawing operations
@@ -41,7 +41,7 @@ export type CardOp =
 
 export type CardScene = { widthMm: number; heightMm: number; background: string; ops: CardOp[] };
 
-export type CardSceneInput = { settings: CardSideSettings; holder: CardHolder; branding: CardBranding; measurer: TextMeasurer };
+type CardSceneInput = { settings: CardSideSettings; holder: CardHolder; branding: CardBranding; measurer: TextMeasurer };
 
 const ptMm = (pt: number) => pt * PT_TO_MM;
 
@@ -154,7 +154,7 @@ export function buildCardScene({ settings, holder, branding, measurer }: CardSce
   body("role", settings.showRole ? holder.role?.trim() ?? "" : "");
   body("plan", settings.showPlan ? holder.planName?.trim() ?? "" : "");
   body("idNumber", settings.showIdNumber ? labelledLine(settings.idNumberLabel, holder.idNumber) : "", 0.02);
-  body("validUntil", settings.showValidUntil ? labelledLine(settings.validUntilLabel, holder.validUntil) : "");
+  body("validUntil", settings.showValidUntil ? validUntilLine(settings.validUntilLabel, holder.validUntil) : "");
 
   const fields = printableFields(settings, holder);
   if (fields.length > 0) {

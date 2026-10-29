@@ -9,8 +9,8 @@ import { CheckboxField } from "@/components/ui/choice";
 import { Callout } from "@/components/ui/display";
 import { Dropdown, Field, Input, ReadOnlyValue, Textarea } from "@/components/ui/field";
 
-export type PortalField = { key: string; label: string; helpText: string; type: string; required: boolean; options: string[] };
-export type PortalProfile = {
+type PortalField = { key: string; label: string; helpText: string; type: string; required: boolean; options: string[] };
+type PortalProfile = {
   name: string; email: string; phone: string; stateCode: string;
   isMinor: boolean; guardianName: string; guardianEmail: string; guardianPhone: string;
   unitName: string | null; hasUnits: boolean;

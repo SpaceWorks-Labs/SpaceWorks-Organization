@@ -12,7 +12,7 @@ import { getClientIpFromHeaders } from "@/lib/rateLimit";
  * don't know (unless they verified their email in the last hour); every first sign-in from a new device also
  * emails an alert.
  */
-export const DEVICE_COOKIE = "swo.device";
+const DEVICE_COOKIE = "swo.device";
 const DEVICE_MAX_AGE_SECONDS = 400 * 24 * 60 * 60;
 const CODE_TTL_MS = 10 * 60_000;
 const RESEND_AFTER_MS = 60_000;

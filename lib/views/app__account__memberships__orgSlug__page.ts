@@ -24,7 +24,7 @@ export async function loadMembershipDetailView({ params }: { params: Promise<{ o
       where: { organisationId: org.id, memberId: member.id },
       orderBy: { createdAt: "asc" },
       include: {
-        plan: { select: { id: true, name: true, slug: true, durationType: true, renewalWindowDays: true, joinMode: true, archivedAt: true, paymentTiming: true } },
+        plan: { select: { id: true, name: true, slug: true, durationType: true, fixedEndDate: true, lateRenewalBackdate: true, renewalWindowDays: true, joinMode: true, archivedAt: true, paymentTiming: true } },
         payments: { where: { status: { in: ["PAID", "WAIVED", "AWAITING_CONFIRMATION"] } }, select: { status: true } },
         events: { orderBy: { recordedAt: "asc" }, take: 60, select: { id: true, from: true, to: true, effectiveAt: true, recordedAt: true, cause: true } },
       },
@@ -69,11 +69,11 @@ export async function loadMembershipDetailView({ params }: { params: Promise<{ o
 
   const values = (member.fieldValues ?? {}) as Record<string, string | boolean | number>;
   return {
-    org: { id: org.id, slug: org.slug, name: org.name, logoUrl: org.logoUrl, status: org.status, timezone: org.timezone, locale: org.locale, unitLabel: org.unitLevels.at(-1) ?? "Unit" },
+    org: { id: org.id, slug: org.slug, name: org.name, logoUrl: org.logoUrl, status: org.status, timezone: org.timezone, locale: org.locale, unitLabel: org.unitLevels.at(-1) ?? "Unit", photoUpload: org.memberPhotoUpload && org.status === "ACTIVE" },
     member: {
       id: member.id, memberNumber: member.memberNumber, name: member.name, email: member.email, phone: member.phone ?? "", stateCode: member.stateCode ?? "",
       isMinor: member.isMinor, guardianName: member.guardianName ?? "", guardianEmail: member.guardianEmail ?? "", guardianPhone: member.guardianPhone ?? "",
-      unitName: unit?.name ?? null, hasUnits: units > 0, createdAt: member.createdAt,
+      unitName: unit?.name ?? null, hasUnits: units > 0, createdAt: member.createdAt, photoUrl: member.photoUrl,
       fieldValues: Object.fromEntries(fields.map((field) => [field.key, values[field.key] ?? (field.type === "CHECKBOX" ? false : "")])),
     },
     roles: roles.map((assignment) => ({ ...assignment.role, isPrimary: assignment.isPrimary })),

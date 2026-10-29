@@ -50,12 +50,12 @@ export const CARD_COLOUR_LABELS: Record<CardBackgroundKey | CardAccentKey | Card
 };
 
 /** Minimum contrast for any text on the card. */
-export const CARD_TEXT_CONTRAST = 4.5;
+const CARD_TEXT_CONTRAST = 4.5;
 
 /** Which master of the Space Works symbol to place: never recoloured, only chosen. */
 export type CardSymbolVariant = "full" | "reversed" | "ink";
 
-export type CardPalette = {
+type CardPalette = {
   background: string;
   /** Body text: name, role, plan, answers, footer. */
   text: string;
@@ -98,14 +98,14 @@ export function relativeLuminance(hex: string) {
 }
 
 /** The first candidate that reaches `ratio` against `surface`, else the one with the most contrast. */
-export function readableOn(surface: string, candidates: readonly string[], ratio = CARD_TEXT_CONTRAST) {
+function readableOn(surface: string, candidates: readonly string[], ratio = CARD_TEXT_CONTRAST) {
   const passing = candidates.find((candidate) => contrastRatio(candidate, surface) >= ratio);
   if (passing) return passing;
   return [...candidates].sort((a, b) => contrastRatio(b, surface) - contrastRatio(a, surface))[0]!;
 }
 
 /** True when `color` may be used for text on `surface`: enough contrast, and never Workshop Orange. */
-export function isReadableText(color: string, surface: string) {
+function isReadableText(color: string, surface: string) {
   return color.toUpperCase() !== BRAND.orange && contrastRatio(color, surface) >= CARD_TEXT_CONTRAST;
 }
 

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Callout, EmptyState } from "@/components/ui/display";
 import { Dropdown, Field, Input } from "@/components/ui/field";
 
-export type InviteRow = { id: string; token: string; email: string | null; uses: number; maxUses: number; expiresAt: Date | null };
+type InviteRow = { id: string; token: string; email: string | null; uses: number; maxUses: number; expiresAt: Date | null };
 
 function CopyButton({ text, label }: { text: string; label: string }) {
   const [copied, setCopied] = useState(false);

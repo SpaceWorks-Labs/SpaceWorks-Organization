@@ -1,10 +1,9 @@
 import { cn } from "@/lib/cn";
-import { getAccentTokens } from "@/lib/theme/accent";
 import { AvatarImage } from "./avatar-image";
 
 /* ---------- Avatar & org logo ---------- */
 
-export function initials(name: string | null | undefined, fallback = "?") {
+function initials(name: string | null | undefined, fallback = "?") {
   const words = (name ?? "").trim().split(/\s+/).filter(Boolean);
   if (words.length === 0) return fallback;
   return (words.length === 1 ? words[0]!.slice(0, 2) : `${words[0]![0]}${words[words.length - 1]![0]}`).toUpperCase();
@@ -46,36 +45,6 @@ export function OrgLogo({ name, src, size = "md", className }: { name: string; s
       ) : (
         <span aria-hidden>{initials(name)}</span>
       )}
-    </span>
-  );
-}
-
-/* ---------- Date block (docs/DESIGN.md §4.6) ---------- */
-
-export function DateBlock({ month, day, tone = "accent", color, size = "md", className }: { month: string; day: string; tone?: "accent" | "draft" | "ink"; /** Explicit header colour (validated hex), e.g. an organisation accent. */ color?: string; size?: "sm" | "md" | "lg"; className?: string }) {
-  const header = color ? undefined : tone === "accent" ? "bg-accent text-on-accent" : tone === "draft" ? "bg-emphasis text-ink-secondary" : "bg-primary text-on-primary";
-  return (
-    <span
-      aria-hidden
-      className={cn(
-        "inline-flex shrink-0 flex-col overflow-hidden rounded-md border border-line bg-panel text-center",
-        size === "sm" && "w-[50px]",
-        size === "md" && "w-14",
-        size === "lg" && "w-[68px]",
-        className,
-      )}
-    >
-      <span className={cn("block py-0.5 text-[11px] font-semibold tracking-[0.08em]", size === "lg" && "text-xs", header)} style={color ? { backgroundColor: color, color: getAccentTokens(color, "light")["--sw-on-accent"] } : undefined}>{month}</span>
-      <span
-        className={cn(
-          "flex items-center justify-center font-display font-semibold tabular-nums leading-none text-ink",
-          size === "sm" && "h-8 text-xl",
-          size === "md" && "h-10 text-2xl",
-          size === "lg" && "h-12 text-[30px]",
-        )}
-      >
-        {day}
-      </span>
     </span>
   );
 }

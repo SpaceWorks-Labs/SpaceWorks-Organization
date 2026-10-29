@@ -35,7 +35,8 @@ export async function loadPaymentsDirectory({ params, searchParams }: { params: 
       ? {
           OR: [
             { member: { name: { contains: q, mode: "insensitive" } } },
-            { member: { email: { contains: q, mode: "insensitive" } } },
+            // Email only for staff who may see email addresses, so nobody else can probe for one.
+            ...(can(membership, "members.contact") ? [{ member: { email: { contains: q, mode: "insensitive" as const } } }] : []),
             { utr: { contains: q.toUpperCase() } },
             { gatewayPaymentId: q },
             { documents: { some: { number: { contains: q.toUpperCase() } } } },
@@ -76,8 +77,8 @@ export async function loadPaymentsDirectory({ params, searchParams }: { params: 
     payments,
     gateway: settings && settings.provider !== "NONE" ? settings : null,
     stuckRefunds,
-    canManage: can(membership.role, "payments.manage"),
-    canConfigure: can(membership.role, "payments.settings"),
+    canManage: can(membership, "payments.manage"),
+    canConfigure: can(membership, "payments.settings"),
     userId: membership.userId,
   };
 }

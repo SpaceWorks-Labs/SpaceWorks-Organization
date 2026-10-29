@@ -8,7 +8,7 @@ import { Callout } from "@/components/ui/display";
 import { SwitchRow } from "@/components/ui/choice";
 import { Dropdown, Field, Input } from "@/components/ui/field";
 
-export type OrgEmailValues = { enabled: boolean; fromName: string; fromAddress: string; replyTo: string; smtpHost: string; smtpPort: number; smtpUser: string; hasPassword: boolean };
+type OrgEmailValues = { enabled: boolean; fromName: string; fromAddress: string; replyTo: string; smtpHost: string; smtpPort: number; smtpUser: string; hasPassword: boolean };
 
 const PORTS = [{ value: 587, label: "587 · STARTTLS (most relays)" }, { value: 465, label: "465 · TLS from the start" }, { value: 2525, label: "2525 · STARTTLS (alternative)" }, { value: 25, label: "25 · STARTTLS" }];
 
@@ -22,6 +22,7 @@ export function OrgEmailForm({ slug, initial, canEdit, verified }: { slug: strin
   const [pending, startTransition] = useTransition();
   const set = <K extends keyof OrgEmailValues>(key: K, value: OrgEmailValues[K]) => setValues((current) => ({ ...current, [key]: value }));
   const { hasPassword: _, ...fields } = values;
+  void _;
 
   return (
     <form

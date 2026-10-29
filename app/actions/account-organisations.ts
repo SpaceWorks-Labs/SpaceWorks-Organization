@@ -7,6 +7,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { recordAuditEvent } from "@/lib/audit";
+import { lockOrganisationTeam } from "@/lib/team/granting";
 import type { ActionResult } from "./org";
 import { flattenZodErrors } from "./utils";
 
@@ -48,14 +49,14 @@ export async function leaveOrganisation(input: unknown): Promise<ActionResult> {
   if (!org) return { ok: false, error: NOT_A_MEMBER };
 
   const outcome = await prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`SELECT "id" FROM "Organisation" WHERE "id" = ${org.id} FOR UPDATE`;
+    await lockOrganisationTeam(tx, org.id);
     const membership = await tx.teamMember.findUnique({
       where: { userId_organisationId: { userId, organisationId: org.id } },
-      select: { id: true, role: true },
+      select: { id: true, roleId: true, orgRole: { select: { isOwner: true } } },
     });
     if (!membership) return "not-member" as const;
-    if (membership.role === "OWNER") {
-      const owners = await tx.teamMember.count({ where: { organisationId: org.id, role: "OWNER" } });
+    if (membership.orgRole.isOwner) {
+      const owners = await tx.teamMember.count({ where: { organisationId: org.id, orgRole: { isOwner: true } } });
       if (owners <= 1) return "sole-owner" as const;
     }
     // Scoped to the caller's own user id as well as the row id.
@@ -67,7 +68,7 @@ export async function leaveOrganisation(input: unknown): Promise<ActionResult> {
       organisationId: org.id,
       targetType: "teamMember",
       targetId: membership.id,
-      metadata: { role: membership.role },
+      metadata: { roleId: membership.roleId },
       client: tx,
     });
     return "left" as const;

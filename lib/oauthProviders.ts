@@ -6,9 +6,9 @@ import { INSTANCE_SETTINGS_ID } from "@/lib/instanceSettings";
 import { decryptInstanceConfigSecret } from "@/lib/instanceConfigSecrets";
 
 /** Sign-in providers this instance can offer besides email and password. */
-export type OAuthProviderId = "google" | "github" | "apple";
+type OAuthProviderId = "google" | "github" | "apple";
 
-export type OAuthSettings = {
+type OAuthSettings = {
   google: { clientId: string; clientSecret: string } | null;
   github: { clientId: string; clientSecret: string } | null;
   apple: { clientId: string; clientSecret: string } | null;

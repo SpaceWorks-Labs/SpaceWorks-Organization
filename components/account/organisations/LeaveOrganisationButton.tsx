@@ -49,7 +49,7 @@ export function LeaveOrganisationButton({
       <ConfirmationDialog
         open={open}
         title={`Leave ${organisationName}?`}
-        message="You will lose access to its dashboard straight away. An owner or admin would need to invite you again. Your own memberships with this organisation are not affected."
+        message="You will lose access to its dashboard straight away. Someone who manages the team would need to invite you again. Your own memberships with this organisation are not affected."
         confirmLabel="Leave organisation"
         loading={pending}
         onCancel={() => setOpen(false)}

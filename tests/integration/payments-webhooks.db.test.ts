@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { at, createPaymentsOrg, ensurePaymentKey, people, removePaymentsOrg, unpaidTerm } from "./payments-helpers";
 
 ensurePaymentKey();
@@ -9,6 +9,7 @@ const { createTermPayment } = await import("@/lib/payments/charges");
 const { savePaymentKeys, ensurePaymentSettings } = await import("@/lib/payments/config");
 const { handleWebhook } = await import("@/lib/payments/webhooks");
 const { releaseHeldDocument } = await import("@/lib/payments/settle");
+const { reconcileGatewayPayments } = await import("@/lib/payments/reconcile");
 
 type Ctx = Awaited<ReturnType<typeof createPaymentsOrg>>;
 let org: Ctx["org"];
@@ -104,11 +105,29 @@ describe.sequential("gateway webhooks", () => {
     expect(await prisma.taxDocument.count({ where: { paymentId: payment.id } })).toBe(1);
   });
 
-  it("fails an open attempt and acknowledges unknown events", async () => {
+  it("keeps a Razorpay attempt open after a failed try, so the retry settles unflagged", async () => {
     const { payment, orderId } = await gatewayPayment("failure");
     const failed = JSON.stringify({ created_at: Math.floor(Date.now() / 1000), event: "payment.failed", payload: { payment: { entity: { id: "pay_f", order_id: orderId, notes: { paymentId: payment.id }, error_description: "Bank declined" } } } });
-    expect((await deliver(failed, "evt_5")).status).toBe(200);
-    expect(await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).toMatchObject({ status: "FAILED", note: "Bank declined" });
+    expect(await deliver(failed, "evt_5")).toEqual({ status: 200, body: "Ignored" });
+    expect((await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).status).toBe("PENDING");
+    expect((await deliver(captured(payment.id, orderId, 118_000), "evt_5b")).status).toBe(200);
+    expect(await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).toMatchObject({ status: "PAID", flaggedAt: null, flagReason: null });
     expect(await deliver(JSON.stringify({ created_at: Math.floor(Date.now() / 1000), event: "order.paid" }), "evt_6")).toEqual({ status: 200, body: "Ignored" });
+  });
+
+  it("closes an order whose attempts only failed once the reconcile week runs out", async () => {
+    const { payment } = await gatewayPayment("abandoned");
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ items: [{ id: "pay_x", status: "failed" }] }), { status: 200 })));
+    try {
+      const { createdAt } = await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } });
+      await reconcileGatewayPayments(new Date(createdAt.getTime() + 60 * 60_000), true);
+      expect((await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).status).toBe("PENDING");
+      // Checked longest ago goes first, so this attempt is in the next batch whatever else the database holds.
+      await prisma.payment.update({ where: { id: payment.id }, data: { updatedAt: new Date(0) } });
+      await reconcileGatewayPayments(new Date(createdAt.getTime() + 8 * 86_400_000), true);
+      expect(await prisma.payment.findUniqueOrThrow({ where: { id: payment.id } })).toMatchObject({ status: "FAILED", note: "Closed: no payment arrived within a week." });
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

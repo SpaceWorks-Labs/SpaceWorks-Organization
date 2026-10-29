@@ -13,7 +13,7 @@ import { ConfirmDialog } from "@/components/ui/dialog";
 import { Field, Textarea } from "@/components/ui/field";
 import { cn } from "@/lib/cn";
 
-export type LedgerRow = { id: string; direction: "RECEIPT" | "PAYMENT"; date: string; category: string; party: string; description: string; currency: string; amountMinor: number; method: string; reference: string | null; voided: { reason: string } | null };
+type LedgerRow = { id: string; direction: "RECEIPT" | "PAYMENT"; date: string; category: string; party: string; description: string; currency: string; amountMinor: number; method: string; reference: string | null; voided: { reason: string } | null };
 
 /** The year's ledger entries, with record and void for the finance team. */
 export function LedgerPanel({ slug, rows, currencies, today, locale, canManage }: { slug: string; rows: LedgerRow[]; currencies: string[]; today: string; locale: string | null; canManage: boolean }) {

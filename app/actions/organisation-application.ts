@@ -10,6 +10,7 @@ import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { isOrganisationApplicationsEnabled } from "@/lib/instanceSettings";
 import { can, getMembership, hasAuthenticator, isUserEmailVerified, STAFF_AUTHENTICATOR_MESSAGE } from "@/lib/permissions";
 import { canResubmit } from "@/lib/organisationLifecycle";
+import { createStarterRoles, roleColumns } from "@/lib/team/roles";
 import {
   alertPlatformAdmins,
   applicationSnapshot,
@@ -76,7 +77,7 @@ export async function submitOrganisationApplication(input: unknown): Promise<Act
   const application = parsed.data;
 
   const open = await prisma.teamMember.count({
-    where: { userId, role: "OWNER", organisation: { status: { in: ["PENDING_REVIEW", "CHANGES_REQUESTED"] } } },
+    where: { userId, orgRole: { is: { isOwner: true } }, organisation: { status: { in: ["PENDING_REVIEW", "CHANGES_REQUESTED"] } } },
   });
   if (open >= MAX_OPEN_APPLICATIONS) return { ok: false, error: "You already have applications waiting for a decision. Wait for those first." };
   // Counted only once the form is valid, so fixing typos never uses up the allowance.
@@ -89,7 +90,8 @@ export async function submitOrganisationApplication(input: unknown): Promise<Act
         data: { ...profileColumns(application), slug: application.slug, status: "PENDING_REVIEW", source: "SELF_SIGNUP" },
         select: { id: true, slug: true },
       });
-      await tx.teamMember.create({ data: { userId, organisationId: created.id, role: "OWNER" } });
+      const roles = await createStarterRoles(tx, created.id);
+      await tx.teamMember.create({ data: { userId, organisationId: created.id, ...roleColumns(roles.OWNER) } });
       await tx.organisationReview.create({
         data: { organisationId: created.id, action: "SUBMITTED", actorUserId: userId, applicationSnapshot: applicationSnapshot(application) },
       });
@@ -123,7 +125,7 @@ export async function resubmitOrganisationApplication(input: unknown): Promise<A
   if (!organisation) return { ok: false, error: "Organisation not found." };
   const membership = await getMembership(userId, organisation.id);
   if (!membership) return { ok: false, error: "Organisation not found." };
-  if (!can(membership.role, "org.settings")) return { ok: false, error: "Only owners and managers can update the application." };
+  if (!can(membership, "org.settings", { write: true })) return { ok: false, error: "Only owners and managers can update the application." };
   if (!(await hasAuthenticator(userId))) return { ok: false, error: STAFF_AUTHENTICATOR_MESSAGE };
 
   const outcome = await prisma.$transaction(async (tx) => {

@@ -2,7 +2,7 @@
 
 import { slotColor } from "./useChartPointer";
 
-export type TooltipRow = { label: string; value: string; slot: number | "muted"; shape?: "line" | "rect" };
+type TooltipRow = { label: string; value: string; slot: number | "muted"; shape?: "line" | "rect" };
 
 /**
  * The single readout for a hovered or focused x position: the value leads, the series name follows, keyed

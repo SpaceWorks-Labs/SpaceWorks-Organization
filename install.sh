@@ -30,7 +30,7 @@ What it does
   3. Shows answers, services and host actions; proceeds only after confirmation.
   4. Installs dependencies, copies the release into /opt/spaceworks-organization
      (SWO_DIR overrides it), writes private settings and TLS certificates, and starts
-     PostgreSQL, Redis, Silo storage, migrations, the app, the scheduler, backups and Caddy.
+     PostgreSQL, Redis, Silo storage, migrations, the app, the worker and beat, backups and Caddy.
   Run it again later to update, back up or roll back; it detects the existing install.
 
 Installing a fork

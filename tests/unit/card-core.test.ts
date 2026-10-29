@@ -3,6 +3,7 @@ import { cardState, deriveCardPrefix, formatValidUntil, memberDetails, VERIFY_TO
 import { newVerifyToken } from "@/lib/cards/issue";
 import { exportCardsWhere, parseExportFilter } from "@/lib/cards/exportFilter";
 import { managedImageUrl } from "@/lib/cards/imageUrl";
+import { validUntilLine } from "@/lib/cards/types";
 
 describe("verify tokens", () => {
   it("are 43 base64url characters and never repeat", () => {
@@ -27,6 +28,8 @@ describe("card numbers", () => {
     // A term ending at midnight IST on 1 April is valid until 31 March.
     expect(formatValidUntil(new Date("2027-03-31T18:30:00Z"), "Asia/Kolkata")).toBe("31 Mar 2027");
     expect(formatValidUntil(null, "Asia/Kolkata")).toBe("Lifetime");
+    expect(validUntilLine("Valid until", "31 Mar 2027")).toBe("Valid until 31 Mar 2027");
+    expect(validUntilLine("Valid until", formatValidUntil(null, "Asia/Kolkata"))).toBe("Lifetime");
   });
 
   it("tell live, replaced and revoked cards apart", () => {
@@ -62,8 +65,14 @@ describe("bulk export filter", () => {
   });
 
   it("selects live cards inside the requester's scope", () => {
-    const where = exportCardsWhere({ organisationId: "org1", unitId: "u1", unitPath: "root/u1" }, parseExportFilter({ planId: "p1" }));
+    const where = exportCardsWhere({ organisationId: "org1", unitId: "u1", unitPath: "root/u1" }, parseExportFilter({ planId: "p1" }), { contact: true });
     expect(where).toMatchObject({ organisationId: "org1", revokedAt: null, planId: "p1" });
     expect(JSON.stringify(where.member)).toContain("root/u1");
+  });
+
+  it("searches email only for staff who may see contact details", () => {
+    const scope = { organisationId: "org1", unitId: null, unitPath: null };
+    expect(JSON.stringify(exportCardsWhere(scope, parseExportFilter({ q: "gmail" }), { contact: true }).member)).toContain("email");
+    expect(JSON.stringify(exportCardsWhere(scope, parseExportFilter({ q: "gmail" }), { contact: false }).member)).not.toContain("email");
   });
 });

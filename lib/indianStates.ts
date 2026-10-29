@@ -41,7 +41,7 @@ export const INDIAN_STATES = [
   { code: "WB", name: "West Bengal", gst: "19" },
 ] as const;
 
-export type IndianStateCode = (typeof INDIAN_STATES)[number]["code"];
+type IndianStateCode = (typeof INDIAN_STATES)[number]["code"];
 
 const BY_CODE = new Map<string, (typeof INDIAN_STATES)[number]>(INDIAN_STATES.map((state) => [state.code, state]));
 

@@ -46,7 +46,7 @@ function pollutedSource(): AccountExportSource {
       sessionVersion: SECRETS.sessionVersion,
     },
     signInProviders: [{ provider: "google", access_token: SECRETS.access_token, refresh_token: SECRETS.refresh_token, id_token: SECRETS.id_token }],
-    teamMembers: [{ role: "OWNER", createdAt: new Date("2030-01-03T00:00:00Z"), organisation: { name: "Analytical Society", slug: "analytical" } }],
+    teamMembers: [{ orgRole: { name: "Owner" }, createdAt: new Date("2030-01-03T00:00:00Z"), organisation: { name: "Analytical Society", slug: "analytical" } }],
   };
   return source as unknown as AccountExportSource;
 }
@@ -63,7 +63,7 @@ describe("account data export shaping", () => {
       twoFactorAuthenticationEnabled: true,
       linkedSignInProviders: ["google"],
     });
-    expect(data.organisationTeams).toEqual([{ organisation: "Analytical Society", organisationSlug: "analytical", role: "OWNER", joinedAt: "2030-01-03T00:00:00.000Z" }]);
+    expect(data.organisationTeams).toEqual([{ organisation: "Analytical Society", organisationSlug: "analytical", role: "Owner", joinedAt: "2030-01-03T00:00:00.000Z" }]);
     expect(data.truncated.organisationTeams).toBe(false);
   });
 

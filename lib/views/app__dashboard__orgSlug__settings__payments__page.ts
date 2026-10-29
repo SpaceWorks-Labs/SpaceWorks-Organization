@@ -14,7 +14,7 @@ export async function loadPaymentSettingsView({ params }: { params: Promise<{ or
     prisma.orgTaxSettings.findUnique({ where: { organisationId: organisation.id } }),
     getRequestOrigin(),
   ]);
-  const canEdit = can(membership.role, "payments.settings") && !membership.unitId;
+  const canEdit = can(membership, "payments.settings", { write: true });
   return {
     org,
     canEdit,

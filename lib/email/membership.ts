@@ -5,9 +5,13 @@ import { prisma } from "@/lib/db";
 import { formatMoney, isCurrencyCode } from "@/lib/money/currencies";
 import { formatCalendarDate, lastValidDay } from "@/lib/membership/periods";
 import { absoluteUrl, sendBrandedEmail } from "./message";
+import { orgTemplateContent } from "./orgTemplates";
 import { payLinkToken } from "@/lib/payments/payLink";
+import { loadPaymentGuidance } from "@/lib/payments/payGuidance";
+import { instructionParagraphs } from "@/lib/payments/unitInstructions";
+import { termTotalMinor } from "@/lib/payments/tax";
 
-export const MEMBERSHIP_NOTICES = [
+const MEMBERSHIP_NOTICES = [
   "application-received",
   "payment-requested",
   "approved-pay-now",
@@ -18,7 +22,7 @@ export const MEMBERSHIP_NOTICES = [
   "left",
 ] as const;
 
-export type MembershipNotice = (typeof MEMBERSHIP_NOTICES)[number];
+type MembershipNotice = (typeof MEMBERSHIP_NOTICES)[number];
 
 type NoticePayload = { termId: string; organisationId: string; notice: MembershipNotice };
 type ReminderPayload = { termId: string; organisationId: string; key: string };
@@ -44,7 +48,7 @@ async function loadTerm(termId: string, organisationId: string) {
   return prisma.membershipTerm.findFirst({
     where: { id: termId, organisationId },
     include: {
-      member: { select: { name: true, email: true, anonymisedAt: true } },
+      member: { select: { id: true, name: true, email: true, anonymisedAt: true, stateCode: true, unit: { select: { path: true, name: true } } } },
       plan: { select: { name: true } },
       organisation: { select: { name: true, slug: true, timezone: true, locale: true, status: true, memberPortal: true } },
     },
@@ -53,6 +57,13 @@ async function loadTerm(termId: string, organisationId: string) {
 
 function money(minor: number, currency: string, locale: string | null) {
   return isCurrencyCode(currency) ? formatMoney(minor, currency, locale ?? undefined) : `${currency} ${minor}`;
+}
+
+async function activatedTemplate(term: NonNullable<Awaited<ReturnType<typeof loadTerm>>>, organisation: string, until: string | null) {
+  const card = await prisma.memberCard.findFirst({ where: { organisationId: term.organisationId, memberId: term.member.id, planId: term.planId, revokedAt: null }, select: { cardNumber: true } });
+  return orgTemplateContent(term.organisationId, "membership-activated", {
+    name: term.member.name, organisation, plan: term.plan.name, unit: term.member.unit?.name ?? null, cardNumber: card?.cardNumber ?? null, validUntil: until,
+  });
 }
 
 /** Tell a member what happened to their application or membership. "dropped" when there is no one to tell. */
@@ -64,9 +75,15 @@ export async function deliverMembershipNotice(payload: NoticePayload, messageId:
   // Without member accounts, links go to the public page and "Pay now" carries a signed pay link.
   const account = org.memberPortal ? absoluteUrl("/account") : home;
   const payUrl = org.memberPortal ? absoluteUrl(`/account/pay/${term.id}`) : absoluteUrl(`/pay/${payLinkToken(term.id)}`);
-  const due = money(term.priceMinor + term.joiningFeeMinor, term.currency, org.locale);
+  // Tax included, so the email asks for what the payment collects.
+  const tax = await prisma.orgTaxSettings.findUnique({ where: { organisationId: payload.organisationId } });
+  const due = money(termTotalMinor(term, tax, term.currency, term.member.stateCode), term.currency, org.locale);
   const until = term.endsAt ? formatCalendarDate(lastValidDay(term.endsAt, org.timezone)) : null;
   const first = term.member.name.split(/\s+/)[0] || term.member.name;
+  // Asking for money: say how to pay offline (the nearest unit's instructions, else the organisation's).
+  const howToPay = payload.notice === "payment-requested" || payload.notice === "approved-pay-now"
+    ? instructionParagraphs(await loadPaymentGuidance(payload.organisationId, term.member.unit?.path, term.currency))
+    : [];
   const content = {
     "application-received": {
       subject: `Your application to ${org.name}`,
@@ -77,13 +94,13 @@ export async function deliverMembershipNotice(payload: NoticePayload, messageId:
     "payment-requested": {
       subject: `Complete your ${org.name} membership`,
       heading: "One step left: payment",
-      paragraphs: [`Hi ${first}, your ${term.plan.name} membership starts once ${due} is paid.`],
+      paragraphs: [`Hi ${first}, your ${term.plan.name} membership starts once ${due} is paid.`, ...howToPay],
       action: { label: "Pay now", url: payUrl },
     },
     "approved-pay-now": {
       subject: `You're approved for ${org.name}`,
       heading: "You're approved",
-      paragraphs: [`Hi ${first}, ${org.name} approved your application for ${term.plan.name}. Pay ${due} to start your membership.`],
+      paragraphs: [`Hi ${first}, ${org.name} approved your application for ${term.plan.name}. Pay ${due} to start your membership.`, ...howToPay],
       action: { label: "Pay now", url: payUrl },
     },
     activated: {
@@ -117,7 +134,9 @@ export async function deliverMembershipNotice(payload: NoticePayload, messageId:
       action: { label: `Visit ${org.name}`, url: home },
     },
   }[payload.notice];
-  await sendBrandedEmail({ organisationId: payload.organisationId, to: term.member.email, messageId, ...content });
+  // An organisation's own wording for the activation notice replaces the subject, heading and text.
+  const own = payload.notice === "activated" ? await activatedTemplate(term, org.name, until) : null;
+  await sendBrandedEmail({ organisationId: payload.organisationId, to: term.member.email, messageId, ...content, ...own });
   return "sent";
 }
 
@@ -125,11 +144,15 @@ export async function deliverMembershipNotice(payload: NoticePayload, messageId:
 export async function deliverRenewalReminder(payload: ReminderPayload, messageId: string): Promise<"sent" | "dropped"> {
   const term = await loadTerm(payload.termId, payload.organisationId);
   if (!term || term.member.anonymisedAt || !term.endsAt || !["ACTIVE", "GRACE", "LAPSED"].includes(term.status)) return "dropped";
-  const renewed = await prisma.membershipTerm.count({ where: { renewedFromId: term.id, status: { notIn: ["CANCELLED", "EXPIRED", "REJECTED"] } } });
+  // Renewed, or rejoined with a new term that starts after this one.
+  const renewed = await prisma.membershipTerm.count({ where: { OR: [{ renewedFromId: term.id, status: { notIn: ["CANCELLED", "EXPIRED", "REJECTED"] } }, { memberId: term.memberId, planId: term.planId, status: { in: ["UPCOMING", "ACTIVE", "GRACE"] }, startsAt: { gte: term.endsAt } }] } });
   if (renewed > 0) return "dropped";
   const org = term.organisation;
   const until = formatCalendarDate(lastValidDay(term.endsAt, org.timezone));
   const after = payload.key.startsWith("after");
+  // Without a gateway that takes the currency the renewal is paid offline, so say how.
+  const guidance = await loadPaymentGuidance(payload.organisationId, term.member.unit?.path, term.currency);
+  const howToPay = guidance.offlineOnly ? instructionParagraphs(guidance) : [];
   await sendBrandedEmail({ organisationId: payload.organisationId,
     to: term.member.email,
     messageId,
@@ -139,6 +162,7 @@ export async function deliverRenewalReminder(payload: ReminderPayload, messageId
       after
         ? `Your ${term.plan.name} membership ended on ${until}. Renew now to keep your card valid.`
         : `Your ${term.plan.name} membership is valid until ${until}. Renew now and the new year starts the day after.`,
+      ...howToPay,
     ],
     action: org.memberPortal ? { label: "Renew now", url: absoluteUrl("/account") } : { label: `Contact ${org.name} to renew`, url: absoluteUrl(`/o/${org.slug}`) },
   });

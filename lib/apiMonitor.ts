@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-export type ApiRouteStats = {
+type ApiRouteStats = {
   routeId: string;
   total: number;
   errors: number;

@@ -39,7 +39,7 @@ function textPaths(fonts: CardFonts, op: CardTextOp) {
   return `<g fill="${op.color}"${opacity}${rotate}>${out}</g>`;
 }
 
-export async function renderCardSvg(scene: CardScene, dpi = PNG_DPI) {
+async function renderCardSvg(scene: CardScene, dpi = PNG_DPI) {
   const fonts = await loadCardFonts();
   const { width, height } = pixelSize(scene.widthMm, scene.heightMm, dpi);
   const prepare = imageCache();

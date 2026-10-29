@@ -16,7 +16,6 @@ import type { ActionResult } from "./org";
 import { flattenZodErrors } from "./utils";
 
 const revalidatePath = trackedRevalidation(nextRevalidatePath);
-const ORG_WIDE_ONLY = "Email settings apply to the whole organisation, so a manager limited to one unit can't change them.";
 const email = z.string().trim().toLowerCase().max(320).email("Enter an email address");
 const optionalEmail = z.union([email, z.literal("")]).transform((value) => value || null);
 
@@ -36,7 +35,6 @@ const settingsSchema = z.object({
 async function access(slug: unknown) {
   const ctx = await orgActionAccess(slug, "org.settings");
   if (!ctx.ok) return ctx;
-  if (ctx.membership.unitId) return { ok: false as const, error: ORG_WIDE_ONLY };
   if (await isActionRateLimited("action", ctx.userId)) return { ok: false as const, error: "Too many requests. Try again shortly." };
   return ctx;
 }
@@ -53,6 +51,7 @@ export async function saveOrgEmailSettings(input: unknown): Promise<ActionResult
   const ctx = await access(parsed.data.organisationSlug);
   if (!ctx.ok) return ctx;
   const { organisationSlug: _, smtpPassword, ...data } = parsed.data;
+  void _;
   try {
     await assertPublicHost(data.smtpHost);
     const passwordUpdate = smtpPassword ? { smtpPasswordEncrypted: encryptOrgSecret(smtpPassword, ctx.organisation.id, "email") } : {};

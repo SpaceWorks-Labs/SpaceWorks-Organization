@@ -113,7 +113,7 @@ export function gstr1(documents: FinanceTaxDocument[], refunds: FinanceRefund[],
   return result;
 }
 
-export type Gstr3b = {
+type Gstr3b = {
   /** 3.1(a) outward taxable supplies (net of credit notes). */
   outwardTaxable: TaxAmounts;
   /** 3.1(c) nil-rated and exempted (bills of supply). */

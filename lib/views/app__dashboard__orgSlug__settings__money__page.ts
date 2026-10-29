@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { requireOrgCapability } from "@/lib/permissions";
+import { can, requireOrgCapability } from "@/lib/permissions";
 
 /** Money and calendar preferences, and whether the calendar is already fixed by existing memberships. */
 export async function loadOrgMoneySettingsView({ params }: { params: Promise<{ orgSlug: string }> }) {
@@ -12,7 +12,7 @@ export async function loadOrgMoneySettingsView({ params }: { params: Promise<{ o
   const zones = Intl.supportedValuesOf("timeZone");
   return {
     org,
-    canEdit: !membership.unitId,
+    canEdit: can(membership, "org.settings", { write: true }),
     calendarLocked: org._count.terms > 0,
     timezones: zones.includes(org.timezone) ? zones : [org.timezone, ...zones],
   };

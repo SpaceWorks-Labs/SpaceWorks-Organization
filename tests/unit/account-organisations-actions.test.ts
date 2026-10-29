@@ -26,6 +26,9 @@ vi.mock("@/lib/db", () => ({
 
 import { leaveOrganisation } from "@/app/actions/account-organisations";
 
+/** A membership row as the action reads it: the role it holds, and whether that is the Owner role. */
+const membership = (roleId: string, isOwner = false) => ({ id: "membership_1", roleId, orgRole: { isOwner } });
+
 const tx = {
   $queryRaw: mocks.queryRaw,
   teamMember: {
@@ -42,7 +45,7 @@ beforeEach(() => {
   mocks.orgFindUnique.mockResolvedValue({ id: "org_1", slug: "acme" });
   mocks.transaction.mockImplementation((fn: (client: typeof tx) => unknown) => fn(tx));
   mocks.queryRaw.mockResolvedValue([{ id: "org_1" }]);
-  mocks.teamMemberFindUnique.mockResolvedValue({ id: "membership_1", role: "VIEWER" });
+  mocks.teamMemberFindUnique.mockResolvedValue(membership("role_viewer"));
   mocks.teamMemberCount.mockResolvedValue(1);
   mocks.teamMemberDeleteMany.mockResolvedValue({ count: 1 });
 });
@@ -84,26 +87,26 @@ describe("leaveOrganisation", () => {
   });
 
   it("blocks the sole owner, checking ownership under the organisation lock", async () => {
-    mocks.teamMemberFindUnique.mockResolvedValue({ id: "membership_1", role: "OWNER" });
+    mocks.teamMemberFindUnique.mockResolvedValue(membership("role_owner", true));
     mocks.teamMemberCount.mockResolvedValue(1);
     const result = await leaveOrganisation({ organisationSlug: "acme" });
     expect(result).toMatchObject({ ok: false, error: expect.stringContaining("Transfer ownership or delete the organisation first") });
     expect(mocks.queryRaw).toHaveBeenCalledTimes(1);
     expect(mocks.queryRaw.mock.invocationCallOrder[0]).toBeLessThan(mocks.teamMemberCount.mock.invocationCallOrder[0]!);
-    expect(mocks.teamMemberCount).toHaveBeenCalledWith({ where: { organisationId: "org_1", role: "OWNER" } });
+    expect(mocks.teamMemberCount).toHaveBeenCalledWith({ where: { organisationId: "org_1", orgRole: { isOwner: true } } });
     expect(mocks.teamMemberDeleteMany).not.toHaveBeenCalled();
     expect(mocks.audit).not.toHaveBeenCalled();
   });
 
-  it.each(["VIEWER", "TREASURER", "ADMIN"] as const)("lets a %s leave without counting owners", async (role) => {
-    mocks.teamMemberFindUnique.mockResolvedValue({ id: "membership_1", role });
+  it.each(["role_viewer", "role_treasurer", "role_manager"])("lets someone holding %s leave without counting owners", async (roleId) => {
+    mocks.teamMemberFindUnique.mockResolvedValue(membership(roleId));
     await expect(leaveOrganisation({ organisationSlug: "acme" })).resolves.toEqual({ ok: true });
     expect(mocks.teamMemberCount).not.toHaveBeenCalled();
     expect(mocks.teamMemberDeleteMany).toHaveBeenCalledTimes(1);
   });
 
   it("lets a co-owner leave when another owner remains", async () => {
-    mocks.teamMemberFindUnique.mockResolvedValue({ id: "membership_1", role: "OWNER" });
+    mocks.teamMemberFindUnique.mockResolvedValue(membership("role_owner", true));
     mocks.teamMemberCount.mockResolvedValue(2);
     await expect(leaveOrganisation({ organisationSlug: "acme" })).resolves.toEqual({ ok: true });
     expect(mocks.teamMemberDeleteMany).toHaveBeenCalledTimes(1);
@@ -114,7 +117,7 @@ describe("leaveOrganisation", () => {
     expect(mocks.orgFindUnique).toHaveBeenCalledWith({ where: { slug: "acme" }, select: { id: true, slug: true } });
     expect(mocks.teamMemberFindUnique).toHaveBeenCalledWith({
       where: { userId_organisationId: { userId: "user_1", organisationId: "org_1" } },
-      select: { id: true, role: true },
+      select: { id: true, roleId: true, orgRole: { select: { isOwner: true } } },
     });
     expect(mocks.teamMemberDeleteMany).toHaveBeenCalledWith({ where: { id: "membership_1", userId: "user_1", organisationId: "org_1" } });
     expect(mocks.audit).toHaveBeenCalledWith({
@@ -123,7 +126,7 @@ describe("leaveOrganisation", () => {
       organisationId: "org_1",
       targetType: "teamMember",
       targetId: "membership_1",
-      metadata: { role: "VIEWER" },
+      metadata: { roleId: "role_viewer" },
       client: tx,
     });
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/account/organisations");

@@ -26,9 +26,9 @@ function isFirstOnPlan(term: PreparedTerm, all: PreparedTerm[]): boolean {
   return !all.some((other) => other.planId === term.planId && other.id !== term.id && other.activatedAt && term.activatedAt && other.activatedAt < term.activatedAt);
 }
 
-export type PeriodSets = Record<DrillMetric, Set<string>>;
+type PeriodSets = Record<DrillMetric, Set<string>>;
 
-export type TermOutcomes = { due: PreparedTerm[]; renewed: PreparedTerm[]; lapsed: PreparedTerm[]; open: PreparedTerm[] };
+type TermOutcomes = { due: PreparedTerm[]; renewed: PreparedTerm[]; lapsed: PreparedTerm[]; open: PreparedTerm[] };
 
 /**
  * Terms that came up for renewal in the window (end date inside it), and what became of each as of `now`:

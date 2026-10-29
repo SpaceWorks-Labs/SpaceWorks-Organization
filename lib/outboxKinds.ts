@@ -8,10 +8,13 @@ import { asMemberInvitePayload, asMembershipNoticePayload, asReminderPayload, de
 import { asPaymentNoticePayload, deliverPaymentNotice } from "@/lib/email/payments";
 import { asReportDigestPayload, deliverReportDigest } from "@/lib/email/reportDigest";
 import { asMemberCardPayload, deliverMemberCard } from "@/lib/email/memberCard";
+import { asVerificationAlertPayload, deliverVerificationAlert } from "@/lib/email/verificationAlert";
 import { asErasurePayload, deliverErasureNotice } from "@/lib/email/erasure";
 import { asRefundPayload, deliverRefundNotice } from "@/lib/email/refunds";
 import { asChatPayload, deliverChatNotice } from "@/lib/chat/notify";
 import { asLoginAlertPayload, asLoginCodePayload, deliverLoginAlert, deliverLoginCode } from "@/lib/email/loginSecurity";
+import { asOwnershipPayload, deliverOwnershipNotice } from "@/lib/team/ownershipEmail";
+import { asPhotoPurgePayload, purgeErasedMemberPhotos } from "@/lib/storage/memberPhotos";
 
 /** What a handler reports after a delivery attempt. Throw to retry; throw PermanentOutboxError to give up. */
 export type DeliveryOutcome = "sent" | "dropped";
@@ -161,6 +164,15 @@ const memberCard: OutboxKindHandler = {
   },
 };
 
+const verificationAlert: OutboxKindHandler = {
+  capability: false,
+  async deliver(value, messageId) {
+    const payload = asVerificationAlertPayload(value);
+    if (!payload) throw new PermanentOutboxError();
+    return deliverVerificationAlert(payload, messageId);
+  },
+};
+
 const erasureNotice: OutboxKindHandler = {
   capability: false,
   async deliver(value, messageId) {
@@ -217,7 +229,27 @@ const reportDigest: OutboxKindHandler = {
   },
 };
 
-/** Every email the platform can send. Add a kind here when a feature needs a new message. */
+const ownershipTransfer: OutboxKindHandler = {
+  capability: false,
+  async deliver(value, messageId) {
+    const payload = asOwnershipPayload(value);
+    if (!payload) throw new PermanentOutboxError();
+    return deliverOwnershipNotice(payload, messageId);
+  },
+};
+
+const memberPhotoPurge: OutboxKindHandler = {
+  // Not an email: an erased member's photos, deleted after the erasure commits and retried until storage agrees.
+  capability: false,
+  async deliver(value) {
+    const payload = asPhotoPurgePayload(value);
+    if (!payload) throw new PermanentOutboxError();
+    await purgeErasedMemberPhotos(payload);
+    return "sent";
+  },
+};
+
+/** Every email the platform can send, plus the photo purge an erasure leaves behind. Add a kind here when a feature needs a new message. */
 export const OUTBOX_KINDS = {
   "password-reset": passwordReset,
   "email-verification": emailVerification,
@@ -230,11 +262,14 @@ export const OUTBOX_KINDS = {
   "payment-notice": paymentNotice,
   "report-digest": reportDigest,
   "member-card": memberCard,
+  "verification-alert": verificationAlert,
   "erasure-notice": erasureNotice,
   "refund-notice": refundNotice,
   "chat-notice": chatNotice,
   "login-code": loginCode,
   "login-alert": loginAlert,
+  "ownership-transfer": ownershipTransfer,
+  "member-photo-purge": memberPhotoPurge,
 } satisfies Record<string, OutboxKindHandler>;
 
 export type OutboxKind = keyof typeof OUTBOX_KINDS;

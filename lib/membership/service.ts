@@ -12,7 +12,10 @@ type Tx = Prisma.TransactionClient;
 type OrgClock = Pick<Organisation, "id" | "timezone" | "financialYearStartMonth">;
 
 /** How long an approved member has to pay before the unpaid term expires. */
-export const PAYMENT_DUE_DAYS = 14;
+const PAYMENT_DUE_DAYS = 14;
+
+/** Statuses the database's no-overlap rule covers: a member holds at most one of these per plan at a time. */
+const LIVE: TermStatus[] = ["UPCOMING", "ACTIVE", "GRACE"];
 
 export class MembershipError extends Error {
   override name = "MembershipError";
@@ -27,7 +30,7 @@ export async function nextCounter(tx: Tx, organisationId: string, name: string):
   return Number(row.value);
 }
 
-export type MemberInput = {
+type MemberInput = {
   email: string;
   name: string;
   phone?: string | null;
@@ -40,6 +43,8 @@ export type MemberInput = {
   guardianName?: string | null;
   guardianEmail?: string | null;
   guardianPhone?: string | null;
+  /** Leave an existing member's unit as it is (a join form never moves anyone). */
+  keepExistingUnit?: boolean;
 };
 
 /** The organisation's record for this email, created on first sight with the next member number. */
@@ -50,7 +55,7 @@ export async function upsertMember(tx: Tx, organisationId: string, input: Member
     name: input.name.trim(),
     phone: input.phone ?? null,
     stateCode: input.stateCode ?? null,
-    ...(input.unitId !== undefined ? { unitId: input.unitId } : {}),
+    ...(input.unitId !== undefined && !(input.keepExistingUnit && existing?.unitId) ? { unitId: input.unitId } : {}),
     ...(input.isMinor !== undefined ? { isMinor: input.isMinor, guardianName: input.guardianName ?? null, guardianEmail: input.guardianEmail ?? null, guardianPhone: input.guardianPhone ?? null } : {}),
   };
   if (existing) {
@@ -86,24 +91,29 @@ async function lockTerm(tx: Tx, organisationId: string, termId: string) {
 
 /**
  * Open a membership term for a member. The plan decides the path:
- * - an application needing approval waits as PENDING_APPROVAL (managers adding someone skip this);
+ * - an application needing approval waits as PENDING_APPROVAL (managers adding someone skip this, unless they
+ *   send the person to their unit's lead to verify, `needsVerification`: then no member email or chat alert goes
+ *   out, as the importer alerts the leads once for the whole batch);
  * - otherwise a priced plan that is paid first waits as PENDING_PAYMENT;
  * - otherwise the term starts now (free plans, or plans that activate and charge later).
  */
 export async function openTerm(
   tx: Tx,
-  args: { org: OrgClock; plan: MembershipPlan; memberId: string; kind?: TermKind; renewedFromId?: string | null; byManager: boolean; actorUserId: string | null; now?: Date },
+  args: { org: OrgClock; plan: MembershipPlan; memberId: string; kind?: TermKind; renewedFromId?: string | null; byManager: boolean; needsVerification?: boolean; actorUserId: string | null; now?: Date },
 ) {
   const now = args.now ?? new Date();
   const { plan, org } = args;
   if (plan.archivedAt) throw new MembershipError("This plan is no longer offered.");
   const kind = args.kind ?? "NEW";
-  const history = await tx.membershipTerm.findMany({ where: { memberId: args.memberId, planId: plan.id }, select: { status: true, endsAt: true, graceUntil: true } });
+  const history = await tx.membershipTerm.findMany({ where: { memberId: args.memberId, planId: plan.id }, select: { id: true, status: true, startsAt: true, endsAt: true, graceUntil: true, createdAt: true } });
+  // A term in grace has ended, so registering again then (rather than renewing) overlaps nothing.
+  if (kind === "NEW" && history.some((term) => ["UPCOMING", "ACTIVE"].includes(statusAt(term, now)))) throw new MembershipError("This email already holds a current membership on this plan. Renew it instead.");
   const joiningFeeMinor = kind === "NEW" && plan.joiningFeeMinor > 0 && chargesJoiningFee(plan.rejoinFeeRule, history, now, plan.rejoinAfterDays) ? plan.joiningFeeMinor : 0;
   const priceMinor = kind === "RENEWAL" ? plan.priceRenewalMinor : plan.priceNewMinor;
   const due = priceMinor + joiningFeeMinor;
 
-  const needsApproval = kind === "NEW" && !args.byManager && plan.joinMode === "APPROVAL";
+  const verify = kind === "NEW" && Boolean(args.needsVerification);
+  const needsApproval = verify || (kind === "NEW" && !args.byManager && plan.joinMode === "APPROVAL");
   const waitsForPayment = !needsApproval && due > 0 && plan.paymentTiming === "PAY_THEN_ACTIVATE";
   const status: TermStatus = needsApproval ? "PENDING_APPROVAL" : waitsForPayment ? "PENDING_PAYMENT" : "PENDING_PAYMENT";
 
@@ -121,11 +131,11 @@ export async function openTerm(
       paymentDueBy: waitsForPayment ? new Date(now.getTime() + PAYMENT_DUE_DAYS * 86_400_000) : null,
     },
   });
-  await recordEvent(tx, term, null, status, now, args.actorUserId, kind === "RENEWAL" ? "renewal-started" : "applied");
+  await recordEvent(tx, term, null, status, now, args.actorUserId, kind === "RENEWAL" ? "renewal-started" : verify ? "sent-to-verify" : "applied");
 
   if (!needsApproval && !waitsForPayment) {
     term = await activateTerm(tx, { org, termId: term.id, actorUserId: args.actorUserId, cause: due > 0 ? "activated-before-payment" : "free-plan", now });
-  } else {
+  } else if (!verify) {
     await notifyMember(tx, term, needsApproval ? "application-received" : "payment-requested");
     if (needsApproval) await queueChatAlerts(tx, org.id, "application", { termId: term.id });
   }
@@ -146,8 +156,24 @@ export async function activateTerm(tx: Tx, args: { org: OrgClock; termId: string
   if (!window) throw new MembershipError("This plan's end date has passed, so it can't start a membership.");
   const grace = graceUntil(window.endsAt, term.plan.graceDays, timeZone);
   const status = statusAt({ ...term, status: "ACTIVE", startsAt: window.startsAt, endsAt: window.endsAt, graceUntil: grace }, now);
+  const endsPrevious = Boolean(previous && previous.endsAt && now >= previous.endsAt && ["ACTIVE", "GRACE", "LAPSED"].includes(previous.status));
 
-  if (previous && previous.endsAt && now >= previous.endsAt && ["ACTIVE", "GRACE", "LAPSED"].includes(previous.status)) {
+  // Refused here rather than by the database, so a late payment is still receipted and flagged (settlePayment).
+  const clash = await tx.membershipTerm.count({
+    where: {
+      OR: [
+        {
+          memberId: term.memberId, planId: term.planId, status: { in: LIVE }, id: { notIn: endsPrevious ? [term.id, previous!.id] : [term.id] },
+          startsAt: { not: null, ...(window.endsAt ? { lt: window.endsAt } : {}) },
+          OR: [{ endsAt: null }, { endsAt: { gt: window.startsAt } }],
+        },
+        ...(term.renewedFromId ? [{ renewedFromId: term.renewedFromId, id: { not: term.id }, status: { notIn: ["CANCELLED", "EXPIRED", "REJECTED"] as TermStatus[] } }] : []),
+      ],
+    },
+  });
+  if (clash) throw new MembershipError("This member already holds this membership for those dates.");
+
+  if (previous && previous.endsAt && endsPrevious) {
     await tx.membershipTerm.update({ where: { id: previous.id }, data: { status: "ENDED" } });
     await recordEvent(tx, previous, previous.status, "ENDED", previous.endsAt, args.actorUserId, "renewed");
   }
@@ -247,5 +273,7 @@ export async function startRenewal(tx: Tx, args: { org: OrgClock; plan: Membersh
   const status = statusAt(latest, now);
   if (status === "UPCOMING") throw new MembershipError("The next year is already paid for.");
   if (status === "LAPSED") return openTerm(tx, { ...args, kind: "NEW" });
+  const startDay = renewalStartDay(latest, args.plan, now, args.org.timezone);
+  if (!termWindow(args.plan, startDay, args.org.timezone, args.org.financialYearStartMonth)) throw new MembershipError("This plan's end date has passed, so it can't be renewed.");
   return openTerm(tx, { ...args, kind: "RENEWAL", renewedFromId: latest.id });
 }

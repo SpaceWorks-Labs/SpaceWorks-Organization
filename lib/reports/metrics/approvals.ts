@@ -18,7 +18,7 @@ export function applicationTimes(term: PreparedTerm): { appliedAt: Date | null; 
   return { appliedAt: applied.effectiveAt, decidedAt: decided.effectiveAt, decision };
 }
 
-export type ApprovalStats = {
+type ApprovalStats = {
   /** Applications received in the period. */
   received: number;
   approved: number;
@@ -76,7 +76,7 @@ export function approvalStats(data: Dataset, window: Window, now: Date): Approva
   };
 }
 
-export type FunnelStep = { key: "started" | "approved" | "activated" | "active"; label: string; count: number; dropOff: number | null };
+type FunnelStep = { key: "started" | "approved" | "activated" | "active"; label: string; count: number; dropOff: number | null };
 
 /**
  * New-member terms opened in the period, followed through: started, approved (or needed no approval),

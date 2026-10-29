@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath as nextRevalidatePath } from "next/cache";
 import { trackedRevalidation } from "@/lib/frontend/revalidation";
 import { prisma } from "@/lib/db";
+import { invalidateOrg } from "@/lib/cache";
 import { recordAuditEvent } from "@/lib/audit";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { orgActionAccess } from "@/lib/permissions";
@@ -14,7 +15,6 @@ import { flattenZodErrors } from "./utils";
 
 const revalidatePath = trackedRevalidation(nextRevalidatePath);
 
-const ORG_WIDE_ONLY = "Plans are set for the whole organisation, so a manager limited to one unit can't change them.";
 
 function planData(input: z.infer<typeof planSchema>) {
   return {
@@ -56,7 +56,6 @@ export async function createPlan(input: unknown): Promise<ActionResult<{ planId:
   if (!parsed.success) return { ok: false, error: "Check the highlighted fields.", fieldErrors: flattenZodErrors(parsed.error) };
   const access = await orgActionAccess(parsed.data.organisationSlug, "plans.manage");
   if (!access.ok) return access;
-  if (access.membership.unitId) return { ok: false, error: ORG_WIDE_ONLY };
   if (await isActionRateLimited("action", access.userId)) return { ok: false, error: "Too many requests. Try again shortly." };
   if (!(await unitsBelong(access.organisation.id, parsed.data.unitIds))) return { ok: false, error: "One of the chosen units no longer exists." };
   try {
@@ -69,6 +68,7 @@ export async function createPlan(input: unknown): Promise<ActionResult<{ planId:
       await recordAuditEvent({ action: "PLAN_CREATED", actorUserId: access.userId, organisationId: access.organisation.id, targetType: "MembershipPlan", targetId: created.id, client: tx });
       return created;
     });
+    await invalidateOrg(access.organisation.id, "public-page");
     revalidatePath(`/dashboard/${access.organisation.slug}/plans`);
     revalidatePath(`/o/${access.organisation.slug}`);
     return { ok: true, data: { planId: plan.id } };
@@ -88,7 +88,6 @@ export async function updatePlan(input: unknown): Promise<ActionResult> {
   if (!withId.success || !parsed.success) return { ok: false, error: "Check the highlighted fields.", fieldErrors: parsed.success ? {} : flattenZodErrors(parsed.error) };
   const access = await orgActionAccess(parsed.data.organisationSlug, "plans.manage");
   if (!access.ok) return access;
-  if (access.membership.unitId) return { ok: false, error: ORG_WIDE_ONLY };
   if (await isActionRateLimited("action", access.userId)) return { ok: false, error: "Too many requests. Try again shortly." };
   if (!(await unitsBelong(access.organisation.id, parsed.data.unitIds))) return { ok: false, error: "One of the chosen units no longer exists." };
   const plan = await prisma.membershipPlan.findFirst({ where: { id: withId.data.planId, organisationId: access.organisation.id }, select: { id: true, currency: true, _count: { select: { terms: true } } } });
@@ -109,6 +108,7 @@ export async function updatePlan(input: unknown): Promise<ActionResult> {
     if (isUnique(error)) return { ok: false, error: "Another plan already uses that address.", fieldErrors: { slug: ["Already used by another plan"] } };
     throw error;
   }
+  await invalidateOrg(access.organisation.id, "public-page");
   revalidatePath(`/dashboard/${access.organisation.slug}/plans`);
   revalidatePath(`/dashboard/${access.organisation.slug}/plans/${plan.id}`);
   revalidatePath(`/o/${access.organisation.slug}`);
@@ -123,10 +123,10 @@ export async function setPlanArchived(input: unknown): Promise<ActionResult> {
   if (!parsed.success) return { ok: false, error: "Invalid request." };
   const access = await orgActionAccess(parsed.data.organisationSlug, "plans.manage");
   if (!access.ok) return access;
-  if (access.membership.unitId) return { ok: false, error: ORG_WIDE_ONLY };
   const updated = await prisma.membershipPlan.updateMany({ where: { id: parsed.data.planId, organisationId: access.organisation.id }, data: { archivedAt: parsed.data.archived ? new Date() : null } });
   if (updated.count !== 1) return { ok: false, error: "Plan not found." };
   await recordAuditEvent({ action: parsed.data.archived ? "PLAN_ARCHIVED" : "PLAN_RESTORED", actorUserId: access.userId, organisationId: access.organisation.id, targetType: "MembershipPlan", targetId: parsed.data.planId });
+  await invalidateOrg(access.organisation.id, "public-page");
   revalidatePath(`/dashboard/${access.organisation.slug}/plans`);
   revalidatePath(`/o/${access.organisation.slug}`);
   return { ok: true };
@@ -138,7 +138,6 @@ export async function savePlanFields(input: unknown): Promise<ActionResult> {
   if (!parsed.success) return { ok: false, error: "Check the questions.", fieldErrors: flattenZodErrors(parsed.error) };
   const access = await orgActionAccess(parsed.data.organisationSlug, "plans.manage");
   if (!access.ok) return access;
-  if (access.membership.unitId) return { ok: false, error: ORG_WIDE_ONLY };
   const plan = await prisma.membershipPlan.findFirst({ where: { id: parsed.data.planId, organisationId: access.organisation.id }, select: { id: true } });
   if (!plan) return { ok: false, error: "Plan not found." };
   await prisma.$transaction(async (tx) => {

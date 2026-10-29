@@ -3,7 +3,7 @@
 export const MM_PER_INCH = 25.4;
 export const PT_PER_MM = 72 / MM_PER_INCH;
 export const PNG_DPI = 300;
-export const A4 = { widthMm: 210, heightMm: 297 } as const;
+const A4 = { widthMm: 210, heightMm: 297 } as const;
 
 /** Pixel size of a card rendered at `dpi` (CR80 at 300 dpi is 1011 × 638). */
 export function pixelSize(widthMm: number, heightMm: number, dpi = PNG_DPI) {
@@ -12,7 +12,7 @@ export function pixelSize(widthMm: number, heightMm: number, dpi = PNG_DPI) {
 
 export const mmToPt = (mm: number) => mm * PT_PER_MM;
 
-export type SheetLayout = {
+type SheetLayout = {
   sheetWidthMm: number;
   sheetHeightMm: number;
   columns: number;
@@ -26,10 +26,10 @@ export type SheetLayout = {
 };
 
 /** Room kept around the grid for crop marks and printers' unprintable edge. */
-export const SHEET_MIN_MARGIN_MM = 10;
+const SHEET_MIN_MARGIN_MM = 10;
 /** Crop marks start this far from the card edge and run this long. */
-export const CROP_MARK_OFFSET_MM = 2;
-export const CROP_MARK_LENGTH_MM = 5;
+const CROP_MARK_OFFSET_MM = 2;
+const CROP_MARK_LENGTH_MM = 5;
 
 /**
  * Lay cards out on a sheet in a centred grid with no gutters, leaving at
@@ -61,6 +61,42 @@ export function sheetSlot(layout: SheetLayout, index: number) {
   return { sheet, xMm: layout.originXMm + column * layout.cardWidthMm, yMm: layout.originYMm + row * layout.cardHeightMm };
 }
 
+type CardSize = { widthMm: number; heightMm: number };
+export type SheetPlacement = { layout: SheetLayout; newSheet: boolean; xMm: number; yMm: number };
+
+/**
+ * Places cards on sheets in order, one call per card with its sides (front, then back). A back sits beside
+ * its front in the same row (the pair moves to the next row or sheet when the row is short of room), and a
+ * change of card size starts a new sheet, so each sheet has one grid and its crop marks match every card.
+ */
+export function sheetPlacer() {
+  let layout: SheetLayout | null = null;
+  let slot = 0;
+  const place = (sides: CardSize[]): SheetPlacement[] => {
+    const front = sides[0];
+    if (!front) return [];
+    if (!layout || layout.cardWidthMm !== front.widthMm || layout.cardHeightMm !== front.heightMm) {
+      layout = sheetLayout(front.widthMm, front.heightMm);
+      slot = layout.perSheet;
+    }
+    const current = layout;
+    // Sides of another size, or more sides than a row holds, are placed one by one.
+    if (sides.length > 1 && (sides.length > current.columns || sides.some((side) => side.widthMm !== front.widthMm || side.heightMm !== front.heightMm))) {
+      return sides.flatMap((side) => place([side]));
+    }
+    const column = slot % current.columns;
+    if (column + sides.length > current.columns) slot += current.columns - column;
+    const newSheet = slot + sides.length > current.perSheet;
+    if (newSheet) slot = 0;
+    return sides.map((_, index) => {
+      const at = sheetSlot(current, slot);
+      slot += 1;
+      return { layout: current, newSheet: newSheet && index === 0, xMm: at.xMm, yMm: at.yMm };
+    });
+  };
+  return place;
+}
+
 /** Crop mark line segments (in mm, top-left origin) for every cut line of the grid. */
 export function cropMarks(layout: SheetLayout) {
   const lines: Array<{ x1: number; y1: number; x2: number; y2: number }> = [];
@@ -83,6 +119,3 @@ export function cropMarks(layout: SheetLayout) {
   }
   return lines;
 }
-
-/** Most cards one bulk export will render, to bound time and memory. */
-export const BULK_CARD_LIMIT = 1000;

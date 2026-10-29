@@ -54,7 +54,7 @@ await check("app readiness (/api/health/db)", async () => {
   await response.body?.cancel();
   assert(response.ok);
 });
-await check("scheduler endpoint refuses requests without the secret", async () => {
+await check("internal job endpoint refuses requests without the secret", async () => {
   const response = await fetch("http://backend:3000/api/internal/outbox", { method: "POST", signal: AbortSignal.timeout(10_000) });
   await response.body?.cancel();
   assert(response.status === 404);

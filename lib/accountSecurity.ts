@@ -5,7 +5,7 @@
  * action name and timestamp are ever shown; audit metadata never leaves the
  * server.
  */
-export const SECURITY_ACTIVITY_LABELS = {
+const SECURITY_ACTIVITY_LABELS = {
   MFA_ENABLED: "Two-step verification turned on",
   MFA_DISABLED: "Two-step verification turned off",
   ACCOUNT_PASSWORD_ADDED: "Password added",
@@ -14,7 +14,7 @@ export const SECURITY_ACTIVITY_LABELS = {
   SESSIONS_REVOKED: "Signed out everywhere",
 } as const satisfies Record<string, string>;
 
-export type SecurityActivityAction = keyof typeof SECURITY_ACTIVITY_LABELS;
+type SecurityActivityAction = keyof typeof SECURITY_ACTIVITY_LABELS;
 
 export const SECURITY_ACTIVITY_ACTIONS = Object.keys(SECURITY_ACTIVITY_LABELS) as SecurityActivityAction[];
 

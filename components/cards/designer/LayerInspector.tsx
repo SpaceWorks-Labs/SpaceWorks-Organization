@@ -3,24 +3,43 @@
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/choice";
 import { Field, Input, Textarea } from "@/components/ui/field";
-import { LAYER_PLACEHOLDERS, LAYER_TEXT_MAX, type CardLayer, type CardTextLayer } from "@/lib/cards/design/layers";
+import { LAYER_PLACEHOLDERS, LAYER_TEXT_MAX, type CardLayer, type CardTextLayer, type LayerPlaceholder } from "@/lib/cards/design/layers";
 import { layerLabel } from "../CardLayerView";
 import { ColourField } from "./ColourField";
 import { NumberSlider, SwitchLine } from "./controls";
 import { FontPicker } from "./FontPicker";
 
-const PLACEHOLDER_LABELS: Record<(typeof LAYER_PLACEHOLDERS)[number], string> = { name: "Name", role: "Role", plan: "Plan", number: "Card number", validUntil: "Valid until" };
+const PLACEHOLDER_LABELS: Record<Exclude<LayerPlaceholder, `level${number}`>, string> = {
+  name: "Name", role: "Role", plan: "Plan", number: "Card number", validUntil: "Valid until", unit: "Unit", unitCode: "Unit code", units: "All units",
+};
 
-function TextSettings({ layer, onChange, orgAccent }: { layer: CardTextLayer; onChange: (patch: Partial<CardTextLayer>) => void; orgAccent: string }) {
+/**
+ * The placeholders to offer, each with its label. Unit placeholders follow the organisation's levels:
+ * one per named level ("Area", "Unit"), and none when it has no units. Unknown levels read "Level 1"….
+ */
+function placeholders(unitLevels: readonly string[] | undefined) {
+  return LAYER_PLACEHOLDERS.flatMap((key) => {
+    const level = /^level(\d)$/.exec(key);
+    if (level) {
+      const index = Number(level[1]) - 1;
+      if (unitLevels && index >= unitLevels.length) return [];
+      return [{ key, label: unitLevels?.[index] ?? `Level ${index + 1}` }];
+    }
+    if ((key === "unit" || key === "unitCode" || key === "units") && unitLevels?.length === 0) return [];
+    return [{ key, label: PLACEHOLDER_LABELS[key as keyof typeof PLACEHOLDER_LABELS] }];
+  });
+}
+
+function TextSettings({ layer, onChange, orgAccent, unitLevels }: { layer: CardTextLayer; onChange: (patch: Partial<CardTextLayer>) => void; orgAccent: string; unitLevels?: readonly string[] }) {
   return (
     <>
       <Field label="Text" helperText="Placeholders fill in for each member.">
         <Textarea rows={3} maxLength={LAYER_TEXT_MAX} value={layer.text} onChange={(event) => onChange({ text: event.target.value })} />
       </Field>
       <div className="flex flex-wrap gap-1.5" aria-label="Insert a placeholder">
-        {LAYER_PLACEHOLDERS.map((key) => (
+        {placeholders(unitLevels).map(({ key, label }) => (
           <button key={key} type="button" onClick={() => onChange({ text: `${layer.text}{${key}}`.slice(0, LAYER_TEXT_MAX) })} className="rounded-full border border-line bg-panel px-2.5 py-1 text-caption text-ink hover:bg-muted">
-            {PLACEHOLDER_LABELS[key]}
+            {label}
           </button>
         ))}
       </div>
@@ -37,11 +56,13 @@ function TextSettings({ layer, onChange, orgAccent }: { layer: CardTextLayer; on
 }
 
 /** Settings of the selected layer: what it shows, where it sits, how it is turned and faded. */
-export function LayerInspector({ layer, card, orgAccent, uploading, onChange, onReplaceImage }: {
+export function LayerInspector({ layer, card, orgAccent, uploading, unitLevels, onChange, onReplaceImage }: {
   layer: CardLayer;
   card: { widthMm: number; heightMm: number };
   orgAccent: string;
   uploading: boolean;
+  /** The organisation's level names, top first; left out, unit placeholders use generic names. */
+  unitLevels?: readonly string[];
   onChange: (patch: Partial<CardLayer>) => void;
   onReplaceImage: (file: File) => void;
 }) {
@@ -52,7 +73,7 @@ export function LayerInspector({ layer, card, orgAccent, uploading, onChange, on
       {layer.locked ? <p className="text-caption text-ink-muted">Locked: unlock it in the layers list to move it on the card.</p> : null}
       <Field label="Layer name" optional><Input maxLength={40} value={layer.name} placeholder={layerLabel({ ...layer, name: "" })} onChange={(event) => onChange({ name: event.target.value })} /></Field>
 
-      {layer.kind === "text" ? <TextSettings layer={layer} orgAccent={orgAccent} onChange={onChange} /> : null}
+      {layer.kind === "text" ? <TextSettings layer={layer} orgAccent={orgAccent} unitLevels={unitLevels} onChange={onChange} /> : null}
       {layer.kind === "image" ? (
         <>
           <SegmentedControl<"cover" | "contain"> ariaLabel="Fit" size="sm" value={layer.fit} onValueChange={(fit) => onChange({ fit })} options={[{ value: "cover", label: "Fill the box" }, { value: "contain", label: "Show it all" }]} className="self-start" />

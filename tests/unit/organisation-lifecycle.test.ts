@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { OrganisationStatus } from "@prisma/client";
 import { canDeleteInStatus, canResubmit, decisionsFor, isReviewDecision, REVIEW_DECISIONS } from "@/lib/organisationLifecycle";
-import { organisationAllows, CAPABILITIES, type Capability } from "@/lib/permissionRoles";
+import { organisationAllows, CAPABILITY_LIST } from "@/lib/permissionRoles";
 
 const ALL_STATUSES: OrganisationStatus[] = ["PENDING_REVIEW", "CHANGES_REQUESTED", "ACTIVE", "REJECTED", "SUSPENDED", "ARCHIVED"];
 
@@ -47,7 +47,7 @@ describe("organisation review decisions", () => {
 });
 
 describe("what an organisation's status allows", () => {
-  const capabilities = Object.keys(CAPABILITIES) as Capability[];
+  const capabilities = CAPABILITY_LIST;
 
   it("opens everything once active", () => {
     expect(capabilities.every((capability) => organisationAllows("ACTIVE", capability))).toBe(true);
@@ -62,7 +62,8 @@ describe("what an organisation's status allows", () => {
   it("keeps only finance, viewing and erasure decisions open while suspended or archived", () => {
     for (const status of ["SUSPENDED", "ARCHIVED"] as const) {
       expect(capabilities.filter((capability) => organisationAllows(status, capability)).sort()).toEqual(
-        ["erasure.decide", "members.export", "members.view", "org.view", "payments.manage", "payments.view", "reports.finance"],
+        // accounts.manage and reports.gstr1 were split out of payments.manage and reports.finance, and keep what those had.
+        ["accounts.manage", "erasure.decide", "members.export", "members.view", "org.view", "payments.manage", "payments.view", "reports.finance", "reports.gstr1"],
       );
     }
   });

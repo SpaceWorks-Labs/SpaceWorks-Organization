@@ -4,7 +4,7 @@ import type { TermStatus } from "@/lib/membership/lifecycle";
 import { historyLine } from "@/lib/portal/history";
 import { TermStatusChip } from "@/components/members/TermStatusChip";
 
-export type HistoryTerm = {
+type HistoryTerm = {
   id: string;
   kind: string;
   status: TermStatus;

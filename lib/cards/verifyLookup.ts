@@ -16,7 +16,7 @@ export async function lookupVerification(token: string, now = new Date()): Promi
       organisation: { select: { name: true, slug: true, status: true, timezone: true, logoUrl: true } },
       member: {
         select: {
-          name: true, anonymisedAt: true, photoUrl: true, organisationId: true,
+          id: true, name: true, anonymisedAt: true, photoUrl: true, organisationId: true,
           user: { select: { id: true, profileImageUrl: true } },
           terms: { select: { id: true, planId: true, status: true, startsAt: true, endsAt: true, graceUntil: true, paymentDueBy: true, renewedFromId: true, createdAt: true } },
         },

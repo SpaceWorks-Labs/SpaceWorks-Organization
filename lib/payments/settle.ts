@@ -11,7 +11,7 @@ import { issuePaymentDocument } from "./documents";
 
 type Tx = Prisma.TransactionClient;
 
-export type Capture = { gatewayPaymentId: string | null; amountMinor: number; currency: string; method: string | null };
+type Capture = { gatewayPaymentId: string | null; amountMinor: number; currency: string; method: string | null };
 
 async function documentPrefix(tx: Tx, organisationId: string) {
   const settings = await tx.orgTaxSettings.findUnique({ where: { organisationId }, select: { receiptPrefix: true } });

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { can, requireOrgCapability } from "@/lib/permissions";
 import { memberWhere, teamScope } from "@/lib/membership/scope";
 import { statusAt } from "@/lib/membership/lifecycle";
-import { chargeLines, placeOfSupply, resolveTaxSnapshot, sumSplits } from "@/lib/payments/tax";
+import { termTotalMinor } from "@/lib/payments/tax";
 
 /**
  * The payments side of one member's page: what they owe on each membership and every payment with its
@@ -12,7 +12,7 @@ import { chargeLines, placeOfSupply, resolveTaxSnapshot, sumSplits } from "@/lib
 export async function loadMemberPayments({ params }: { params: Promise<{ orgSlug: string; memberId: string }> }) {
   const { orgSlug, memberId } = await params;
   const { organisation, membership } = await requireOrgCapability(orgSlug, "members.view");
-  if (!can(membership.role, "payments.view")) return null;
+  if (!can(membership, "payments.view")) return null;
   const scope = await teamScope(organisation.id, membership.unitId);
   const member = await prisma.member.findFirst({ where: { AND: [memberWhere(scope), { id: memberId }] }, select: { id: true } });
   if (!member) notFound();
@@ -40,13 +40,12 @@ export async function loadMemberPayments({ params }: { params: Promise<{ orgSlug
   ]);
   // What the member would pay now, tax included (it differs from the plan price under exclusive pricing).
   const dueWithTax = (term: (typeof terms)[number]) => {
-    const snapshot = resolveTaxSnapshot(taxSettings, term.currency);
-    return sumSplits(chargeLines({ renewal: term.kind === "RENEWAL", rejoining: false, priceMinor: term.priceMinor, joiningFeeMinor: term.joiningFeeMinor, planName: term.plan.name }, snapshot, placeOfSupply(memberState.stateCode, snapshot))).amountMinor;
+    return termTotalMinor(term, taxSettings, term.currency, memberState.stateCode);
   };
   const due = terms
     .filter((term) => term.priceMinor + term.joiningFeeMinor > 0 && !term.payments.some((payment) => payment.status !== "AWAITING_CONFIRMATION"))
     .map((term) => ({ term, status: statusAt(term, now) }))
     .filter(({ term, status }) => status === "PENDING_PAYMENT" || status === "EXPIRED" || (term.plan.paymentTiming === "ACTIVATE_THEN_CHARGE" && ["UPCOMING", "ACTIVE", "GRACE"].includes(status)))
     .map(({ term, status }) => ({ termId: term.id, planName: term.plan.name, status, currency: term.currency, amountMinor: dueWithTax(term), awaiting: term.payments.some((payment) => payment.status === "AWAITING_CONFIRMATION") }));
-  return { org, due, payments, canManage: can(membership.role, "payments.manage") };
+  return { org, due, payments, canManage: can(membership, "payments.manage") };
 }

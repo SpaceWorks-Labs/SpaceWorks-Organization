@@ -2,16 +2,13 @@
 
 import { revalidatePath as nextRevalidatePath } from "next/cache";
 import { trackedRevalidation } from "@/lib/frontend/revalidation";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { updateOrganisationSchema } from "@/lib/validators";
 import { flattenZodErrors } from "./utils";
 import { recordAuditEvent } from "@/lib/audit";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { isOrganisationUploadUrl } from "@/lib/uploadUrl";
-import { organisationAllows } from "@/lib/permissionRoles";
-import { hasAuthenticator, STAFF_AUTHENTICATOR_MESSAGE } from "@/lib/permissions";
-import { ORGANISATION_LOCKED } from "@/lib/organisationLifecycle";
+import { orgActionAccess } from "@/lib/permissions";
 
 const revalidatePath = trackedRevalidation(nextRevalidatePath);
 
@@ -28,14 +25,6 @@ export type ActionResult<T = void> =
 export async function updateOrganisation(
   input: unknown,
 ): Promise<ActionResult> {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return { ok: false, error: "You must be signed in." };
-  }
-  if (await isActionRateLimited("action", session.user.id)) {
-    return { ok: false, error: "Too many requests. Try again shortly." };
-  }
-
   const parsed = updateOrganisationSchema.safeParse(input);
   if (!parsed.success) {
     return {
@@ -46,30 +35,13 @@ export async function updateOrganisation(
   }
 
   const { organisationSlug, name, description, logoUrl } = parsed.data;
-  const org = await prisma.organisation.findUnique({
-    where: { slug: organisationSlug },
-    select: { id: true, slug: true, status: true },
-  });
-  if (!org) return { ok: false, error: "Organisation not found." };
-  if (!organisationAllows(org.status, "org.settings")) return { ok: false, error: ORGANISATION_LOCKED };
-
-  const membership = await prisma.teamMember.findUnique({
-    where: {
-      userId_organisationId: {
-        userId: session.user.id,
-        organisationId: org.id,
-      },
-    },
-    select: { role: true },
-  });
-
-  if (
-    !membership ||
-    (membership.role !== "OWNER" && membership.role !== "ADMIN")
-  ) {
-    return { ok: false, error: "Only organisation owners and managers can edit settings." };
+  // `org.settings` is org-wide to change: staff limited to one unit can't rename the organisation.
+  const access = await orgActionAccess(organisationSlug, "org.settings");
+  if (!access.ok) return access;
+  if (await isActionRateLimited("action", access.userId)) {
+    return { ok: false, error: "Too many requests. Try again shortly." };
   }
-  if (!(await hasAuthenticator(session.user.id))) return { ok: false, error: STAFF_AUTHENTICATOR_MESSAGE };
+  const org = access.organisation;
   if (
     logoUrl &&
     !isOrganisationUploadUrl(logoUrl, org.id, "organisation-logos")
@@ -88,7 +60,7 @@ export async function updateOrganisation(
     });
     await recordAuditEvent({
       action: "ORGANISATION_UPDATED",
-      actorUserId: session.user.id,
+      actorUserId: access.userId,
       organisationId: org.id,
       targetType: "Organisation",
       targetId: org.id,

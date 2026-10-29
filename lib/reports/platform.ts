@@ -10,7 +10,7 @@ const DAY = 86_400_000;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 /** The last calendar day of each of the last `count` months (UTC dates, as the rollup stores days), oldest first; the current month ends today. */
-export function monthEnds(now: Date, count = 12): Array<{ day: Date; label: string }> {
+function monthEnds(now: Date, count = 12): Array<{ day: Date; label: string }> {
   const out: Array<{ day: Date; label: string }> = [];
   for (let back = count - 1; back >= 0; back -= 1) {
     const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - back + 1, 0));

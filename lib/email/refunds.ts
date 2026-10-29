@@ -2,10 +2,11 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { staffWithCapability } from "@/lib/team/roles";
 import { money } from "@/lib/membership/describe";
 import { absoluteUrl, sendBrandedEmail } from "./message";
 
-export const REFUND_EVENTS = ["requested", "approved", "declined"] as const;
+const REFUND_EVENTS = ["requested", "approved", "declined"] as const;
 type RefundEvent = (typeof REFUND_EVENTS)[number];
 type RefundPayload = { requestId: string; organisationId: string; event: RefundEvent };
 
@@ -38,12 +39,8 @@ export async function deliverRefundNotice(payload: RefundPayload, messageId: str
 
   if (payload.event === "requested") {
     if (request.status !== "OPEN") return "dropped";
-    const team = await prisma.teamMember.findMany({
-      where: { organisationId: payload.organisationId, role: { in: ["OWNER", "ADMIN", "TREASURER"] }, unitId: null, user: { emailVerified: { not: null } } },
-      select: { user: { select: { email: true } } },
-      take: 20,
-    });
-    const to = team.map((member) => member.user.email).filter((email): email is string => Boolean(email));
+    const team = await staffWithCapability(prisma, payload.organisationId, "payments.manage", { orgWide: true, where: { user: { emailVerified: { not: null } } } });
+    const to = team.slice(0, 20).map((member) => member.user.email).filter((email): email is string => Boolean(email));
     if (to.length === 0) return "dropped";
     await sendBrandedEmail({ organisationId: payload.organisationId,
       to: to.join(", "),

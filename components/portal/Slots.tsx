@@ -29,7 +29,7 @@ export function CardSlot({ card }: { card: MemberCardData | null }) {
   );
 }
 
-export type ReceiptRow = {
+type ReceiptRow = {
   id: string;
   status: PaymentStatusName;
   provider: "RAZORPAY" | "STRIPE" | "OFFLINE";

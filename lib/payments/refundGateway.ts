@@ -6,7 +6,7 @@ import { GatewayError } from "./gateway";
 import type { OrgForPayments } from "./charges";
 import { attachGatewayRefund, failRefund, processRefund, type createRefund } from "./refunds";
 
-export type RefundOutcome = { ok: true; status: "PENDING" | "PROCESSED" | "FAILED" } | { ok: false; error: string };
+type RefundOutcome = { ok: true; status: "PENDING" | "PROCESSED" | "FAILED" } | { ok: false; error: string };
 
 /**
  * Send a refund that has just been committed to its payment provider. Offline refunds are already processed.

@@ -76,7 +76,7 @@ function docIssue(rows: Table13Row[]) {
   };
 }
 
-export const GSTR1_OFFLINE_VERSION = "GST3.2.4";
+const GSTR1_OFFLINE_VERSION = "GST3.2.4";
 
 export function gstr1Json(report: Gstr1, args: { gstin: string; period: string; supplierState: string | null; timeZone: string; documents: Table13Row[] }) {
   const { supplierState, timeZone } = args;

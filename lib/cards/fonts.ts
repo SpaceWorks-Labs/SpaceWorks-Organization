@@ -22,10 +22,10 @@ const NOTO: Record<FontWeight, string[]> = {
   400: ["/fonts/noto/NotoSans-Latin-400.woff2", "/fonts/noto/NotoSans-LatinExt-400.woff2", "/fonts/noto/NotoSansMalayalam-400.woff2", "/fonts/noto/NotoSansDevanagari-400.woff2"],
   700: ["/fonts/noto/NotoSans-Latin-700.woff2", "/fonts/noto/NotoSans-LatinExt-700.woff2", "/fonts/noto/NotoSansMalayalam-700.woff2", "/fonts/noto/NotoSansDevanagari-700.woff2"],
 };
-export const FONT_WEIGHTS: FontWeight[] = [400, 700];
+const FONT_WEIGHTS: FontWeight[] = [400, 700];
 
 /** One shaped glyph: which face of the weight's chain, and where it sits (em units, y up). */
-export type ShapedGlyph = { face: number; glyph: Glyph; xEm: number; yEm: number; advances: boolean };
+type ShapedGlyph = { face: number; glyph: Glyph; xEm: number; yEm: number; advances: boolean };
 export type ShapedText = { glyphs: ShapedGlyph[]; widthEm: number; advancing: number };
 type Chains = Record<FontWeight, Font[]>;
 

@@ -2,9 +2,9 @@ import { cn } from "@/lib/cn";
 
 /** Brand colours a member role can carry: on chips here and on member cards. */
 export const ROLE_COLORS = ["teal", "citron", "sky", "yellow", "orange", "ink"] as const;
-export type RoleColor = (typeof ROLE_COLORS)[number];
+type RoleColor = (typeof ROLE_COLORS)[number];
 
-export const ROLE_TONES: Record<RoleColor, string> = {
+const ROLE_TONES: Record<RoleColor, string> = {
   teal: "bg-sw-teal text-sw-cream",
   citron: "bg-sw-citron text-sw-ink",
   sky: "bg-sw-sky text-sw-ink",

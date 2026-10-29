@@ -1,7 +1,7 @@
 /** Tabs under the Account header. Add an entry here to add a tab. */
-export type AccountTab = { href: string; label: string };
+type AccountTab = { href: string; label: string };
 
-export const ACCOUNT_ROOT_HREF = "/account";
+const ACCOUNT_ROOT_HREF = "/account";
 
 export const ACCOUNT_TABS: ReadonlyArray<AccountTab> = [
   { href: ACCOUNT_ROOT_HREF, label: "Memberships" },

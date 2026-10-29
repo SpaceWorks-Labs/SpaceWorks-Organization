@@ -4,11 +4,11 @@
  */
 import { addMonths, financialYearLabel, financialYearStart, localDate, startOfLocalDay } from "@/lib/membership/periods";
 import { bucketIndex, type Bucket } from "../period";
-import { inRange, ratio, type Dataset } from "../dataset";
+import { ratio, type Dataset } from "../dataset";
 import { renewalOutcomes } from "./flows";
 import { closingInstant, firstActivation, lapseInstant, standingAt } from "./standing";
 
-export type TrendPoint = { key: string; label: string; active: number; grace: number; joined: number; reactivated: number; lapsed: number; due: number; renewed: number; decided: number; renewalRate: number | null };
+type TrendPoint = { key: string; label: string; active: number; grace: number; joined: number; reactivated: number; lapsed: number; due: number; renewed: number; decided: number; renewalRate: number | null };
 
 /** Stocks at each bucket's close and flows inside it. Buckets after `now` are dropped. */
 export function membershipTrend(data: Dataset, buckets: Bucket[], now: Date): TrendPoint[] {
@@ -44,7 +44,7 @@ export function membershipTrend(data: Dataset, buckets: Bucket[], now: Date): Tr
   return points;
 }
 
-export type CohortRow = { key: string; label: string; size: number; cells: Array<number | null> };
+type CohortRow = { key: string; label: string; size: number; cells: Array<number | null> };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -117,11 +117,4 @@ export function fyCohortRetention(data: Dataset, calendar: { timezone: string; f
     rows.push({ key, label: `FY ${key}`, size: members.length, cells });
   }
   return rows;
-}
-
-/** Members who joined inside the window, for the "joined in" cohort filter on the register. */
-export function joinedWithin(data: Dataset, from: Date, to: Date): Set<string> {
-  const ids = new Set<string>();
-  for (const [memberId, terms] of data.termsByMember) if (inRange(firstActivation(terms), from, to)) ids.add(memberId);
-  return ids;
 }

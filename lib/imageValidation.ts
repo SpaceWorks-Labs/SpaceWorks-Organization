@@ -4,7 +4,7 @@ import sharp from "sharp";
 
 const MAX_IMAGE_PIXELS = 25_000_000;
 
-export type SafeImage = {
+type SafeImage = {
   contentType: "image/jpeg" | "image/png" | "image/webp";
   extension: "jpg" | "png" | "webp";
   width: number | null;

@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { Prisma } from "@prisma/client";
+import { invalidateOrg } from "@/lib/cache";
 import { prisma } from "@/lib/db";
 import { addDays, localDate, startOfLocalDay, type CalendarDate } from "@/lib/membership/periods";
 import { dayKey } from "./period";
@@ -8,7 +9,7 @@ import { computeDayStats } from "./rollupCompute";
 import { loadDataset } from "./source";
 
 /** How far back a new organisation's history is rebuilt, and how many days one sweep may compute per organisation. */
-export const ROLLUP_HISTORY_DAYS = 730;
+const ROLLUP_HISTORY_DAYS = 730;
 const DAYS_PER_RUN = 120;
 /** Today's row is refreshed at most this often; finished days only when something marks them dirty. */
 const REFRESH_MS = 15 * 60_000;
@@ -20,7 +21,7 @@ export function dateColumn(day: CalendarDate): Date {
   return new Date(Date.UTC(day.year, day.month - 1, day.day));
 }
 
-function fromColumn(value: Date): CalendarDate {
+export function fromColumn(value: Date): CalendarDate {
   return { year: value.getUTCFullYear(), month: value.getUTCMonth() + 1, day: value.getUTCDate() };
 }
 
@@ -64,6 +65,8 @@ export async function recomputeOrgDays(organisationId: string, days: CalendarDat
     ]);
     written += rows.length;
   }
+  // Charts and leagues read these rows: drop the organisation's cached analytics (every unit scope).
+  await invalidateOrg(organisationId, "analytics");
   return written;
 }
 

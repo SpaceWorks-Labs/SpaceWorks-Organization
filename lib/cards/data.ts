@@ -8,18 +8,23 @@ import { normalizeCardDesign, withOwnArtwork, type CardDesign } from "./design/p
 import { managedImageUrl, memberPhotoUrl } from "./imageUrl";
 import type { CardInput } from "./render";
 import type { CardBranding, CardHolder } from "./types";
+import { roleCardRows } from "./roleCards";
+import { missingAncestorIds, unitChain, type CardUnitRow } from "./units";
 
 /*
  * Everything a card render needs, from the database: the organisation, its designs (the member's
  * primary role design, else the plan's, else the organisation default, else the built-in default), the
- * plan's printable fields, and the member's details with their current valid-until date.
+ * plan's printable fields, and the member's details with their current valid-until date and unit chain.
  */
+
+const UNIT_SELECT = { id: true, name: true, code: true, level: true, path: true } as const;
 
 export const CARD_INCLUDE = {
   plan: { select: { id: true, name: true } },
   member: {
     select: {
       id: true, organisationId: true, name: true, photoUrl: true, fieldValues: true, anonymisedAt: true,
+      unit: { select: UNIT_SELECT },
       user: { select: { id: true, profileImageUrl: true } },
       roles: { where: { isPrimary: true, role: { archivedAt: null } }, select: { role: { select: { id: true, name: true } } } },
       terms: { select: { id: true, planId: true, status: true, startsAt: true, endsAt: true, graceUntil: true, paymentDueBy: true, renewedFromId: true, createdAt: true } },
@@ -27,16 +32,18 @@ export const CARD_INCLUDE = {
   },
 } satisfies Prisma.MemberCardInclude;
 
-export type CardRecord = Prisma.MemberCardGetPayload<{ include: typeof CARD_INCLUDE }>;
+type CardRecord = Prisma.MemberCardGetPayload<{ include: typeof CARD_INCLUDE }>;
 
 export type CardOrgContext = {
-  organisation: { id: string; name: string; slug: string; logoUrl: string | null; accentColor: string | null; timezone: string; status: string };
+  organisation: { id: string; name: string; slug: string; logoUrl: string | null; accentColor: string | null; timezone: string; status: string; unitLevels: string[] };
   designs: Array<{ planId: string | null; roleId: string | null; design: unknown; watermarkUrl: string | null; numberPrefix: string; numberFormat: string }>;
   fields: Map<string, Array<{ key: string; label: string; type: string }>>;
+  /** Ancestor units loaded so far by `loadCardUnits`, by id. */
+  units: Map<string, CardUnitRow>;
 };
 
 /** The public base URL that card QR codes point at. */
-export function cardVerifyUrl(token: string) {
+function cardVerifyUrl(token: string) {
   const base = (process.env.NEXT_PUBLIC_BASE_URL || process.env.AUTH_URL || "http://localhost:3000").replace(/\/$/, "");
   return `${base}${verifyPath(token)}`;
 }
@@ -44,7 +51,7 @@ export function cardVerifyUrl(token: string) {
 export async function loadCardOrgContext(organisationId: string): Promise<CardOrgContext | null> {
   const organisation = await prisma.organisation.findUnique({
     where: { id: organisationId },
-    select: { id: true, name: true, slug: true, logoUrl: true, accentColor: true, timezone: true, status: true },
+    select: { id: true, name: true, slug: true, logoUrl: true, accentColor: true, timezone: true, status: true, unitLevels: true },
   });
   if (!organisation) return null;
   const [designs, fields] = await Promise.all([
@@ -54,7 +61,20 @@ export async function loadCardOrgContext(organisationId: string): Promise<CardOr
   ]);
   const byPlan = new Map<string, Array<{ key: string; label: string; type: string }>>();
   for (const field of fields) byPlan.set(field.planId, [...(byPlan.get(field.planId) ?? []), field]);
-  return { organisation, designs, fields: byPlan };
+  return { organisation, designs, fields: byPlan, units: new Map() };
+}
+
+/**
+ * Load the ancestor units of these cards' members into `ctx`, in one query for the lot, so
+ * `holderFor` can print each member's whole chain. Call it once per page of cards before `holderFor`.
+ */
+export async function loadCardUnits(ctx: CardOrgContext, cards: ReadonlyArray<Pick<CardRecord, "member">>) {
+  const units = cards.flatMap((card) => (card.member.unit ? [card.member.unit] : []));
+  for (const unit of units) ctx.units.set(unit.id, unit);
+  const missing = missingAncestorIds(units, ctx.units);
+  if (missing.length === 0) return;
+  const rows = await prisma.orgUnit.findMany({ where: { organisationId: ctx.organisation.id, id: { in: missing } }, select: UNIT_SELECT });
+  for (const row of rows) ctx.units.set(row.id, row);
 }
 
 export function brandingFor(ctx: CardOrgContext, watermarkUrl: string | null): CardBranding {
@@ -106,6 +126,7 @@ export function holderFor(card: CardRecord, ctx: CardOrgContext, now = new Date(
     photoUrl: memberPhotoUrl(card.member),
     idNumber: card.cardNumber,
     validUntil: current?.startsAt ? formatValidUntil(current.endsAt, ctx.organisation.timezone) : null,
+    units: unitChain(card.member.unit, ctx.units, ctx.organisation.unitLevels),
   };
 }
 
@@ -115,6 +136,25 @@ export async function loadCardForRender(cardId: string) {
   if (!card || card.member.anonymisedAt) return null;
   const ctx = await loadCardOrgContext(card.organisationId);
   if (!ctx) return null;
+  await loadCardUnits(ctx, [card]);
   const { design, branding } = designFor(ctx, card.plan, cardRoleId(card));
   return { card, ctx, input: { design, branding } satisfies CardInput, holder: holderFor(card, ctx) };
+}
+
+/** Every live member role with its card status and live card count, for Settings → Cards (lib/cards/roleCards.ts). */
+export async function loadRoleCardRows(organisationId: string) {
+  const [roles, designs, counts] = await Promise.all([
+    prisma.memberRole.findMany({ where: { organisationId, archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true } }),
+    prisma.cardDesign.findMany({ where: { organisationId, roleId: { not: null } }, select: { roleId: true, design: true, draft: true, numberFormat: true } }),
+    prisma.$queryRaw<Array<{ roleId: string; count: bigint }>>`
+      SELECT a."roleId", count(*) AS count FROM "MemberCard" c
+      JOIN "MemberRoleAssignment" a ON a."memberId" = c."memberId" AND a."organisationId" = c."organisationId" AND a."isPrimary"
+      WHERE c."organisationId" = ${organisationId} AND c."revokedAt" IS NULL
+      GROUP BY a."roleId"`,
+  ]);
+  return roleCardRows(
+    roles,
+    designs.map((row) => ({ roleId: row.roleId, live: row.design !== null, hasDraft: row.draft !== null, numberFormat: row.numberFormat })),
+    new Map(counts.map((row) => [row.roleId, Number(row.count)])),
+  );
 }

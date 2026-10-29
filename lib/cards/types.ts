@@ -1,4 +1,5 @@
 import type { CardSideSettings } from "./design/elements";
+import type { CardUnit } from "./units";
 
 /** Everything printed about one member on one card. */
 export type CardHolder = {
@@ -19,6 +20,8 @@ export type CardHolder = {
   idNumber: string | null;
   /** The last valid day, already formatted for print ("31 Mar 2027", "Lifetime"). */
   validUntil: string | null;
+  /** The member's unit and its ancestors, top level first (lib/cards/units.ts). Absent or empty: no unit. */
+  units?: CardUnit[];
 };
 
 /** Organisation artwork for cards. Every URL is an application-managed upload URL. */
@@ -30,7 +33,7 @@ export type CardBranding = {
 
 export const EMPTY_BRANDING: CardBranding = { orgAccent: null, organisationLogoUrl: null, watermarkUrl: null };
 
-export type PrintableField = { key: string; label: string; value: string };
+type PrintableField = { key: string; label: string; value: string };
 
 /** The answers chosen for the card, in the chosen order, that this member actually has. */
 export function printableFields(settings: Pick<CardSideSettings, "printFieldKeys">, holder: Pick<CardHolder, "details">): PrintableField[] {
@@ -55,4 +58,12 @@ export function labelledLine(label: string, value: string | null | undefined) {
   const text = value?.trim();
   if (!text) return "";
   return label.trim() ? `${label.trim()} ${text}` : text;
+}
+
+/** What a term with no end prints in place of a date. */
+export const LIFETIME_VALIDITY = "Lifetime";
+
+/** The validity line: "Valid until 31 Mar 2027", or just "Lifetime", which reads wrong after a label. */
+export function validUntilLine(label: string, value: string | null | undefined) {
+  return value === LIFETIME_VALIDITY ? value : labelledLine(label, value);
 }

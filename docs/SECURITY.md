@@ -38,7 +38,7 @@ public issue.
   unreadable: keep an encrypted, off-server copy of `.env` and `tls/` (`bash scripts/backup.sh` archives them).
 - Backups contain personal data and every secret. Copy them off the server encrypted, and restrict who can
   read `backups/`.
-- Scheduler (`CRON_SECRET`) and readiness (`HEALTHCHECK_SECRET`) endpoints answer 404 without their bearer
+- Internal job (`CRON_SECRET`: `/api/internal/jobs`, `/api/internal/outbox`) and readiness (`HEALTHCHECK_SECRET`) endpoints answer 404 without their bearer
   secret.
 
 ## Releases and automatic deploys
@@ -65,12 +65,22 @@ public issue.
 
 ### Sign-in
 
-- **Staff need an authenticator.** Anyone on an organisation's team (owner, manager, treasurer, viewer) must
+- **Staff need an authenticator.** Anyone on an organisation's team (whatever their role) must
   turn on an authenticator app before the dashboard, its actions or its exports open (`hasAuthenticator` in
   `lib/permissions.ts`). Members never need one.
 - **Super admins** sign in with email and password only. Their accounts and passwords are created and changed
   only on the server (`scripts/admin.sh`); password-reset emails, in-app password changes and Google, GitHub or
   Apple sign-in are refused for them.
+- **Platform access.** By the owner's decision (2026-10-29), super admins have full owner-level access to every
+  organisation's dashboard, with no session or time limit (`platformAccess` in `lib/permissions.ts`). Safeguards:
+  - they need an authenticator before an organisation's dashboard opens, like all staff;
+  - every action writes `SUPER_ADMIN_ORG_ACTION` and entering an organisation writes `SUPER_ADMIN_ORG_ENTERED`
+    (throttled), and the organisation's activity report lists them as "Platform super admin";
+  - a banner shows on every page they open there;
+  - they are never on the team: not listed, not counted against limits, not emailed. Money stays under the payment
+    triggers (paid rows are never edited or deleted).
+  A compromised super-admin account reaches every organisation, so keep super admins few and their authenticators
+  on.
 - **Unusual sign-ins.** Each browser that signs in is remembered by a long-lived random cookie, stored only as a
   hash (`KnownDevice`). An account without an authenticator signing in from a new browser must enter a six-digit
   code emailed to it (valid 10 minutes, single use), unless it verified its email in the last hour.

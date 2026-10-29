@@ -9,13 +9,14 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    "dist/**",
     "out/**",
     "build/**",
     "coverage/**",
     "playwright-report/**",
     "test-results/**",
     "next-env.d.ts",
-    // Separately packaged Cloudflare Worker (own package.json and tooling).
+    // Host-side deployment shell scripts and config (not part of the app).
     "deploy/**",
     "frontend/app/**",
     "frontend/components/**",

@@ -1,15 +1,11 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import type { TeamRole } from "@prisma/client";
 import { AccountCard } from "@/components/account/AccountCard";
 import { OrganisationStatusChip } from "@/components/org/OrganisationStatusChip";
-import { ROLE_LABELS } from "@/lib/permissionRoles";
 import { Button } from "@/components/ui/button";
 import { Chip, EmptyState, OrgLogo } from "@/components/ui/display";
 import { LeaveOrganisationButton } from "./LeaveOrganisationButton";
 import type { AccountMembershipRow, AccountOrganisationsData } from "./data";
-
-const ROLE_TONES = { OWNER: "ink", ADMIN: "warning", TREASURER: "info", VIEWER: "neutral" } as const satisfies Record<TeamRole, string>;
 
 const rowClasses = "flex flex-col gap-3 py-4 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between";
 
@@ -47,7 +43,7 @@ function TeamsCard({ teams }: { teams: AccountMembershipRow[] }) {
                   <p className="truncate text-label text-ink">{team.organisation.name}</p>
                   <p className="truncate text-caption text-ink-muted">Joined {team.joinedLabel}</p>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
-                    <Chip size="sm" tone={ROLE_TONES[team.role]}>{ROLE_LABELS[team.role]}</Chip>
+                    <Chip size="sm" tone={team.isOwner ? "ink" : "neutral"}>{team.roleName}</Chip>
                     {team.organisation.status === "ACTIVE" ? null : <OrganisationStatusChip status={team.organisation.status} />}
                   </div>
                   {team.soleOwner ? (

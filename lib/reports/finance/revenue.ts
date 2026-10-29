@@ -50,7 +50,7 @@ export function revenueSummary(rows: FinanceRows, window: Window, primary?: stri
   };
 }
 
-export type RevenuePoint = { key: string; label: string; gross: CurrencyTotal[]; refunds: CurrencyTotal[]; net: CurrencyTotal[] };
+type RevenuePoint = { key: string; label: string; gross: CurrencyTotal[]; refunds: CurrencyTotal[]; net: CurrencyTotal[] };
 
 /** Gross, refunds and net per bucket (month or day). */
 export function revenueSeries(rows: FinanceRows, buckets: Bucket[], primary?: string): RevenuePoint[] {
@@ -73,7 +73,7 @@ export function revenueSeries(rows: FinanceRows, buckets: Bucket[], primary?: st
   });
 }
 
-export type RevenueDimension = "plan" | "unit" | "provider" | "method";
+type RevenueDimension = "plan" | "unit" | "provider" | "method";
 
 /** Net revenue split by plan, unit, provider or method: each refund counts against its payment's group. */
 export function revenueBy(rows: FinanceRows, window: Window, dimension: RevenueDimension, primary?: string) {
@@ -123,7 +123,7 @@ export function revenueByFeeKind(rows: FinanceRows, window: Window, primary?: st
   return groupTotals(entries, (entry) => entry.key, (entry) => ({ currency: entry.currency, minor: entry.minor }), primary);
 }
 
-export type PaymentHealth = {
+type PaymentHealth = {
   /** Online (gateway) payments that failed ÷ online payments that were paid or failed, created in the window. */
   failedRate: number | null;
   failed: number;

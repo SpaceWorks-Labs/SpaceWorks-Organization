@@ -18,7 +18,6 @@ x-app-env: &app-env
   ALLOW_PLAIN_HTTP: ${ALLOW_PLAIN_HTTP:-0}
   DEPLOYMENT_MODE: ${DEPLOYMENT_MODE:-monolith}
   FRONTEND_GATEWAY_SECRET: ${FRONTEND_GATEWAY_SECRET:-}
-  SCHEDULER_MODE: external
   DATABASE_URL: *runtime-database-url
   DIRECT_URL: *runtime-database-url
   REDIS_URL: rediss://default:${REDIS_PASSWORD:?set REDIS_PASSWORD}@redis:6379
@@ -44,6 +43,9 @@ x-app-env: &app-env
   SMTP_USER: ${SMTP_USER:?set SMTP_USER}
   SMTP_PASSWORD: ${SMTP_PASSWORD:?set SMTP_PASSWORD}
   OUTBOX_RETENTION_DAYS: ${OUTBOX_RETENTION_DAYS:-30}
+  JOBS_QUEUE_PREFIX: ${JOBS_QUEUE_PREFIX:-swo:jobs}
+  QUEUE_OUTBOX_CONCURRENCY: ${QUEUE_OUTBOX_CONCURRENCY:-5}
+  QUEUE_SCHEDULED_CONCURRENCY: ${QUEUE_SCHEDULED_CONCURRENCY:-2}
   S3_BUCKET: ${S3_BUCKET:-spaceworks-organization}
   S3_REGION: ${S3_REGION:-us-east-1}
   S3_ENDPOINT: ${S3_ENDPOINT:-https://minio:9000}
@@ -144,23 +146,50 @@ services:
       createbuckets: {condition: service_completed_successfully}
       migrate: {condition: service_completed_successfully}
     networks: [edge, data]
-  # One scheduler pass a minute: outbox, membership sweep, retention and the jobs
-  # registered in lib/outboxWorker.ts (runOutboxScheduler).
-  scheduler:
+  # BullMQ worker. Runs every queued job: outbox delivery and the registry in lib/queue/registry.ts.
+  worker:
     image: *backend-image
+    command: ["--role", "worker", "node", "dist/worker.js"]
     restart: *default-restart
     logging: *default-logging
-    command: ["--role", "scheduler", "node", "docker/ops/scheduler.mjs"]
+    stop_grace_period: 2m
     environment:
-      CRON_SECRET: ${CRON_SECRET:?set CRON_SECRET}
+      <<: *app-env
+      JOBS_HEALTH_PORT: "3460"
     healthcheck:
-      test: ["CMD", "node", "docker/ops/scheduler.mjs", "--healthcheck"]
-      interval: 30s
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3460/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
       timeout: 5s
       retries: 3
-      start_period: 20s
-    depends_on: {backend: {condition: service_healthy}}
-    networks: [edge]
+      start_period: 30s
+    volumes: [*tls-ca]
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    networks: [edge, data]
+  # BullMQ beat. Keeps the repeatable job schedules in Redis (membership sweep and outbox relay every minute, ...).
+  beat:
+    image: *backend-image
+    command: ["--role", "beat", "node", "dist/beat.js"]
+    restart: *default-restart
+    logging: *default-logging
+    stop_grace_period: 2m
+    environment:
+      <<: *app-env
+      JOBS_HEALTH_PORT: "3460"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3460/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    volumes: [*tls-ca]
+    depends_on:
+      db: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      migrate: {condition: service_completed_successfully}
+    networks: [edge, data]
   caddy:
     image: caddy:2-alpine
     restart: *default-restart

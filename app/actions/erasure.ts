@@ -6,7 +6,7 @@ import { trackedRevalidation } from "@/lib/frontend/revalidation";
 import { prisma } from "@/lib/db";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { orgActionAccess } from "@/lib/permissions";
-import { deleteFiles } from "@/lib/storage";
+import { enqueueOutbox } from "@/lib/outbox";
 import { teamScope, unitInScope } from "@/lib/membership/scope";
 import { MembershipError } from "@/lib/membership/service";
 import { decideErasure } from "@/lib/portal/erasure";
@@ -36,9 +36,14 @@ export async function decideErasureRequest(input: unknown): Promise<ActionResult
   const scope = await teamScope(org.id, access.membership.unitId);
   if (!request || !unitInScope(scope, request.member.unit?.path ?? null)) return { ok: false, error: "Request not found." };
   try {
-    const result = await prisma.$transaction((tx) => decideErasure(tx, { org, requestId: request.id, approve: parsed.data.decision === "approve", note: parsed.data.note, actorUserId: access.userId }));
-    // Files go after the commit; a storage hiccup must not undo the erasure.
-    await deleteFiles(result.uploadKeys).catch(() => console.error("[erasure] photo cleanup failed"));
+    const approve = parsed.data.decision === "approve";
+    const result = await prisma.$transaction(async (tx) => {
+      const decided = await decideErasure(tx, { org, requestId: request.id, approve, note: parsed.data.note, actorUserId: access.userId });
+      // Files go after the commit, from the outbox, which retries until storage agrees: everything under the
+      // member's own prefix, plus a photo still in the old layout.
+      if (approve) await enqueueOutbox(tx, "member-photo-purge", { organisationId: org.id, memberId: decided.memberId, keys: decided.uploadKeys });
+      return decided;
+    });
     revalidatePath(`/dashboard/${org.slug}/members/${result.memberId}`);
     revalidatePath(`/dashboard/${org.slug}/members`);
     return { ok: true };

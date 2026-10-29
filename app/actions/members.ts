@@ -9,6 +9,7 @@ import { recordAuditEvent } from "@/lib/audit";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { orgActionAccess, type OrgActionAccess } from "@/lib/permissions";
 import { teamScope, unitInScope, type TeamScope } from "@/lib/membership/scope";
+import { pathWithin, planOffersUnit } from "@/lib/membership/planUnits";
 import { decideTerm, extendTerm, MembershipError, openTerm, startRenewal, upsertMember } from "@/lib/membership/service";
 import { memberProfileSchema, validateFieldValues } from "@/lib/membership/validators";
 import { reissueCardsForRoleChange } from "@/lib/cards/issue";
@@ -19,6 +20,7 @@ import { flattenZodErrors } from "./utils";
 
 const revalidatePath = trackedRevalidation(nextRevalidatePath);
 const id = z.string().trim().min(1).max(64);
+const planUnitsInclude = { select: { unit: { select: { path: true } } } } as const;
 
 type Access = Extract<OrgActionAccess, { ok: true }>;
 
@@ -52,7 +54,8 @@ function refresh(slug: string, memberId?: string) {
 function failure(error: unknown): { ok: false; error: string } {
   if (error instanceof MembershipError) return { ok: false, error: error.message };
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return { ok: false, error: "This person already has an open application or unpaid membership on that plan." };
-  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2004") return { ok: false, error: "That would overlap a membership this person already has." };
+  // The no-overlap exclusion constraint has no Prisma error code, so it arrives as an unknown request error.
+  if (error instanceof Prisma.PrismaClientUnknownRequestError && error.message.includes("MembershipTerm_no_overlap")) return { ok: false, error: "That would overlap a membership this person already has." };
   throw error;
 }
 
@@ -77,8 +80,9 @@ export async function addMember(input: unknown): Promise<ActionResult<{ memberId
   if (path === undefined) return { ok: false, error: "That unit no longer exists.", fieldErrors: { unitId: ["Choose another unit"] } };
   if (!unitInScope(ctx.scope, path)) return { ok: false, error: "You can only add members to your own unit.", fieldErrors: { unitId: ["Outside your unit"] } };
 
-  const plan = parsed.data.planId ? await prisma.membershipPlan.findFirst({ where: { id: parsed.data.planId, organisationId: ctx.org.id, archivedAt: null }, include: { fields: true } }) : null;
+  const plan = parsed.data.planId ? await prisma.membershipPlan.findFirst({ where: { id: parsed.data.planId, organisationId: ctx.org.id, archivedAt: null }, include: { fields: true, units: planUnitsInclude } }) : null;
   if (parsed.data.planId && !plan) return { ok: false, error: "That plan is no longer offered." };
+  if (plan && !planOffersUnit(plan, plan.units.map((entry) => entry.unit.path), path)) return { ok: false, error: "This plan isn't offered in that unit.", fieldErrors: { unitId: ["Not offered here"] } };
   const answers = plan ? validateFieldValues(plan.fields, profile.data.fieldValues, true) : { values: {}, errors: {} };
   if (Object.keys(answers.errors).length) return { ok: false, error: "Answer the plan's questions.", fieldErrors: answers.errors };
 
@@ -87,6 +91,9 @@ export async function addMember(input: unknown): Promise<ActionResult<{ memberId
 
   try {
     const member = await prisma.$transaction(async (tx) => {
+      // An existing member filed outside a scoped manager's unit is never taken over.
+      const existing = await tx.member.findUnique({ where: { organisationId_email: { organisationId: ctx.org.id, email: profile.data.email } }, select: { unit: { select: { path: true } } } });
+      if (existing && !unitInScope(ctx.scope, existing.unit?.path ?? null)) throw new MembershipError("Someone with this email is a member outside your unit.");
       const saved = await upsertMember(tx, ctx.org.id, { ...profile.data, fieldValues: answers.values, source: "MANUAL" });
       if (plan) await openTerm(tx, { org: ctx.org, plan, memberId: saved.id, byManager: true, actorUserId: ctx.access.userId });
       await recordAuditEvent({ action: "MEMBER_ADDED", actorUserId: ctx.access.userId, organisationId: ctx.org.id, targetType: "Member", targetId: saved.id, client: tx });
@@ -193,8 +200,9 @@ export async function renewMember(input: unknown): Promise<ActionResult> {
   if (!ctx.ok) return ctx;
   const member = await scopedMember(ctx.scope, parsed.data.memberId);
   if (!member) return { ok: false, error: "Member not found." };
-  const plan = await prisma.membershipPlan.findFirst({ where: { id: parsed.data.planId, organisationId: ctx.org.id } });
+  const plan = await prisma.membershipPlan.findFirst({ where: { id: parsed.data.planId, organisationId: ctx.org.id }, include: { units: planUnitsInclude } });
   if (!plan) return { ok: false, error: "Plan not found." };
+  if (!planOffersUnit(plan, plan.units.map((entry) => entry.unit.path), member.unit?.path ?? null)) return { ok: false, error: "This plan isn't offered in this member's unit." };
   try {
     await prisma.$transaction((tx) => startRenewal(tx, { org: ctx.org, plan, memberId: member.id, byManager: true, actorUserId: ctx.access.userId }));
   } catch (error) {
@@ -242,8 +250,11 @@ export async function assignMemberRoles(input: unknown): Promise<ActionResult> {
   const member = await scopedMember(ctx.scope, parsed.data.memberId);
   if (!member) return { ok: false, error: "Member not found." };
   const roleIds = [...new Set(parsed.data.roleIds)];
-  const roles = await prisma.memberRole.count({ where: { organisationId: ctx.org.id, id: { in: roleIds }, archivedAt: null } });
-  if (roles !== roleIds.length) return { ok: false, error: "One of those roles no longer exists." };
+  const roles = await prisma.memberRole.findMany({ where: { organisationId: ctx.org.id, id: { in: roleIds }, archivedAt: null }, select: { name: true, unit: { select: { path: true } } } });
+  if (roles.length !== roleIds.length) return { ok: false, error: "One of those roles no longer exists." };
+  // A role limited to a unit is only for members of that unit's subtree.
+  const outside = roles.find((role) => role.unit && !(member.unit && pathWithin(member.unit.path, role.unit.path)));
+  if (outside) return { ok: false, error: `${outside.name} isn't offered in this member's unit.` };
   const primary = parsed.data.primaryRoleId && roleIds.includes(parsed.data.primaryRoleId) ? parsed.data.primaryRoleId : roleIds[0] ?? null;
   await prisma.$transaction(async (tx) => {
     const before = await tx.memberRoleAssignment.findFirst({ where: { memberId: member.id, isPrimary: true }, select: { roleId: true } });

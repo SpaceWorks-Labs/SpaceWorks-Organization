@@ -15,6 +15,7 @@ import { decideErasureRequest } from "@/app/actions/erasure";
 import { publishPublicPage, savePublicPageDraft } from "@/app/actions/public-page";
 import { loadPublicOrgPage } from "@/lib/views/app__o__orgSlug__page";
 import { newSection } from "@/lib/publicPage/sections";
+import { addStaff } from "../helpers/staff";
 
 const suffix = randomUUID().replace(/-/g, "").slice(0, 10);
 const DAY = 86_400_000;
@@ -49,8 +50,8 @@ beforeAll(async () => {
     await prisma.planField.create({ data: { organisationId: org.id, planId: plan.id, key: "profession", label: "Profession", type: "TEXT" } });
     await prisma.planField.create({ data: { organisationId: org.id, planId: plan.id, key: "score", label: "Interview score", type: "TEXT", adminOnly: true } });
   }
-  await prisma.teamMember.create({ data: { organisationId: orgs.spaceworks.id, userId: people.owner.id, role: "OWNER" } });
-  await prisma.teamMember.create({ data: { organisationId: orgs.tinkerspace.id, userId: people.owner.id, role: "OWNER" } });
+  await addStaff(orgs.spaceworks.id, people.owner.id, "OWNER");
+  await addStaff(orgs.tinkerspace.id, people.owner.id, "OWNER");
 
   for (const [orgKey, personKey, days] of [["spaceworks", "shaan", 10], ["tinkerspace", "shaan", 200], ["spaceworks", "abhiram", 10]] as const) {
     const member = await prisma.$transaction((tx) => upsertMember(tx, orgs[orgKey].id, { email: people[personKey].email.toUpperCase(), name: personKey, source: "JOIN_FORM", fieldValues: { profession: "Engineer", score: "9/10" } }));

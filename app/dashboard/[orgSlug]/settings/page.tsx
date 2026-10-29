@@ -6,7 +6,7 @@ import { CopyOrganisationUrl } from "@/components/org/CopyOrganisationUrl";
 import { DeleteOrganisationButton } from "@/components/dashboard/DeleteOrganisationButton";
 import { OrgPageHeader } from "@/components/dashboard/org/OrgPageHeader";
 import { SettingsTabs } from "@/components/settings/SettingsTabs";
-import { MemberPortalSwitch } from "@/components/settings/MemberPortalSwitch";
+import { MemberPhotoUploadSwitch, MemberPortalSwitch } from "@/components/settings/MemberPortalSwitch";
 import { cn } from "@/lib/cn";
 
 import type { Metadata } from "next";
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 const sectionCard = "rounded-xl border border-line bg-panel p-5 sm:p-6";
 
 export default async function OrgSettingsPage({ params }: Props) {
-  const { org, canDelete, canEditPortal } = await loadOrgSettingsView({ params });
+  const { org, canDelete, canEditProfile, canEditPortal } = await loadOrgSettingsView({ params });
   return (
     <div className="flex flex-col gap-7">
       <OrgPageHeader
@@ -35,6 +35,7 @@ export default async function OrgSettingsPage({ params }: Props) {
         <EditOrgForm
           id="profile"
           organisationSlug={org.slug}
+          canEdit={canEditProfile}
           initial={{
             name: org.name,
             description: org.description ?? "",
@@ -63,6 +64,7 @@ export default async function OrgSettingsPage({ params }: Props) {
         <section id="member-accounts" aria-labelledby="member-accounts-title" className={sectionCard}>
           <h2 id="member-accounts-title" className="mb-3 text-h4 text-ink">Member accounts</h2>
           <MemberPortalSwitch slug={org.slug} enabled={org.memberPortal} canEdit={canEditPortal} />
+          <MemberPhotoUploadSwitch slug={org.slug} enabled={org.memberPhotoUpload} portal={org.memberPortal} canEdit={canEditPortal} />
         </section>
 
         {canDelete ? (

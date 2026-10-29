@@ -8,10 +8,10 @@ import { markTermPaid } from "@/lib/membership/service";
 import { canTransition, statusAt } from "@/lib/membership/lifecycle";
 import { createTermPayment, lockPayment, lockTermForPayment, PaymentError, payable, type OrgForPayments } from "./charges";
 import { settlePayment } from "./settle";
-import { chargeLines, placeOfSupply, resolveTaxSnapshot, sumSplits } from "./tax";
+import { termTotalMinor } from "./tax";
 import type { OfflineMethod } from "./offline-methods";
 
-export { OFFLINE_METHODS, OFFLINE_METHOD_LABELS, type OfflineMethod } from "./offline-methods";
+export { type OfflineMethod } from "./offline-methods";
 
 type Tx = Prisma.TransactionClient;
 
@@ -47,7 +47,7 @@ export async function claimOfflinePayment(tx: Tx, args: { org: OrgForPayments; t
   const utr = args.utr.trim().toUpperCase();
   const clash = await tx.payment.findFirst({ where: { organisationId: args.org.id, provider: "OFFLINE", utr, status: { notIn: ["CANCELLED", "FAILED"] } }, select: { id: true } });
   if (clash) throw new PaymentError("That reference has already been submitted.");
-  const payment = await createTermPayment(tx, { org: args.org, termId: args.termId, provider: "OFFLINE", status: "AWAITING_CONFIRMATION", method: args.method, utr, recordedById: args.userId, note: "Submitted by the member.", now: args.now });
+  const payment = await createTermPayment(tx, { org: args.org, termId: args.termId, provider: "OFFLINE", status: "AWAITING_CONFIRMATION", method: args.method, utr, recordedById: args.userId, memberClaim: true, note: "Submitted by the member.", now: args.now });
   await enqueueOutbox(tx, "payment-notice", { organisationId: args.org.id, paymentId: payment.id, notice: "claim-received" });
   await queueChatAlerts(tx, args.org.id, "payment-to-confirm", { paymentId: payment.id });
   return payment;
@@ -63,12 +63,15 @@ export async function confirmOfflinePayment(tx: Tx, args: { org: OrgForPayments;
   return result.payment;
 }
 
-/** Turn down an offline payment or a member's claim. The member can submit a corrected reference. */
+/**
+ * Turn down an offline payment or a member's claim. Only a member's own claim emails them, so they can submit
+ * a corrected reference; a payment the team recorded is just closed.
+ */
 export async function rejectOfflinePayment(tx: Tx, args: { org: OrgForPayments; paymentId: string; actorUserId: string; reason: string }) {
   const payment = await lockPayment(tx, args.org.id, args.paymentId);
   if (payment.provider !== "OFFLINE" || payment.status !== "AWAITING_CONFIRMATION") throw new PaymentError("This payment isn't waiting for confirmation.");
   const updated = await tx.payment.update({ where: { id: payment.id }, data: { status: "FAILED", note: args.reason.slice(0, 300) } });
-  await enqueueOutbox(tx, "payment-notice", { organisationId: args.org.id, paymentId: payment.id, notice: "claim-rejected" });
+  if (payment.memberClaim) await enqueueOutbox(tx, "payment-notice", { organisationId: args.org.id, paymentId: payment.id, notice: "claim-rejected" });
   await recordAuditEvent({ action: "PAYMENT_REJECTED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "Payment", targetId: payment.id, client: tx });
   return updated;
 }
@@ -93,8 +96,7 @@ export async function waiveTermFee(tx: Tx, args: { org: OrgForPayments; termId: 
   const open = term.payments.filter((payment) => payment.status === "PENDING" || payment.status === "AWAITING_CONFIRMATION");
   if (open.length) await tx.payment.updateMany({ where: { id: { in: open.map((payment) => payment.id) } }, data: { status: "CANCELLED", note: "Closed: the fee was waived." } });
   // The forgiven amount is what the member would have paid, tax included.
-  const snapshot = resolveTaxSnapshot(await tx.orgTaxSettings.findUnique({ where: { organisationId: args.org.id } }), term.currency);
-  const forgiven = sumSplits(chargeLines({ renewal: term.kind === "RENEWAL", rejoining: false, priceMinor: term.priceMinor, joiningFeeMinor: term.joiningFeeMinor, planName: term.plan.name }, snapshot, placeOfSupply(term.member.stateCode, snapshot))).amountMinor;
+  const forgiven = termTotalMinor(term, await tx.orgTaxSettings.findUnique({ where: { organisationId: args.org.id } }), term.currency, term.member.stateCode);
   const payment = await tx.payment.create({
     data: {
       organisationId: args.org.id,
