@@ -46,7 +46,7 @@ export type ReportEvent = {
 export type ReportRows = { members: ReportMember[]; terms: ReportTerm[]; events: ReportEvent[] };
 
 /** Statuses a term only reaches after it was activated (paid, approved or free). */
-export const HELD_STATUSES: ReadonlySet<TermStatus> = new Set(["UPCOMING", "ACTIVE", "GRACE", "ENDED", "LAPSED", "REVOKED"]);
+const HELD_STATUSES: ReadonlySet<TermStatus> = new Set(["UPCOMING", "ACTIVE", "GRACE", "ENDED", "LAPSED", "REVOKED"]);
 const BEFORE_ACTIVATION: ReadonlySet<TermStatus | null> = new Set([null, "PENDING_APPROVAL", "PENDING_PAYMENT", "EXPIRED"]);
 
 export type PreparedTerm = ReportTerm & {
@@ -68,7 +68,7 @@ export type Dataset = {
   events: ReportEvent[];
 };
 
-export function isHeld(term: Pick<ReportTerm, "status" | "startsAt">): boolean {
+function isHeld(term: Pick<ReportTerm, "status" | "startsAt">): boolean {
   return HELD_STATUSES.has(term.status) && term.startsAt !== null;
 }
 

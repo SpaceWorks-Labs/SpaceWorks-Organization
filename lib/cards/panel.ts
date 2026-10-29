@@ -2,7 +2,7 @@ import "server-only";
 
 import { prisma } from "@/lib/db";
 import { cardState, verifyPath } from "./core";
-import { CARD_INCLUDE, cardRoleId, designFor, holderFor, loadCardOrgContext } from "./data";
+import { CARD_INCLUDE, cardRoleId, designFor, holderFor, loadCardOrgContext, loadCardUnits } from "./data";
 import type { CardDesign } from "./design/presets";
 import type { CardBranding, CardHolder } from "./types";
 import { cardDownloadPath } from "./wallet";
@@ -21,7 +21,8 @@ export type MemberCardSummary = {
   holder: CardHolder;
   branding: CardBranding;
   verifyPath: string;
-  downloads: { pdf: string; pngFront: string; pngBack: string | null };
+  /** Null when the viewer may not download cards (lib/cards/access.ts). */
+  downloads: { pdf: string; pngFront: string; pngBack: string | null } | null;
 };
 
 export type MemberCardPlan = {
@@ -33,12 +34,13 @@ export type MemberCardPlan = {
   history: Array<{ cardId: string; cardNumber: string; issuedAt: Date; revokedAt: Date; state: "replaced" | "revoked" }>;
 };
 
-export async function loadMemberCardPanel(organisationId: string, memberId: string, plans: Array<{ planId: string; planName: string; started: boolean }>): Promise<MemberCardPlan[]> {
+export async function loadMemberCardPanel(organisationId: string, memberId: string, plans: Array<{ planId: string; planName: string; started: boolean }>, canDownload: boolean): Promise<MemberCardPlan[]> {
   const [cards, ctx] = await Promise.all([
     prisma.memberCard.findMany({ where: { organisationId, memberId }, include: CARD_INCLUDE, orderBy: { issuedAt: "desc" } }),
     loadCardOrgContext(organisationId),
   ]);
   if (!ctx) return [];
+  await loadCardUnits(ctx, cards.filter((card) => !card.revokedAt));
   return plans.map((plan) => {
     const forPlan = cards.filter((card) => card.planId === plan.planId);
     const live = forPlan.find((card) => !card.revokedAt);
@@ -54,7 +56,7 @@ export async function loadMemberCardPanel(organisationId: string, memberId: stri
         holder: holderFor(live, ctx),
         branding: input.branding,
         verifyPath: verifyPath(live.verifyToken),
-        downloads: { pdf: cardDownloadPath(live.id, "pdf"), pngFront: cardDownloadPath(live.id, "png"), pngBack: input.design.backEnabled ? cardDownloadPath(live.id, "png", "back") : null },
+        downloads: canDownload ? { pdf: cardDownloadPath(live.id, "pdf"), pngFront: cardDownloadPath(live.id, "png"), pngBack: input.design.backEnabled ? cardDownloadPath(live.id, "png", "back") : null } : null,
       } : null,
       history: forPlan.flatMap((card) => (card.revokedAt ? [{ cardId: card.id, cardNumber: card.cardNumber, issuedAt: card.issuedAt, revokedAt: card.revokedAt, state: cardState(card) as "replaced" | "revoked" }] : [])),
     };

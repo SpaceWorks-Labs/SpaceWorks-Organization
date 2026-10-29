@@ -9,7 +9,7 @@ import { MAX_LAYERS, type CardLayer, type CardLayerKind } from "./layers";
 
 type Side = Pick<CardSideSettings, "widthMm" | "heightMm" | "layers" | "order">;
 
-export function newLayerId(taken: Iterable<string>) {
+function newLayerId(taken: Iterable<string>) {
   const used = new Set(taken);
   for (;;) {
     const id = `l${Math.random().toString(36).slice(2, 10).padEnd(8, "0")}`;

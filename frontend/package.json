@@ -1,6 +1,6 @@
 {
   "name": "spaceworks-organization-frontend",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "scripts": {
     "build": "node ../scripts/generate-frontend-catalog.mjs --check && node ../scripts/prepare-frontend.mjs && next build && node ../scripts/check-frontend-build.mjs",

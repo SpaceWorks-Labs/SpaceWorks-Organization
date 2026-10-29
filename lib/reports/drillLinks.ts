@@ -5,7 +5,7 @@
  */
 import { DRILL_METRICS, type DrillMetric } from "./metrics/flows";
 
-export const DRILL_EXTRAS = ["missing-phone", "missing-state", "missing-unit", "missing-photo", "minor-no-guardian"] as const;
+const DRILL_EXTRAS = ["missing-phone", "missing-state", "missing-unit", "missing-photo", "minor-no-guardian"] as const;
 export type DrillExtra = (typeof DRILL_EXTRAS)[number];
 export type DrillKey = DrillMetric | DrillExtra;
 
@@ -32,7 +32,7 @@ export function isDrillKey(value: unknown): value is DrillKey {
 }
 
 /** The report filters a drill-down carries. Unit is a subtree (`dunit`), unlike the directory's own exact `unit`. */
-export type DrillFilters = { period?: string; from?: string; to?: string; plan?: string; unit?: string; state?: string; source?: string; role?: string; tenure?: string };
+type DrillFilters = { period?: string; from?: string; to?: string; plan?: string; unit?: string; state?: string; source?: string; role?: string; tenure?: string };
 
 export function drillHref(slug: string, key: DrillKey, filters: DrillFilters = {}): string {
   const params = new URLSearchParams({ drill: key });

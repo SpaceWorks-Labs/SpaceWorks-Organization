@@ -1,40 +1,42 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
 import { commitMemberImport, previewMemberImport } from "@/app/actions/member-import";
 import type { ImportTarget } from "@/lib/membership/importMapping";
-import { Button, buttonClasses } from "@/components/ui/button";
-import { CheckboxField, SegmentedControl } from "@/components/ui/choice";
-import { Callout, Card, CardHeader, StatTile } from "@/components/ui/display";
+import { ImportFinished, ImportProblems, type ImportResult, type RowProblem } from "@/components/members/ImportResults";
+import { Button } from "@/components/ui/button";
+import { Radio, RadioGroup, SegmentedControl } from "@/components/ui/choice";
+import { Callout, Card, CardHeader } from "@/components/ui/display";
 import { Dropdown, Field, Input } from "@/components/ui/field";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 
 type Source = { kind: "csv"; text: string } | { kind: "sheet"; url: string };
-type Preview = { headers: string[]; sample: string[][]; total: number; mapping: ImportTarget[] };
-type Result = { created: number; updated: number; skipped: Array<{ row: number; reason: string }> };
+type Preview = { headers: string[]; sample: string[][]; total: number; mapping: ImportTarget[]; ready: number; problems: RowProblem[]; mappingError: string | null };
+type Membership = "none" | "start" | "verify";
 
 const BASE_TARGETS: Array<[ImportTarget, string]> = [["skip", "Don't import"], ["name", "Name"], ["email", "Email"], ["phone", "Phone"], ["state", "State"], ["unit", "Unit"], ["role", "Role"]];
 
-/** Bring in members from a CSV file or a shared Google Sheet: read, map columns, import. */
+/** Bring in members from a CSV file or a shared Google Sheet: read, map columns, check every row, import. */
 export function ImportWizard({ slug, plans, fields }: { slug: string; plans: Array<{ id: string; name: string }>; fields: Array<{ key: string; label: string }> }) {
   const [mode, setMode] = useState<"csv" | "sheet">("sheet");
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<{ name: string; text: string } | null>(null);
   const [planId, setPlanId] = useState("");
-  const [start, setStart] = useState(false);
+  const [membership, setMembership] = useState<Membership>("none");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [mapping, setMapping] = useState<ImportTarget[]>([]);
-  const [result, setResult] = useState<Result | null>(null);
+  const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const source: Source | null = mode === "csv" ? (file ? { kind: "csv", text: file.text } : null) : url.trim() ? { kind: "sheet", url } : null;
   const targets: Array<[ImportTarget, string]> = [...BASE_TARGETS, ...fields.map((field): [ImportTarget, string] => [`field:${field.key}`, field.label])];
+  // The row checks hold for the columns they were made with; a changed match needs a fresh check.
+  const checked = preview !== null && preview.mapping.join("|") === mapping.join("|") && !preview.mappingError;
 
-  const read = () => startTransition(async () => {
+  const read = (columns?: ImportTarget[]) => startTransition(async () => {
     setError(null);
     if (!source) return;
-    const response = await previewMemberImport({ organisationSlug: slug, planId: planId || null, source });
+    const response = await previewMemberImport({ organisationSlug: slug, planId: planId || null, source, mapping: columns });
     if (!response.ok) return setError(response.error);
     setPreview(response.data!);
     setMapping(response.data!.mapping);
@@ -43,32 +45,12 @@ export function ImportWizard({ slug, plans, fields }: { slug: string; plans: Arr
   const commit = () => startTransition(async () => {
     setError(null);
     if (!source) return;
-    const response = await commitMemberImport({ organisationSlug: slug, planId: planId || null, source, mapping, startMemberships: start });
+    const response = await commitMemberImport({ organisationSlug: slug, planId: planId || null, source, mapping, membership: planId ? membership : "none" });
     if (!response.ok) return setError(response.error);
     setResult(response.data!);
   });
 
-  if (result) {
-    return (
-      <Card as="section" className="rounded-xl">
-        <CardHeader title="Import finished" />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <StatTile label="New members" value={result.created} />
-          <StatTile label="Updated" value={result.updated} />
-          <StatTile label="Skipped" value={result.skipped.length} tone={result.skipped.length ? "attention" : "default"} />
-        </div>
-        {result.skipped.length ? (
-          <ul className="mt-4 flex flex-col gap-1 text-body-ui text-ink-secondary">
-            {result.skipped.map((row) => <li key={row.row}>Row {row.row}: {row.reason}</li>)}
-          </ul>
-        ) : null}
-        <div className="mt-5 flex gap-3">
-          <Link href={`/dashboard/${slug}/members`} className={buttonClasses({ variant: "primary" })}>See members</Link>
-          <Button variant="secondary" onClick={() => { setResult(null); setPreview(null); }}>Import more</Button>
-        </div>
-      </Card>
-    );
-  }
+  if (result) return <ImportFinished slug={slug} result={result} onAgain={() => { setResult(null); setPreview(null); }} />;
 
   return (
     <div className="flex flex-col gap-6">
@@ -100,7 +82,7 @@ export function ImportWizard({ slug, plans, fields }: { slug: string; plans: Arr
               </Dropdown>
             </Field>
           </div>
-          <div><Button variant="primary" disabled={!source} loading={pending && !preview} onClick={read}>Read the members</Button></div>
+          <div><Button variant="primary" disabled={!source} loading={pending && !preview} onClick={() => read()}>Read the members</Button></div>
         </div>
       </Card>
 
@@ -124,9 +106,30 @@ export function ImportWizard({ slug, plans, fields }: { slug: string; plans: Arr
             </TBody>
           </Table>
           {planId ? (
-            <CheckboxField className="mt-4" checked={start} onCheckedChange={(checked) => setStart(checked === true)} label="Start a membership on the plan for each person" description="Skips approval. Priced plans wait for payment unless they start before payment." />
+            <div className="mt-5 flex flex-col gap-2.5">
+              <p className="text-label text-ink">On the plan</p>
+              <RadioGroup value={membership} onValueChange={(value) => setMembership(value as Membership)} aria-label="On the plan">
+                <Radio value="none" label="Only add them as members" description="No membership is opened." />
+                <Radio value="start" label="Start a membership" description="Skips approval. Priced plans wait for payment unless they start before payment." />
+                <Radio value="verify" label="Send to the unit's lead to verify" description="Each membership waits until staff for the member's unit verify it. They get one email about this import. Verifying starts the membership and emails the member their card." />
+              </RadioGroup>
+            </div>
           ) : null}
-          <div className="mt-5"><Button variant="primary" loading={pending} onClick={commit}>Import {preview.total} {preview.total === 1 ? "member" : "members"}</Button></div>
+        </Card>
+      ) : null}
+
+      {preview ? (
+        <Card as="section" className="rounded-xl">
+          <CardHeader title="3. Check the rows" description="Every row is checked the way the import will check it. Rows with a problem are skipped." />
+          {preview.mappingError && preview.mapping.join("|") === mapping.join("|") ? <Callout tone="warning">{preview.mappingError}</Callout> : null}
+          {checked ? <ImportProblems ready={preview.ready} problems={preview.problems} total={preview.total} /> : null}
+          <div className="mt-5 flex flex-wrap gap-3">
+            {checked ? (
+              <Button variant="primary" loading={pending} disabled={preview.ready === 0} onClick={commit}>Import {preview.ready} {preview.ready === 1 ? "member" : "members"}</Button>
+            ) : (
+              <Button variant="primary" loading={pending} onClick={() => read(mapping)}>Check the rows</Button>
+            )}
+          </div>
         </Card>
       ) : null}
     </div>

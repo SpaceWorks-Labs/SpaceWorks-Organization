@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Callout, Card, SettingsRow } from "@/components/ui/display";
 import { Field, Input, PasswordInput, Textarea } from "@/components/ui/field";
 
-export type SignInProviderValues = {
+type SignInProviderValues = {
   googleClientId: string;
   githubClientId: string;
   appleClientId: string;

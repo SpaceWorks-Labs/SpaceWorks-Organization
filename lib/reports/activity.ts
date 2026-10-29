@@ -13,7 +13,7 @@ export const ACTIVITY_CATEGORIES = [
   { key: "setup", label: "Team and settings", test: (action: string) => /^(TEAM_|ORGANISATION_|UNIT_|ROLE_|MEMBER_ROLE_|SETTINGS_)/.test(action) },
 ] as const;
 
-export type ActivityCategory = (typeof ACTIVITY_CATEGORIES)[number]["key"] | "other";
+type ActivityCategory = (typeof ACTIVITY_CATEGORIES)[number]["key"] | "other";
 
 export function activityCategory(action: string): ActivityCategory {
   return ACTIVITY_CATEGORIES.find((category) => category.test(action))?.key ?? "other";

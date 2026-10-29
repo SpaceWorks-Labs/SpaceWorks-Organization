@@ -1,5 +1,4 @@
 import { Check } from "lucide-react";
-import { ROLE_LABELS } from "@/lib/permissionRoles";
 import { cn } from "@/lib/cn";
 import { ACTIVE, MONTHS, RECEIPT_LINES, TEAM, UNITS, YEAR } from "./landingData";
 import { SAMPLE } from "./sample";
@@ -161,7 +160,7 @@ export function ScaleSection() {
               <li key={person.name} className="flex flex-col gap-0.5 border-t border-line py-2.5 first:border-t-0 first:pt-0">
                 <span className="flex flex-wrap items-baseline justify-between gap-x-3">
                   <span className="text-label font-semibold text-ink">{person.name}</span>
-                  <span className="text-caption text-ink-muted">{ROLE_LABELS[person.access]}</span>
+                  <span className="text-caption text-ink-muted">{person.access}</span>
                 </span>
                 <span className="text-caption text-ink-secondary">{person.role}</span>
               </li>

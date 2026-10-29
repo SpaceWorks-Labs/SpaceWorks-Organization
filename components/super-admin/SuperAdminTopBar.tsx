@@ -15,6 +15,7 @@ const sections = [
   { label: "Overview", href: "/super-admin" },
   { label: "Organisations", href: "/super-admin/orgs" },
   { label: "Reports", href: "/super-admin/reports" },
+  { label: "Analytics", href: "/super-admin/analytics" },
   { label: "Users", href: "/super-admin/users" },
   { label: "Email", href: "/super-admin/email" },
   { label: "Audit log", href: "/super-admin/audit" },
@@ -36,7 +37,7 @@ function activeSection(pathname: string): string | null {
   );
 }
 
-export type SuperAdminUser = { name: string | null; email: string | null; image: string | null };
+type SuperAdminUser = { name: string | null; email: string | null; image: string | null };
 
 /** The person's menu: account settings, light/dark mode and sign out (same items as the app shell). */
 function AccountMenu({ user }: { user: SuperAdminUser }) {

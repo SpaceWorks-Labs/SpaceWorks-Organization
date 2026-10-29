@@ -36,8 +36,11 @@ function retryDelayMs(kind: string, attempts: number) {
   return Math.min(maximumDelay, exponentialDelay);
 }
 
-/** Deliver a small batch. Run this from the scheduler, never a request path. */
-export async function deliverOutboxBatch(limit = 20) {
+/**
+ * Deliver a small batch, or just the rows in `ids` (the queue worker hands over one id at a time).
+ * Run this from the worker, never a request path.
+ */
+export async function deliverOutboxBatch(limit = 20, options: { ids?: string[] } = {}) {
   // A worker may be interrupted after claiming a message. Return a stale claim to the retry queue
   // before processing new work so messages cannot be lost.
   await prisma.outboxMessage.updateMany({
@@ -46,7 +49,7 @@ export async function deliverOutboxBatch(limit = 20) {
   });
 
   const messages = await prisma.outboxMessage.findMany({
-    where: { status: OutboxStatus.PENDING, availableAt: { lte: new Date() } },
+    where: { status: OutboxStatus.PENDING, availableAt: { lte: new Date() }, ...(options.ids ? { id: { in: options.ids } } : {}) },
     orderBy: { createdAt: "asc" },
     take: Math.min(Math.max(limit, 1), 100),
   });
@@ -84,7 +87,8 @@ export async function deliverOutboxBatch(limit = 20) {
       sent += 1;
     } catch (error) {
       const attempts = message.attempts + 1;
-      const terminal = error instanceof PermanentOutboxError || attempts >= 8;
+      // Durable storage work keeps retrying however often storage fails; only a malformed job is given up.
+      const terminal = error instanceof PermanentOutboxError || (!handler?.durable && attempts >= 8);
       if (handler?.capability && terminal) {
         await prisma.outboxMessage.deleteMany({ where: claimed });
       } else {

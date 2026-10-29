@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  assignableTeamRoleSchema,
   createOrgInviteSchema,
   organisationSlugSchema,
   updateOrganisationSchema,
@@ -27,15 +26,16 @@ describe("organisation web address", () => {
 });
 
 describe("team roles", () => {
+  // Roles are the organisation's own: the actions refuse the Owner role and anything the actor can't give.
   it("never hands out ownership through the role form", () => {
-    expect(assignableTeamRoleSchema.safeParse("OWNER").success).toBe(false);
     expect(updateTeamRoleSchema.safeParse({ organisationSlug: "acme", targetUserId: "u", role: "OWNER" }).success).toBe(false);
-    expect(updateTeamRoleSchema.safeParse({ organisationSlug: "acme", targetUserId: "u", role: "TREASURER" }).success).toBe(true);
+    expect(updateTeamRoleSchema.parse({ organisationSlug: "acme", targetUserId: "u", roleId: "role_1", role: "OWNER" })).toEqual({ organisationSlug: "acme", targetUserId: "u", roleId: "role_1" });
   });
 
-  it("defaults invites to the least-privileged role", () => {
-    expect(createOrgInviteSchema.parse({ organisationSlug: "acme" }).role).toBe("VIEWER");
+  it("never lets an invite fall back to a role nobody chose", () => {
+    expect(createOrgInviteSchema.safeParse({ organisationSlug: "acme" }).success).toBe(false);
     expect(createOrgInviteSchema.safeParse({ organisationSlug: "acme", role: "OWNER" }).success).toBe(false);
+    expect(createOrgInviteSchema.parse({ organisationSlug: "acme", roleId: "role_1", unitId: "" })).toEqual({ organisationSlug: "acme", roleId: "role_1", unitId: null });
   });
 });
 

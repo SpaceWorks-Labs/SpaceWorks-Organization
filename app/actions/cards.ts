@@ -10,8 +10,6 @@ import { enqueueOutbox } from "@/lib/outbox";
 import { orgActionAccess } from "@/lib/permissions";
 import { teamScope, unitInScope, type TeamScope } from "@/lib/membership/scope";
 import { CardError, issueCard, reissueCard, revokeCard } from "@/lib/cards/issue";
-import { CARD_EXPORT_FORMATS, exportCardsWhere, parseExportFilter } from "@/lib/cards/exportFilter";
-import { exportLimit } from "@/lib/cards/exportJobs";
 import type { ActionResult } from "./org";
 
 const revalidatePath = trackedRevalidation(nextRevalidatePath);
@@ -123,27 +121,4 @@ export async function emailMemberCard(input: unknown): Promise<ActionResult> {
   if (!queued) return { ok: false, error: "This card was emailed a few minutes ago. Try again later." };
   refresh(ctx.organisation.slug, card.memberId);
   return { ok: true };
-}
-
-const exportSchema = z.object({ organisationSlug: z.string().trim().min(1), format: z.enum(CARD_EXPORT_FORMATS), filter: z.unknown() });
-
-/** Start a background export of the cards matching the directory's filter. */
-export async function requestCardExport(input: unknown): Promise<ActionResult<{ jobId: string; count: number }>> {
-  const parsed = exportSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Invalid request." };
-  const ctx = await access(parsed.data.organisationSlug);
-  if (!ctx.ok) return ctx;
-  const filter = parseExportFilter(parsed.data.filter);
-  const count = await prisma.memberCard.count({ where: exportCardsWhere(ctx.scope, filter) });
-  if (count === 0) return { ok: false, error: "None of these members has a card yet." };
-  const limit = exportLimit(parsed.data.format);
-  if (count > limit) return { ok: false, error: `${count} cards match; one export takes up to ${limit}. Filter by plan, unit or status first.` };
-  const waiting = await prisma.cardExportJob.count({ where: { organisationId: ctx.organisation.id, requestedById: ctx.userId, status: { in: ["PENDING", "PROCESSING"] } } });
-  if (waiting >= 3) return { ok: false, error: "You already have exports being prepared. Wait for those to finish." };
-  const job = await prisma.cardExportJob.create({
-    data: { organisationId: ctx.organisation.id, requestedById: ctx.userId, format: parsed.data.format, filter: { ...filter, scopeUnitId: ctx.scope.unitId } },
-  });
-  await recordAuditEvent({ action: "CARD_EXPORT_REQUESTED", actorUserId: ctx.userId, organisationId: ctx.organisation.id, targetType: "CardExportJob", targetId: job.id, metadata: { cards: count, format: parsed.data.format } });
-  revalidatePath(`/dashboard/${ctx.organisation.slug}/settings/cards`);
-  return { ok: true, data: { jobId: job.id, count } };
 }

@@ -6,7 +6,7 @@ import { inSubtree, ratio, type Dataset } from "../dataset";
 import { membershipSummary, type Window } from "./flows";
 import { closingInstant, firstActivation, standingAt, termActiveAt } from "./standing";
 
-export type CountRow = { key: string; count: number };
+type CountRow = { key: string; count: number };
 
 function tally(keys: Iterable<string>): CountRow[] {
   const counts = new Map<string, number>();
@@ -75,7 +75,7 @@ export function tenure(data: Dataset, t: Date): { bands: Array<{ key: string; la
   return { bands: TENURE_BANDS.map((band) => ({ key: band.key, label: band.label, count: counts.get(band.key)! })), meanYears: n ? total / n : null };
 }
 
-export type DataQuality = { members: number; missingPhone: number; missingState: number; missingUnit: number | null; missingPhoto: number; minorsWithoutGuardian: number };
+type DataQuality = { members: number; missingPhone: number; missingState: number; missingUnit: number | null; missingPhoto: number; minorsWithoutGuardian: number };
 
 /** Gaps in member records, over every member in scope (not only active ones). */
 export function dataQuality(data: Dataset, hasUnits: boolean): DataQuality {
@@ -94,8 +94,8 @@ export function dataQuality(data: Dataset, hasUnits: boolean): DataQuality {
   return { members: data.members.length, missingPhone, missingState, missingUnit: hasUnits ? missingUnit : null, missingPhoto, minorsWithoutGuardian };
 }
 
-export type UnitNode = { id: string; name: string; path: string; parentId: string | null };
-export type UnitLeagueRow = { unitId: string | null; name: string; path: string | null; active: number; grace: number; joined: number; lapsed: number; renewalRate: number | null; share: number | null };
+type UnitNode = { id: string; name: string; path: string; parentId: string | null };
+type UnitLeagueRow = { unitId: string | null; name: string; path: string | null; active: number; grace: number; joined: number; lapsed: number; renewalRate: number | null; share: number | null };
 
 /**
  * One row per unit directly below `rootPath` (or per top-level unit when the report covers the whole
@@ -121,7 +121,7 @@ export function unitLeague(data: Dataset, units: UnitNode[], rootPath: string | 
   return league.sort((a, b) => b.active - a.active || a.name.localeCompare(b.name));
 }
 
-export type ExpiryRow = { termId: string; memberId: string; planId: string; endsAt: Date; graceUntil: Date | null };
+type ExpiryRow = { termId: string; memberId: string; planId: string; endsAt: Date; graceUntil: Date | null };
 
 /** Active terms ending within `days` of now with nothing renewing them yet: the renewal calendar. */
 export function upcomingExpiries(data: Dataset, now: Date, days: number): ExpiryRow[] {

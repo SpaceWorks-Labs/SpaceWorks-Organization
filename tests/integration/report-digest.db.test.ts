@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
 import { buildDigest, queueMonthlyDigests } from "@/lib/reports/digest";
+import { addStaff } from "../helpers/staff";
 
 const suffix = randomUUID().slice(0, 8);
 let orgId = "";
@@ -13,7 +14,7 @@ beforeAll(async () => {
   for (const [role, digest] of [["OWNER", true], ["TREASURER", false], ["VIEWER", true]] as const) {
     const user = await prisma.user.create({ data: { email: `${role.toLowerCase()}-${suffix}@example.test`, name: `${role} Person`, emailVerified: new Date() } });
     users.push(user.id);
-    await prisma.teamMember.create({ data: { userId: user.id, organisationId: org.id, role, reportDigest: digest } });
+    await prisma.teamMember.update({ where: { id: (await addStaff(org.id, user.id, role)).id }, data: { reportDigest: digest } });
   }
 });
 
@@ -37,9 +38,19 @@ describe.sequential("monthly report digest", () => {
   it("builds last month's figures, and drops people who switched it off", async () => {
     const digest = await buildDigest({ organisationId: orgId, userId: users[0], month: "2026-09" }, new Date("2026-10-01T04:00:00Z"));
     expect(digest).toMatchObject({ monthLabel: "September 2026", unitName: null, waitingForApproval: 0 });
-    expect(digest?.membership.activeEnd).toBe(0);
+    expect(digest?.membership?.activeEnd).toBe(0);
     expect(digest?.money).not.toBeNull();
     expect(await buildDigest({ organisationId: orgId, userId: users[1], month: "2026-09" })).toBeNull();
     expect(await buildDigest({ organisationId: orgId, userId: users[2], month: "2026-09" })).toBeNull();
+  });
+
+  it("leaves membership figures out for a role that reads finance but not membership reports", async () => {
+    const user = await prisma.user.create({ data: { email: `finance-only-${suffix}@example.test`, name: "Finance Only", emailVerified: new Date() } });
+    users.push(user.id);
+    const role = await prisma.orgRole.create({ data: { organisationId: orgId, name: "Finance only", capabilities: ["reports.finance"] } });
+    await prisma.teamMember.create({ data: { organisationId: orgId, userId: user.id, role: "VIEWER", roleId: role.id, reportDigest: true } });
+    const digest = await buildDigest({ organisationId: orgId, userId: user.id, month: "2026-09" }, new Date("2026-10-01T04:00:00Z"));
+    expect(digest).toMatchObject({ membership: null, waitingForApproval: 0 });
+    expect(digest?.money).not.toBeNull();
   });
 });

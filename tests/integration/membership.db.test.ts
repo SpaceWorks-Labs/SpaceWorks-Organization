@@ -123,11 +123,11 @@ describe.sequential("membership service", () => {
   });
 
   it("limits a region manager to their unit's subtree", async () => {
-    const kerala = await prisma.orgUnit.create({ data: { organisationId: org.id, name: "Kerala", slug: `kerala-${suffix}`, path: "pending" } });
+    const kerala = await prisma.orgUnit.create({ data: { organisationId: org.id, name: "Kerala", slug: `kerala-${suffix}`, code: "KER", path: "pending" } });
     await prisma.orgUnit.update({ where: { id: kerala.id }, data: { path: kerala.id } });
-    const kochi = await prisma.orgUnit.create({ data: { organisationId: org.id, parentId: kerala.id, name: "Kochi", slug: `kochi-${suffix}`, level: 1, path: "pending" } });
+    const kochi = await prisma.orgUnit.create({ data: { organisationId: org.id, parentId: kerala.id, name: "Kochi", slug: `kochi-${suffix}`, code: "KOC", level: 1, path: "pending" } });
     await prisma.orgUnit.update({ where: { id: kochi.id }, data: { path: `${kerala.id}/${kochi.id}` } });
-    const karnataka = await prisma.orgUnit.create({ data: { organisationId: org.id, name: "Karnataka", slug: `karnataka-${suffix}`, path: "pending" } });
+    const karnataka = await prisma.orgUnit.create({ data: { organisationId: org.id, name: "Karnataka", slug: `karnataka-${suffix}`, code: "KAR", path: "pending" } });
     await prisma.orgUnit.update({ where: { id: karnataka.id }, data: { path: karnataka.id } });
 
     const inKochi = await prisma.$transaction((tx) => upsertMember(tx, org.id, { email: `midlaj-${suffix}@example.test`, name: "Midlaj C", unitId: kochi.id, source: "MANUAL" }));
@@ -143,7 +143,7 @@ describe.sequential("membership service", () => {
   it("refuses a member in a unit of another organisation", async () => {
     const other = await prisma.organisation.create({ data: { name: "Tinkerspace", slug: `tinkerspace-${suffix}` } });
     try {
-      const foreign = await prisma.orgUnit.create({ data: { organisationId: other.id, name: "Alappuzha", slug: `alappuzha-${suffix}`, path: "x" } });
+      const foreign = await prisma.orgUnit.create({ data: { organisationId: other.id, name: "Alappuzha", slug: `alappuzha-${suffix}`, code: "ALP", path: "x" } });
       await expect(prisma.$transaction((tx) => upsertMember(tx, org.id, { email: `cross-${suffix}@example.test`, name: "Cross", unitId: foreign.id, source: "MANUAL" }))).rejects.toThrow();
     } finally {
       await prisma.organisation.delete({ where: { id: other.id } });

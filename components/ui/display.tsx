@@ -119,26 +119,9 @@ export function EmptyState({ title, children, action, className, icon, mood, pat
   );
 }
 
-/* ---------- Danger zone ---------- */
+/* ---------- Avatar and org logo live in ./identity ---------- */
 
-export function DangerZone({ title, description, action, className, children }: { title: ReactNode; description?: ReactNode; action?: ReactNode; className?: string; children?: ReactNode }) {
-  return (
-    <section className={cn("rounded-xl border border-danger-border bg-panel p-5", className)}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h3 className="font-sans text-label text-danger-fg">{title}</h3>
-          {description ? <p className="mt-1 text-body-ui text-ink-secondary">{description}</p> : null}
-        </div>
-        {action ? <div className="shrink-0">{action}</div> : null}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-/* ---------- Avatar, org logo and date block live in ./identity ---------- */
-
-export { Avatar, DateBlock, initials, OrgLogo } from "./identity";
+export { Avatar, OrgLogo } from "./identity";
 
 /* ---------- Progress & stat tile ---------- */
 
@@ -170,12 +153,6 @@ export function StatTile({ label, value, hint, progress, tone = "default", class
   );
   const classes = cn("block rounded-xl border p-4", tone === "attention" ? "border-transparent bg-warning-bg [&_span]:text-warning-fg" : "border-line bg-panel", href && "transition-colors hover:bg-subtle", className);
   return href ? <Link href={href} className={classes}>{body}</Link> : <div className={classes}>{body}</div>;
-}
-
-/* ---------- Skeleton ---------- */
-
-export function Skeleton({ className }: { className?: string }) {
-  return <span aria-hidden className={cn("block animate-pulse rounded-md bg-muted", className)} />;
 }
 
 /* ---------- Page headings ---------- */

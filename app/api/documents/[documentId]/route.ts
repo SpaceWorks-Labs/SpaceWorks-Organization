@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { can, organisationAllows } from "@/lib/permissionRoles";
-import { hasAuthenticator } from "@/lib/permissions";
+import { getMembership, hasAuthenticator } from "@/lib/permissions";
 import { checkRateLimitById } from "@/lib/rateLimit";
 import { memberWhere, teamScope } from "@/lib/membership/scope";
 import type { DocumentSnapshot } from "@/lib/payments/documents";
@@ -28,11 +28,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ doc
   if (!document?.payment) return refuse(404, "Not found.");
 
   let allowed = false;
-  const membership = await prisma.teamMember.findUnique({ where: { userId_organisationId: { userId, organisationId: document.organisationId } } });
+  const membership = await getMembership(userId, document.organisationId);
   // Team access needs the staff authenticator; a member downloading their own receipt does not.
   if (membership && (await hasAuthenticator(userId))) {
     const org = await prisma.organisation.findUniqueOrThrow({ where: { id: document.organisationId }, select: { status: true } });
-    if (organisationAllows(org.status, "payments.view") && can(membership.role, "payments.view")) {
+    if (organisationAllows(org.status, "payments.view") && can(membership, "payments.view")) {
       const scope = await teamScope(document.organisationId, membership.unitId);
       allowed = (await prisma.member.count({ where: { ...memberWhere(scope), id: document.payment.memberId } })) > 0;
     }

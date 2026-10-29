@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { Search, Settings } from "lucide-react";
+import { ClipboardList, Search, Settings } from "lucide-react";
 import { loadPaymentsDirectory } from "@/lib/views/app__dashboard__orgSlug__payments__page";
 import { money } from "@/lib/membership/describe";
 import { formatCalendarDate, localDate } from "@/lib/membership/periods";
@@ -34,11 +34,21 @@ export default async function PaymentsPage({ params, searchParams }: Props) {
         organisation={org}
         title="Payments"
         description={view.gateway ? <>Online payments by {PROVIDER_LABELS[view.gateway.provider as "RAZORPAY" | "STRIPE"]}{view.gateway.testMode ? <Chip size="sm" tone="warning" className="ml-2 align-middle">Test mode</Chip> : null}</> : "Offline payments only. Connect Razorpay or Stripe to take payments online."}
-        actions={view.canConfigure ? (
-          <Link href={`/dashboard/${org.slug}/settings/payments`} className={buttonClasses({ variant: "secondary" })}>
-            <Settings aria-hidden className="size-4" />
-            Payment settings
-          </Link>
+        actions={view.canManage || view.canConfigure ? (
+          <>
+            {view.canManage ? (
+              <Link href={`/dashboard/${org.slug}/payments/collect`} className={buttonClasses({ variant: "secondary" })}>
+                <ClipboardList aria-hidden className="size-4" />
+                Collection sheet
+              </Link>
+            ) : null}
+            {view.canConfigure ? (
+              <Link href={`/dashboard/${org.slug}/settings/payments`} className={buttonClasses({ variant: "secondary" })}>
+                <Settings aria-hidden className="size-4" />
+                Payment settings
+              </Link>
+            ) : null}
+          </>
         ) : null}
       />
 

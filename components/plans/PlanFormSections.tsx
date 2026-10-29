@@ -6,7 +6,7 @@ import { CheckboxField, RadioCard, RadioGroup } from "@/components/ui/choice";
 import { Dropdown, Field, Input } from "@/components/ui/field";
 import type { PlanFormValues } from "./planFormState";
 
-export type SectionProps = {
+type SectionProps = {
   values: PlanFormValues;
   set: <K extends keyof PlanFormValues>(key: K, value: PlanFormValues[K]) => void;
   errors: Record<string, string[] | undefined>;

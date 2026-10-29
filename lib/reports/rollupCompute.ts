@@ -5,13 +5,15 @@
  */
 import type { Dataset, PreparedTerm } from "./dataset";
 import { isReactivation } from "./metrics/flows";
-import { firstActivation, lapseInstant, standingAt } from "./metrics/standing";
+import { expiredAt, firstActivation, lapseInstant, standingAt } from "./metrics/standing";
 
-export type DayStatsRow = {
+type DayStatsRow = {
   unitId: string | null;
   planId: string | null;
   active: number;
   grace: number;
+  /** Stock: members whose latest membership ended or lapsed, holding no live one on any plan. */
+  expired: number;
   joined: number;
   reactivated: number;
   due: number;
@@ -21,14 +23,15 @@ export type DayStatsRow = {
 };
 
 type Counter = Omit<DayStatsRow, "unitId" | "planId">;
-const empty = (): Counter => ({ active: 0, grace: 0, joined: 0, reactivated: 0, due: 0, renewed: 0, lapsed: 0, applications: 0 });
+const empty = (): Counter => ({ active: 0, grace: 0, expired: 0, joined: 0, reactivated: 0, due: 0, renewed: 0, lapsed: 0, applications: 0 });
 const within = (instant: Date | null, from: Date, to: Date) => instant !== null && instant >= from && instant < to;
 
-function countMember(counter: Counter, terms: PreparedTerm[], from: Date, to: Date) {
+function countMember(counter: Counter, terms: PreparedTerm[], from: Date, to: Date, all: PreparedTerm[]) {
   const close = new Date(to.getTime() - 1);
   const standing = standingAt(terms, close);
   if (standing === "ACTIVE") counter.active += 1;
   else if (standing === "GRACE") counter.grace += 1;
+  else if (expiredAt(all, terms, close)) counter.expired += 1;
   // On a plan row, "joined" means new to that plan; on the all-plans row, new to the organisation.
   if (within(firstActivation(terms), from, to)) counter.joined += 1;
   else if (terms.some((term) => within(term.activatedAt, from, to) && isReactivation(term, terms))) counter.reactivated += 1;
@@ -54,12 +57,14 @@ export function computeDayStats(data: Dataset, from: Date, to: Date): DayStatsRo
   };
   for (const [memberId, terms] of data.termsByMember) {
     const unitId = data.memberById.get(memberId)?.unitId ?? null;
-    countMember(row(unitId, null), terms, from, to);
+    countMember(row(unitId, null), terms, from, to, terms);
     const byPlan = new Map<string, PreparedTerm[]>();
     for (const term of terms) byPlan.set(term.planId, [...(byPlan.get(term.planId) ?? []), term]);
-    for (const [planId, planTerms] of byPlan) countMember(row(unitId, planId), planTerms, from, to);
+    for (const [planId, planTerms] of byPlan) countMember(row(unitId, planId), planTerms, from, to, terms);
   }
-  return [...rows.values()].filter((entry) => entry.active + entry.grace + entry.joined + entry.reactivated + entry.due + entry.renewed + entry.lapsed + entry.applications > 0);
+  const counted = [...rows.values()].filter((entry) => entry.active + entry.grace + entry.expired + entry.joined + entry.reactivated + entry.due + entry.renewed + entry.lapsed + entry.applications > 0);
+  // A computed day always keeps one all-plans row, so a day with nothing to count reads as zero, not as never computed.
+  return counted.length ? counted : [{ unitId: null, planId: null, ...empty() }];
 }
 
 /** Add rows together (a unit subtree, or every organisation for the platform reports). */

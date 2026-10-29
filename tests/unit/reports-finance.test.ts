@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { apportion, paymentHealth, revenueBy, revenueByFeeKind, revenueSeries, revenueSummary } from "@/lib/reports/finance/revenue";
 import { ageingBucket, ageingTable, collectionRate, offlineQueue, outstandingItems } from "@/lib/reports/finance/outstanding";
-import { forecastVsActual, memberPayments, paymentVolume, renewalForecast } from "@/lib/reports/finance/forecast";
+import { forecastVsActual, paymentVolume, renewalForecast } from "@/lib/reports/finance/forecast";
 import { EMPTY_FINANCE_ROWS, type FinanceRows } from "@/lib/reports/finance/types";
 import { csvAmount, formatTotals, subtractTotals } from "@/lib/reports/money";
 import { periodBuckets, resolvePeriod } from "@/lib/reports/period";
@@ -127,12 +127,5 @@ describe("forecast, platform volume and member payments", () => {
       { currency: "INR", payments: 2, minor: 200_000, organisations: 2, byProvider: { RAZORPAY: 100_000, STRIPE: 0, OFFLINE: 100_000 } },
       { currency: "USD", payments: 1, minor: 900, organisations: 1, byProvider: { RAZORPAY: 900, STRIPE: 0, OFFLINE: 0 } },
     ]);
-  });
-
-  it("C3: lists one member's payments with their documents and totals", () => {
-    const report = memberPayments(rows({ payments: [payment("a"), payment("z", { memberId: "other" })], refunds: [refund("r", "a", 10_000)], documents: [] }), "m1", "INR");
-    expect(report.entries.map((entry) => entry.payment.id)).toEqual(["a"]);
-    expect(report.paid).toEqual([{ currency: "INR", minor: 90_000 }]);
-    expect(report.entries[0].refunded).toEqual([{ currency: "INR", minor: 10_000 }]);
   });
 });

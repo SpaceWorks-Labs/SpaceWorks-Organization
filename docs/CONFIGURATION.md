@@ -4,7 +4,7 @@ Every environment variable the app, its images and the deployment scripts read. 
 [`.env.example`](../.env.example) (development) and [`.env.production.example`](../.env.production.example)
 (the bundled install's `.env` and the cloud `cloud.env`). The installer generates every secret for you.
 
-In production the app validates its settings at start (`lib/env.ts`) and refuses to run with a missing secret,
+In production the app, worker and beat validate their settings at start (`lib/env.ts`) and refuse to run with a missing secret,
 a plain-text database or Redis connection, or mismatched public origins.
 
 ## Application
@@ -12,9 +12,9 @@ a plain-text database or Redis connection, or mismatched public origins.
 | Variable | Required | Description |
 |---|---|---|
 | `NODE_ENV` | production | `production` turns on the start-up validation, secure cookies and HSTS. |
-| `DATABASE_URL` | yes | Runtime PostgreSQL URL. Production needs `sslmode=require`, `verify-ca` or `verify-full`; a transaction pooler on `:6543` needs `pgbouncer=true`. The bundled stack uses the least-privilege role `sworg_app`. |
+| `DATABASE_URL` | yes | Runtime PostgreSQL URL. Production needs `sslmode=require`, `verify-ca` or `verify-full`; a transaction pooler on `:6543` needs `pgbouncer=true`. Keep at least 2 connections in the pool (`connection_limit` ≥ 2): the worker's storage clean-up holds one while it works through another. The bundled stack uses the least-privilege role `sworg_app`. |
 | `DIRECT_URL` | no | Direct or session connection for `prisma migrate` (a role that owns the schema). Defaults to `DATABASE_URL`. Same TLS rule. |
-| `REDIS_URL` | production | Rate limits. Production requires `rediss://`. |
+| `REDIS_URL` | production | Rate limits, the read cache and the BullMQ job queues (`docs/ARCHITECTURE.md`). Production requires `rediss://`. |
 | `AUTH_SECRET` | yes | Auth.js secret, 32+ characters. |
 | `AUTH_URL` | production | The public origin. Must equal `NEXT_PUBLIC_BASE_URL`. |
 | `NEXT_PUBLIC_BASE_URL` | production | The canonical origin for links in receipts, cards and email. Release images get it at start (placeholder replacement); your own builds compile it in. |
@@ -23,8 +23,7 @@ a plain-text database or Redis connection, or mismatched public origins.
 | `ALLOWED_ACTION_ORIGINS` | no | Extra hostnames allowed to call Server Actions (a CDN in front). Build time only; release images refuse it. |
 | `TRUSTED_PROXY_IP_HEADER` | production | The client-IP header your edge overwrites: `x-real-ip` (bundled Caddy), `cf-connecting-ip` (Cloudflare) or `x-forwarded-for`. |
 | `TRUSTED_PROXY_HOPS` | no | With `x-forwarded-for`, how many trusted proxies append to it (default 1). |
-| `CRON_SECRET` | production | Bearer secret for `POST /api/internal/outbox`, the scheduler pass. |
-| `SCHEDULER_MODE` | no | `in-process` (default): the app runs the scheduler pass every minute itself. `external`: a scheduler container, worker or cron calls the endpoint (every Compose stack and Render). |
+| `CRON_SECRET` | production | Bearer secret for `POST /api/internal/jobs` and `POST /api/internal/outbox`, the fallback for hosts without a beat process. |
 | `OUTBOX_RETENTION_DAYS` | no | Days to keep delivered outbox rows (30). |
 | `HEALTHCHECK_SECRET` | production | Bearer secret for `GET /api/health/db`. `/api/health` is open liveness. |
 | `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | production | Base64 of a 16, 24 or 32-byte key, stable across every container. Release images refuse to start without it. |
@@ -50,6 +49,37 @@ a plain-text database or Redis connection, or mismatched public origins.
 | `NODE_EXTRA_CA_CERTS` | no | Extra CA for Node; the bundled stack points it at its private CA. |
 | `NEXT_DEV_ALLOWED_ORIGINS` | no | Development only: extra hosts allowed to load dev assets. |
 
+### Background jobs (worker and beat)
+
+The `worker` and `beat` roles (`npm run build:jobs`, then `npm run worker` and `npm run beat`) run every
+background job on BullMQ over `REDIS_URL` (`docs/ARCHITECTURE.md`).
+
+| Variable | Default | Description |
+|---|---|---|
+| `JOBS_QUEUE_PREFIX` | `swo:jobs` | Prefix for the BullMQ keys in Redis. Lowercase letters, digits, `:`, `_` and `-`, up to 40 characters. Give two installations sharing one Redis different prefixes. |
+| `JOBS_HEALTH_PORT` | `3460` | Port of the worker's and beat's `GET /health`. |
+| `QUEUE_OUTBOX_CONCURRENCY`, `QUEUE_SCHEDULED_CONCURRENCY` | 5, 2 | Jobs one worker runs at once per queue, 1 to 64. |
+| `JOBS_INPROCESS` | `false` | Development only, and only without `REDIS_URL`: `true` runs every periodic job (outbox delivery, membership sweep, retention…) from a one-minute timer in the web process. Ignored in production. |
+
+### Object storage
+
+Every stored file (logos, page images, card artwork, member photos) goes to one private bucket through one
+client (`lib/storage/client.ts`). Member photos sit under `organisations/<org>/members/<member>/`, so erasing a
+member deletes that prefix. Card files are never stored: every card, single or bulk, is drawn when it is asked for.
+
+| Store | `S3_ENDPOINT` | `S3_REGION` | `S3_FORCE_PATH_STYLE` |
+|---|---|---|---|
+| Silo (MinIO) on a VPS | `https://minio:9000` (set by the bundled stack) | any, `us-east-1` by default | `1` |
+| Cloudflare R2 | `https://<account-id>.r2.cloudflarestorage.com` | `auto` | `1` |
+| Amazon S3 | empty | the bucket's region | `0` |
+
+The access key needs to read, write, delete and list objects in the bucket (R2: an API token with Object Read &
+Write, limited to the bucket). On a self-managed bucket with versioning (MinIO, S3), also grant
+`s3:ListBucketVersions` on the bucket and `s3:DeleteObjectVersion` on its objects: erasing a member or a photo
+deletes every stored version, not just the current one. The bundled Silo policy (`deploy/storage-policy.json`)
+has both. Without them, only current objects are deleted, the earlier versions stay, and the server logs it.
+The application sends checksums only where S3 requires them, which R2 and Silo both accept.
+
 ### Split hosting (website on Netlify)
 
 | Variable | Where | Description |
@@ -62,7 +92,7 @@ a plain-text database or Redis connection, or mismatched public origins.
 ### Tests and demo data
 
 `CI` with `ALLOW_INSECURE_PRODUCTION_TESTS=1` relaxes the TLS checks in CI only. `TEST_DATABASE_URL` points the
-integration tests at a disposable database. `DEMO_PASSWORD` and `DEMO_MFA_SECRET` feed `npm run db:seed-demo`.
+integration tests at a disposable database; `TEST_QUEUE_REDIS_URL` at a disposable Redis turns on the BullMQ suites. `DEMO_PASSWORD` and `DEMO_MFA_SECRET` feed `npm run db:seed-demo`.
 
 ## Deployment (bundled `.env` and `cloud.env`)
 
@@ -87,6 +117,21 @@ integration tests at a disposable database. `DEMO_PASSWORD` and `DEMO_MFA_SECRET
 | `BACKUP_INTERVAL_HOURS` | `24` | Scheduled database dump and bucket mirror interval. |
 | `SILO_IMAGE_TAG` | pinned | Silo release. |
 
+## Backup settings (`backup.env`)
+
+Written by the installer menu's Backups option (`scripts/vps-backup-settings.sh`) into the owner-only
+`backup.env` beside `.env`, and read only by `scripts/vps-offsite-backup.sh`. They are host settings, not
+application environment, so they are in no `.env` or Compose file. See
+[DEPLOYMENT_VPS.md](DEPLOYMENT_VPS.md#encrypted-off-site-copies).
+
+| Variable | Description |
+|---|---|
+| `BACKUP_AGE_RECIPIENT` | age public key; off-site copies are encrypted to it. The private key stays off the server. |
+| `OFFSITE_ENDPOINT`, `OFFSITE_BUCKET`, `OFFSITE_PREFIX` | The off-site S3-compatible bucket and folder. |
+| `OFFSITE_ACCESS_KEY_ID`, `OFFSITE_SECRET_ACCESS_KEY` | A key limited to that bucket. |
+| `OFFSITE_KEEP_DAYS` | Days copies stay in the bucket (90). |
+| `OFFSITE_CA` | `offsite-ca.crt` when a private endpoint uses its own CA. |
+
 ## Scripts and images
 
 | Variable | Used by | Description |
@@ -99,9 +144,8 @@ integration tests at a disposable database. `DEMO_PASSWORD` and `DEMO_MFA_SECRET
 | `SWO_BUILD_KEY` | wrapper | Throwaway Server Actions key for local builds (generated per run). |
 | `SWO_COMPOSE_PROJECT` | wrapper | Compose project (`sworg`, `sworg-cloud`, `sworg-smoke`). |
 | `SWO_TLS_DIR`, `SWO_BACKUP_DIR` | compose | Certificate and backup directories (`./tls`, `./backups`). |
-| `SWO_RUNNER_DIR` | `install-runner.sh` | Runner directory (`/opt/spaceworks-organization-runner`). |
+| `SWO_RUNNER_DIR` | `install-runner.sh`, `vps-status.sh`, `vps-uninstall.sh` | Runner directory (`/opt/spaceworks-organization-runner`). |
 | `SWO_DEPLOY` | GitHub repository variable | `true` enables the release workflow's `deploy` job. |
-| `SWO_SCHEDULER_TARGET` | scheduler role | The pass endpoint (`http://backend:3000/api/internal/outbox`). |
 | `SWO_TOPOLOGY` | ops role | `bundled` or `cloud`; the runtime-role check runs only for bundled. |
 | `SWO_NEXT_DIR` | entrypoint | Where the web build is (`/app/.next`, frontend `/app/frontend/.next`). |
 | `SWO_DISABLE_BUILD_CACHE`, `SWO_FRONTEND_STANDALONE` | Dockerfile | Image build switches. |

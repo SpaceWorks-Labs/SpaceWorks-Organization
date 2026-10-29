@@ -20,5 +20,10 @@ export async function acceptOrganisationInvite(input: unknown): Promise<ActionRe
   if (!user) return { ok: false, error: "Sign in before accepting this invite." };
   const result = await acceptOrganisationInviteToken(token.data, { id: session.user.id, email: user.email, emailVerified: user.emailVerified != null });
   if (result.ok) return { ok: true, data: { href: result.href } };
-  return { ok: false, error: result.reason === "wrong-account" ? "Sign in with the verified email address this invite was sent to." : "This invite is unavailable." };
+  const errors = {
+    "wrong-account": "Sign in with the verified email address this invite was sent to.",
+    "team-full": "This organisation's team is full. Ask whoever sent the invite to make room, then try again.",
+    unavailable: "This invite is unavailable.",
+  } as const;
+  return { ok: false, error: errors[result.reason] };
 }

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/display";
 import { Dropdown, Field, Input, Textarea } from "@/components/ui/field";
 
-export type RefundPolicyValues = { refundPolicy: RefundPolicyName; refundWindowDays: number; refundPolicyText: string };
+type RefundPolicyValues = { refundPolicy: RefundPolicyName; refundWindowDays: number; refundPolicyText: string };
 
 const EXPLAIN: Record<RefundPolicyName, string> = {
   NONE: "Members can still cancel from their account, but nothing is offered back. You can always refund by hand from a payment.",

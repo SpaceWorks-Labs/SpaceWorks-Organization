@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { requireOrgCapability } from "@/lib/permissions";
+import { can, requireOrgCapability } from "@/lib/permissions";
 import { loadStoredPage } from "@/lib/publicPage/server";
 import { starterDocument } from "@/lib/publicPage/sections";
 
@@ -33,7 +33,7 @@ export async function loadPublicPageEditorView({ params }: { params: Promise<{ o
   const working = stored.draft ?? stored.published ?? starterDocument(org);
   return {
     org,
-    canEdit: !membership.unitId,
+    canEdit: can(membership, "org.settings", { write: true }),
     publishedAt: stored.publishedAt,
     hasDraft: Boolean(stored.draft),
     revision: stored.revision,

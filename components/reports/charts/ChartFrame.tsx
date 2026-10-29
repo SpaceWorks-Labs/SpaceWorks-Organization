@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 
-export type TableView = { columns: string[]; rows: Array<Array<string | number>>; caption?: string };
+type TableView = { columns: string[]; rows: Array<Array<string | number>>; caption?: string };
 
 /** A plain table for a chart's numbers: the accessible twin of every chart, and its print fallback. */
 export function DataTable({ table, className }: { table: TableView; className?: string }) {

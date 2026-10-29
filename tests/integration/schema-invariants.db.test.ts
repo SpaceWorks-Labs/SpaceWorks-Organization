@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
+import { addStaff, starterRole } from "../helpers/staff";
 
 const suffix = randomUUID().replace(/-/g, "").slice(0, 12);
 let organisationId: string;
@@ -33,8 +34,8 @@ describe.sequential("production database invariants", () => {
   });
 
   it("allows one team row per person per organisation", async () => {
-    await prisma.teamMember.create({ data: { userId, organisationId, role: "OWNER" } });
-    await expect(prisma.teamMember.create({ data: { userId, organisationId, role: "VIEWER" } })).rejects.toThrow();
+    await addStaff(organisationId, userId, "OWNER");
+    await expect(addStaff(organisationId, userId, "VIEWER")).rejects.toThrow();
   });
 
   it("requires a note on refusals and change requests", async () => {
@@ -45,8 +46,9 @@ describe.sequential("production database invariants", () => {
   });
 
   it("records who used an invite only together with when", async () => {
-    await expect(prisma.teamInvite.create({ data: { organisationId, token: `t-${suffix}-1`, usedByUserId: userId } })).rejects.toThrow();
-    await expect(prisma.teamInvite.create({ data: { organisationId, token: `t-${suffix}-2`, usedByUserId: userId, usedAt: new Date() } })).resolves.toBeTruthy();
+    const roleId = (await starterRole(organisationId, "VIEWER")).id;
+    await expect(prisma.teamInvite.create({ data: { organisationId, roleId, token: `t-${suffix}-1`, usedByUserId: userId } })).rejects.toThrow();
+    await expect(prisma.teamInvite.create({ data: { organisationId, roleId, token: `t-${suffix}-2`, usedByUserId: userId, usedAt: new Date() } })).resolves.toBeTruthy();
   });
 
   it("rejects impossible outbox states and negative attempts", async () => {
@@ -57,8 +59,8 @@ describe.sequential("production database invariants", () => {
 
   it("removes an organisation's team, invites and review history with it", async () => {
     const org = await prisma.organisation.create({ data: { name: "Cascade", slug: `cascade-${suffix}` } });
-    await prisma.teamMember.create({ data: { userId, organisationId: org.id, role: "OWNER" } });
-    await prisma.teamInvite.create({ data: { organisationId: org.id, token: `cascade-${suffix}` } });
+    await addStaff(org.id, userId, "OWNER");
+    await prisma.teamInvite.create({ data: { organisationId: org.id, roleId: (await starterRole(org.id, "VIEWER")).id, token: `cascade-${suffix}` } });
     await prisma.organisationReview.create({ data: { organisationId: org.id, action: "SUBMITTED" } });
     await prisma.organisation.delete({ where: { id: org.id } });
     expect(await prisma.teamMember.count({ where: { organisationId: org.id } })).toBe(0);

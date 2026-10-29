@@ -3,8 +3,7 @@
 import { forwardRef, useCallback, useEffect, useRef, useState, type ComponentPropsWithoutRef, type ElementRef, type ReactNode, type Ref } from "react";
 import Link from "next/link";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
-import * as AccordionPrimitive from "@radix-ui/react-accordion";
-import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 /* ---------- Underline tabs (docs/DESIGN.md §4.4): 2px teal (or organisation accent) underline ---------- */
@@ -141,23 +140,5 @@ export function NavTabs({ items, label, className }: { items: Array<{ href: stri
       </nav>
       <ScrollHint side="right" visible={edges.right} onClick={() => scroll(1)} />
     </div>
-  );
-}
-
-/* ---------- Accordion ---------- */
-
-export const Accordion = AccordionPrimitive.Root;
-
-export function AccordionItem({ value, title, children, className }: { value: string; title: ReactNode; children: ReactNode; className?: string }) {
-  return (
-    <AccordionPrimitive.Item value={value} className={cn("border-b border-line", className)}>
-      <AccordionPrimitive.Header>
-        <AccordionPrimitive.Trigger className="group flex w-full items-center justify-between gap-4 py-4 text-left text-[17px] font-semibold text-ink">
-          {title}
-          <ChevronDown aria-hidden className="size-5 shrink-0 text-ink-muted transition-transform duration-[180ms] group-data-[state=open]:rotate-180" />
-        </AccordionPrimitive.Trigger>
-      </AccordionPrimitive.Header>
-      <AccordionPrimitive.Content className="pb-4 text-body text-ink-secondary">{children}</AccordionPrimitive.Content>
-    </AccordionPrimitive.Item>
   );
 }

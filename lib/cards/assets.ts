@@ -21,7 +21,7 @@ export type PreparedImage = { format: "png" | "jpeg"; data: Buffer; widthPx: num
 const RASTER_DPI = 300;
 const MAX_IMAGE_PX = 1200;
 /** Photos (the only cropped, "cover" images) never rasterise larger than this, so bulk renders stay small. */
-export const MAX_PHOTO_PX = 600;
+const MAX_PHOTO_PX = 600;
 
 const pxFor = (mm: number) => Math.min(MAX_IMAGE_PX, Math.max(8, Math.ceil((mm / MM_PER_INCH) * RASTER_DPI)));
 
@@ -106,7 +106,7 @@ export function imageCache() {
   };
 }
 
-export type SymbolPath = { d: string; fill: string };
+type SymbolPath = { d: string; fill: string };
 export const SYMBOL_VIEWBOX = { width: 136, height: 126 } as const;
 
 const SYMBOL_FILES: Record<CardSymbolVariant, string> = {

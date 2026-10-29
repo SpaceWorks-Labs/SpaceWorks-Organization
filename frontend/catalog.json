@@ -91,9 +91,19 @@
       "id": "app__dashboard__orgSlug__members__page:loadOrgMembersDirectory"
     },
     {
+      "module": "lib/views/app__dashboard__orgSlug__ownership__page",
+      "name": "loadOwnershipOfferView",
+      "id": "app__dashboard__orgSlug__ownership__page:loadOwnershipOfferView"
+    },
+    {
       "module": "lib/views/app__dashboard__orgSlug__page",
       "name": "loadOrgOverviewView",
       "id": "app__dashboard__orgSlug__page:loadOrgOverviewView"
+    },
+    {
+      "module": "lib/views/app__dashboard__orgSlug__payments__collect__page",
+      "name": "loadCollectionSheet",
+      "id": "app__dashboard__orgSlug__payments__collect__page:loadCollectionSheet"
     },
     {
       "module": "lib/views/app__dashboard__orgSlug__payments__page",
@@ -131,6 +141,11 @@
       "id": "app__dashboard__orgSlug__reports__applications__page:loadOrgReportsApplications"
     },
     {
+      "module": "lib/views/app__dashboard__orgSlug__reports__cash__page",
+      "name": "loadOrgReportsCash",
+      "id": "app__dashboard__orgSlug__reports__cash__page:loadOrgReportsCash"
+    },
+    {
       "module": "lib/views/app__dashboard__orgSlug__reports__members__page",
       "name": "loadOrgReportsMembers",
       "id": "app__dashboard__orgSlug__reports__members__page:loadOrgReportsMembers"
@@ -154,6 +169,11 @@
       "module": "lib/views/app__dashboard__orgSlug__reports__tax__page",
       "name": "loadOrgReportsTax",
       "id": "app__dashboard__orgSlug__reports__tax__page:loadOrgReportsTax"
+    },
+    {
+      "module": "lib/views/app__dashboard__orgSlug__reports__units__page",
+      "name": "loadOrgReportsUnits",
+      "id": "app__dashboard__orgSlug__reports__units__page:loadOrgReportsUnits"
     },
     {
       "module": "lib/views/app__dashboard__orgSlug__settings__cards__page",
@@ -191,9 +211,19 @@
       "id": "app__dashboard__orgSlug__settings__public-page__page:loadPublicPageEditorView"
     },
     {
+      "module": "lib/views/app__dashboard__orgSlug__settings__roles__page",
+      "name": "loadOrgStaffRolesView",
+      "id": "app__dashboard__orgSlug__settings__roles__page:loadOrgStaffRolesView"
+    },
+    {
       "module": "lib/views/app__dashboard__orgSlug__settings__structure__page",
       "name": "loadOrgStructureView",
       "id": "app__dashboard__orgSlug__settings__structure__page:loadOrgStructureView"
+    },
+    {
+      "module": "lib/views/app__dashboard__orgSlug__settings__structure__unitId__page",
+      "name": "loadOrgUnitView",
+      "id": "app__dashboard__orgSlug__settings__structure__unitId__page:loadOrgUnitView"
     },
     {
       "module": "lib/views/app__dashboard__orgSlug__team__page",
@@ -246,6 +276,11 @@
       "id": "app__start__page:loadStartView"
     },
     {
+      "module": "lib/views/app__super-admin__analytics__page",
+      "name": "loadSuperAdminAnalyticsView",
+      "id": "app__super-admin__analytics__page:loadSuperAdminAnalyticsView"
+    },
+    {
       "module": "lib/views/app__super-admin__audit__page",
       "name": "loadSuperAdminAuditView",
       "id": "app__super-admin__audit__page:loadSuperAdminAuditView"
@@ -279,6 +314,11 @@
       "module": "lib/views/app__super-admin__orgs__new__page",
       "name": "loadSuperAdminNewOrgView",
       "id": "app__super-admin__orgs__new__page:loadSuperAdminNewOrgView"
+    },
+    {
+      "module": "lib/views/app__super-admin__orgs__orgId__analytics__page",
+      "name": "loadSuperAdminOrgAnalyticsView",
+      "id": "app__super-admin__orgs__orgId__analytics__page:loadSuperAdminOrgAnalyticsView"
     },
     {
       "module": "lib/views/app__super-admin__orgs__orgId__page",
@@ -428,11 +468,6 @@
       "id": "cards:emailMemberCard"
     },
     {
-      "module": "app/actions/cards",
-      "name": "requestCardExport",
-      "id": "cards:requestCardExport"
-    },
-    {
       "module": "app/actions/chat-channels",
       "name": "saveChatChannel",
       "id": "chat-channels:saveChatChannel"
@@ -446,6 +481,26 @@
       "module": "app/actions/chat-channels",
       "name": "testChatChannel",
       "id": "chat-channels:testChatChannel"
+    },
+    {
+      "module": "app/actions/collection",
+      "name": "recordCollection",
+      "id": "collection:recordCollection"
+    },
+    {
+      "module": "app/actions/email-templates",
+      "name": "saveEmailTemplate",
+      "id": "email-templates:saveEmailTemplate"
+    },
+    {
+      "module": "app/actions/email-templates",
+      "name": "resetEmailTemplate",
+      "id": "email-templates:resetEmailTemplate"
+    },
+    {
+      "module": "app/actions/email-templates",
+      "name": "sendEmailTemplateTest",
+      "id": "email-templates:sendEmailTemplateTest"
     },
     {
       "module": "app/actions/erasure",
@@ -558,6 +613,11 @@
       "id": "member-portal:setMemberPortal"
     },
     {
+      "module": "app/actions/member-portal",
+      "name": "setMemberPhotoUpload",
+      "id": "member-portal:setMemberPhotoUpload"
+    },
+    {
       "module": "app/actions/members",
       "name": "addMember",
       "id": "members:addMember"
@@ -626,6 +686,21 @@
       "module": "app/actions/organisation-application",
       "name": "resubmitOrganisationApplication",
       "id": "organisation-application:resubmitOrganisationApplication"
+    },
+    {
+      "module": "app/actions/ownership",
+      "name": "startOwnershipTransfer",
+      "id": "ownership:startOwnershipTransfer"
+    },
+    {
+      "module": "app/actions/ownership",
+      "name": "cancelOwnershipTransfer",
+      "id": "ownership:cancelOwnershipTransfer"
+    },
+    {
+      "module": "app/actions/ownership",
+      "name": "acceptOwnershipTransfer",
+      "id": "ownership:acceptOwnershipTransfer"
     },
     {
       "module": "app/actions/password-reset",
@@ -716,6 +791,11 @@
       "module": "app/actions/plans",
       "name": "savePlanFields",
       "id": "plans:savePlanFields"
+    },
+    {
+      "module": "app/actions/portal-photo",
+      "name": "setOwnMemberPhoto",
+      "id": "portal-photo:setOwnMemberPhoto"
     },
     {
       "module": "app/actions/portal",
@@ -838,24 +918,24 @@
       "id": "sign-in-providers:saveSignInProviders"
     },
     {
-      "module": "app/actions/structure",
-      "name": "setUnitLevels",
-      "id": "structure:setUnitLevels"
+      "module": "app/actions/staff-roles",
+      "name": "createStaffRole",
+      "id": "staff-roles:createStaffRole"
     },
     {
-      "module": "app/actions/structure",
-      "name": "createUnit",
-      "id": "structure:createUnit"
+      "module": "app/actions/staff-roles",
+      "name": "updateStaffRole",
+      "id": "staff-roles:updateStaffRole"
     },
     {
-      "module": "app/actions/structure",
-      "name": "renameUnit",
-      "id": "structure:renameUnit"
+      "module": "app/actions/staff-roles",
+      "name": "archiveStaffRole",
+      "id": "staff-roles:archiveStaffRole"
     },
     {
-      "module": "app/actions/structure",
-      "name": "setUnitArchived",
-      "id": "structure:setUnitArchived"
+      "module": "app/actions/staff-roles",
+      "name": "reorderStaffRoles",
+      "id": "staff-roles:reorderStaffRoles"
     },
     {
       "module": "app/actions/structure",
@@ -909,13 +989,43 @@
     },
     {
       "module": "app/actions/team",
+      "name": "setTeamMemberUnit",
+      "id": "team:setTeamMemberUnit"
+    },
+    {
+      "module": "app/actions/team",
       "name": "deleteOrganisation",
       "id": "team:deleteOrganisation"
     },
     {
-      "module": "app/actions/team",
-      "name": "setTeamMemberUnit",
-      "id": "team:setTeamMemberUnit"
+      "module": "app/actions/units",
+      "name": "setUnitLevels",
+      "id": "units:setUnitLevels"
+    },
+    {
+      "module": "app/actions/units",
+      "name": "createUnit",
+      "id": "units:createUnit"
+    },
+    {
+      "module": "app/actions/units",
+      "name": "updateUnit",
+      "id": "units:updateUnit"
+    },
+    {
+      "module": "app/actions/units",
+      "name": "setUnitArchived",
+      "id": "units:setUnitArchived"
+    },
+    {
+      "module": "app/actions/units",
+      "name": "moveUnit",
+      "id": "units:moveUnit"
+    },
+    {
+      "module": "app/actions/units",
+      "name": "setUnitPaymentInstructions",
+      "id": "units:setUnitPaymentInstructions"
     }
   ]
 }

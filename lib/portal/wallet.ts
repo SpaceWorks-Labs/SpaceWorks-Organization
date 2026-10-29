@@ -12,7 +12,7 @@ const termSelect = {
   payments: { where: { status: { in: ["PAID", "WAIVED", "AWAITING_CONFIRMATION"] } }, select: { status: true } },
 } satisfies Prisma.MembershipTermSelect;
 
-const planSelect = { id: true, name: true, slug: true, durationType: true, renewalWindowDays: true, joinMode: true, archivedAt: true, paymentTiming: true } as const;
+const planSelect = { id: true, name: true, slug: true, durationType: true, fixedEndDate: true, lateRenewalBackdate: true, renewalWindowDays: true, joinMode: true, archivedAt: true, paymentTiming: true } as const;
 
 export type WalletMembership = {
   planId: string;

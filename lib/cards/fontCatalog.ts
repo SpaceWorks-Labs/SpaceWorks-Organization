@@ -8,9 +8,9 @@ import catalogue from "./card-fonts.json";
  */
 
 export type CardFontCategory = "brand" | "sans" | "serif" | "display" | "script" | "mono" | "indic";
-export type CardFontWeight = 400 | 700;
+type CardFontWeight = 400 | 700;
 
-export type CardFontFamily = {
+type CardFontFamily = {
   id: string;
   label: string;
   category: CardFontCategory;
@@ -50,10 +50,6 @@ const BY_ID = new Map(CARD_FONTS.map((font) => [font.id, font]));
 
 export function cardFont(id: string | null | undefined): CardFontFamily {
   return (id && BY_ID.get(id)) || GILROY;
-}
-
-export function isCardFont(id: unknown): id is string {
-  return typeof id === "string" && BY_ID.has(id);
 }
 
 /** The CSS family name a face is registered under in the browser. */

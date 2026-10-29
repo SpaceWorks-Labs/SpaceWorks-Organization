@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { can, requireOrgCapability } from "@/lib/permissions";
+import { can, organisationAllows, requireOrgCapability, requireOrgTeam } from "@/lib/permissions";
 import { getRequestOrigin } from "@/lib/publicUrl";
 import { ensurePaymentSettings, webhookPath } from "@/lib/payments/config";
 import { paymentSecretsConfigured } from "@/lib/payments/secrets";
@@ -7,14 +7,16 @@ import { paymentSecretsConfigured } from "@/lib/payments/secrets";
 /** Gateway, tax and offline payment settings. Secrets never leave the server; only whether one is saved. */
 export async function loadPaymentSettingsView({ params }: { params: Promise<{ orgSlug: string }> }) {
   const { orgSlug } = await params;
-  const { organisation, membership } = await requireOrgCapability(orgSlug, "payments.view");
+  // Open to those who read payments and to those who change these settings without reading payment records.
+  const team = await requireOrgTeam(orgSlug);
+  const { organisation, membership } = can(team.membership, "payments.settings") && organisationAllows(team.organisation.status, "payments.settings") ? team : await requireOrgCapability(orgSlug, "payments.view");
   const [org, settings, tax, origin] = await Promise.all([
     prisma.organisation.findUniqueOrThrow({ where: { id: organisation.id }, select: { name: true, slug: true, logoUrl: true, stateCode: true, currency: true } }),
     ensurePaymentSettings(organisation.id),
     prisma.orgTaxSettings.findUnique({ where: { organisationId: organisation.id } }),
     getRequestOrigin(),
   ]);
-  const canEdit = can(membership.role, "payments.settings") && !membership.unitId;
+  const canEdit = can(membership, "payments.settings", { write: true });
   return {
     org,
     canEdit,

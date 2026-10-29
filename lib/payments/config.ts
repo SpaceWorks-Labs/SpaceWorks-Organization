@@ -11,14 +11,14 @@ import { stripe } from "./stripe";
 export const GATEWAYS: Record<Exclude<GatewayProvider, "NONE">, PaymentGateway> = { RAZORPAY: razorpay, STRIPE: stripe };
 
 /** Currencies each gateway takes. Razorpay's international currencies depend on the account; offline takes any. */
-export const RAZORPAY_CURRENCIES = new Set(["INR", "USD", "EUR", "GBP", "AED", "SGD", "AUD", "CAD", "NZD", "LKR", "BDT", "NPR", "QAR", "SAR", "OMR", "KWD", "BHD", "MYR", "ZAR", "JPY"]);
+const RAZORPAY_CURRENCIES = new Set(["INR", "USD", "EUR", "GBP", "AED", "SGD", "AUD", "CAD", "NZD", "LKR", "BDT", "NPR", "QAR", "SAR", "OMR", "KWD", "BHD", "MYR", "ZAR", "JPY"]);
 
 export function gatewayTakes(provider: GatewayProvider, currency: string) {
   if (provider === "NONE") return false;
   return provider === "STRIPE" || RAZORPAY_CURRENCIES.has(currency);
 }
 
-export function newWebhookCode() {
+function newWebhookCode() {
   return crypto.randomBytes(24).toString("base64url");
 }
 
@@ -48,7 +48,7 @@ export async function loadGateway(organisationId: string) {
   return { provider: settings.provider as Exclude<GatewayProvider, "NONE">, gateway: GATEWAYS[settings.provider as Exclude<GatewayProvider, "NONE">], credentials, settings };
 }
 
-export type GatewayKeysInput = { provider: GatewayProvider; keyId?: string | null; secret?: string | null; webhookSecret?: string | null; testMode: boolean };
+type GatewayKeysInput = { provider: GatewayProvider; keyId?: string | null; secret?: string | null; webhookSecret?: string | null; testMode: boolean };
 
 /**
  * Save gateway keys. A blank secret keeps the saved one, so managers never have to re-enter it to change

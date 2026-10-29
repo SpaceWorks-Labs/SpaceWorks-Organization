@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
 import { formatValue, signed, type ValueFormat } from "@/lib/reports/chartScale";
 
 /** A 12-point-or-so history line in the de-emphasis grey with the latest point in the accent. Decorative beside a real value. */
-export function Sparkline({ values, className }: { values: number[]; className?: string }) {
+function Sparkline({ values, className }: { values: number[]; className?: string }) {
   if (values.length < 2) return null;
   const w = 96;
   const h = 28;
@@ -22,7 +22,7 @@ export function Sparkline({ values, className }: { values: number[]; className?:
   );
 }
 
-export type Delta = { value: number; format?: ValueFormat; vs: string; goodWhenUp?: boolean };
+type Delta = { value: number; format?: ValueFormat; vs: string; goodWhenUp?: boolean };
 
 function DeltaChip({ delta }: { delta: Delta }) {
   const rounded = delta.format === "percent" ? Math.round(delta.value * 100) : Math.round(delta.value);
@@ -39,7 +39,7 @@ function DeltaChip({ delta }: { delta: Delta }) {
   );
 }
 
-export type KpiTileProps = {
+type KpiTileProps = {
   label: string;
   value: number | null;
   format?: ValueFormat;
@@ -79,7 +79,7 @@ export function KpiTile({ label, value, format = "number", display, delta, trend
   );
 }
 
-export type MeterLevel = "ok" | "warning" | "critical";
+type MeterLevel = "ok" | "warning" | "critical";
 
 /**
  * A value against a limit or target. The unfilled track is a lighter step of the fill; past the warning

@@ -1,6 +1,6 @@
 import { cn } from "@/lib/cn";
 
-export type SparkPoint = { xLabel: string; y: number };
+type SparkPoint = { xLabel: string; y: number };
 
 function buildPath(values: number[], w: number, h: number, pad: number) {
   if (values.length === 0) return "";

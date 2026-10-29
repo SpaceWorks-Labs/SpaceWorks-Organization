@@ -9,7 +9,7 @@ import type { ReportScope } from "./source";
 
 export const WORKLIST_DAYS = [7, 30, 60, 90] as const;
 
-export type WorklistRow = {
+type WorklistRow = {
   termId: string;
   memberId: string;
   memberNumber: number;

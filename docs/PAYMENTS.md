@@ -58,7 +58,8 @@ per-organisation value shown in settings.
 - `ProcessedWebhookEvent (provider, eventId)` makes every event apply once.
 - Business outcomes always answer **200**; unknown events are acknowledged; only infrastructure errors give 5xx,
   so the provider retries. Razorpay disables endpoints that keep failing, so this matters.
-- Events used: Razorpay `payment.captured`, `payment.failed`, `refund.processed`, `refund.failed`. Stripe
+- Events used: Razorpay `payment.captured`, `refund.processed`, `refund.failed` (`payment.failed` is
+  acknowledged but closes nothing: one order takes several attempts, so a member can retry after a failure). Stripe
   `checkout.session.completed` (when `payment_status=paid`), `checkout.session.async_payment_succeeded`,
   `checkout.session.async_payment_failed`, `checkout.session.expired`, `refund.created`, `refund.updated`,
   `refund.failed`.
@@ -67,8 +68,10 @@ per-organisation value shown in settings.
 
 The scheduler polls open gateway attempts older than five minutes, every five minutes, through
 `fetchPayment`, and settles or fails them. A member returning from Stripe, or finishing Razorpay Checkout,
-settles straight away the same way. Attempts still open after a week are closed as `FAILED`; a capture that
-still arrives is receipted and flagged.
+settles straight away the same way. A Razorpay order whose attempts all failed stays open, since it can still
+be paid. Attempts still open after a week are closed as `FAILED`; a capture that still arrives is receipted and
+flagged. The gateway can't be switched while the current one has attempts open from the last week, because
+webhooks and polling only reach the saved provider.
 
 ## Offline payments and maker-checker
 
@@ -79,6 +82,19 @@ confirmation. With it off, recorded payments are paid and receipted at once.
 Members can say "I've paid" with a UPI or bank UTR. A reference can be claimed once per organisation (a
 partial unique index ignores rejected claims, so a corrected claim can be resubmitted). Claims are rate
 limited per member.
+
+**Instructions per unit.** A unit can say how its members pay (`OrgUnit.paymentInstructions`, the unit page,
+`setUnitPaymentInstructions`). Members see the nearest non-empty instructions, from their own unit up, then the
+organisation's `offlineInstructions` (`lib/payments/unitInstructions.ts`, loaded by `lib/payments/payGuidance.ts`).
+They appear on the pay page and pay links, the join confirmation, the payment emails and, without a gateway, renewal
+reminders. With no gateway (`provider` NONE or no settings row) the wording reads "Pay your fee to your unit".
+
+**Collection sheet** (`/dashboard/[org]/payments/collect`, `recordCollection`). Staff with `payments.manage` pick a
+unit within their reach, tick members who owe, and record method, day received and each paper receipt-book number
+(`reference`), up to 200 rows at a time. Each row is its own transaction through `recordOfflinePayment`, so the lock
+order holds and one failure never blocks another; each row reports recorded, already paid or failed. The day received
+goes in the note: `paidAt` stays the recording time, so receipts stay in order and memberships start as usual.
+Staff held for one unit reach only members in its subtree (`scopedTerm`, `memberWhere`).
 
 ## Refunds and credit notes
 

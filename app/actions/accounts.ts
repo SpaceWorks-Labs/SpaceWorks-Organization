@@ -13,7 +13,6 @@ import type { ActionResult } from "./org";
 
 const revalidatePath = trackedRevalidation(nextRevalidatePath);
 const slug = z.string().trim().min(1).max(64);
-const WHOLE_ORG = "The accounts are kept for the whole organisation, so a manager limited to one unit can't change them.";
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Choose a date");
 const currency = z.string().refine(isCurrencyCode, "Choose a currency");
 
@@ -21,11 +20,9 @@ function fieldErrors(error: z.ZodError) {
   return Object.fromEntries(error.issues.map((issue) => [String(issue.path[0]), [issue.message]]));
 }
 
-async function access(organisationSlug: string) {
-  const ctx = await paymentAccess(organisationSlug, "payments.manage");
-  if (!ctx.ok) return ctx;
-  if (ctx.access.membership.unitId) return { ok: false as const, error: WHOLE_ORG };
-  return ctx;
+/** The accounts are kept for the whole organisation, so `accounts.manage` is refused to staff limited to one unit. */
+function access(organisationSlug: string) {
+  return paymentAccess(organisationSlug, "accounts.manage");
 }
 
 const entrySchema = z.object({

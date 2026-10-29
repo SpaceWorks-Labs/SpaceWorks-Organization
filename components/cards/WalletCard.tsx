@@ -26,7 +26,8 @@ export function WalletCard({
   holder: CardHolder;
   branding: CardBranding;
   label: string;
-  downloads: { pdf: string; pngFront: string; pngBack: string | null };
+  /** Null hides the PDF and PNG links (staff who may not download cards). */
+  downloads: { pdf: string; pngFront: string; pngBack: string | null } | null;
   verifyPath: string;
   celebrate?: boolean;
 }) {
@@ -43,12 +44,16 @@ export function WalletCard({
         back={back ? <ScaledCard settings={back} holder={holder} branding={branding} /> : null}
       />
       <div className="flex flex-wrap justify-center gap-2">
-        <Button asChild size="sm" variant="primary">
-          <a href={downloads.pdf} download><Download aria-hidden className="size-4" />PDF{back ? " (front and back)" : ""}</a>
-        </Button>
-        <Button asChild size="sm" variant="secondary">
-          <a href={downloads.pngFront} download><Download aria-hidden className="size-4" />PNG</a>
-        </Button>
+        {downloads ? (
+          <>
+            <Button asChild size="sm" variant="primary">
+              <a href={downloads.pdf} download><Download aria-hidden className="size-4" />PDF{back ? " (front and back)" : ""}</a>
+            </Button>
+            <Button asChild size="sm" variant="secondary">
+              <a href={downloads.pngFront} download><Download aria-hidden className="size-4" />PNG</a>
+            </Button>
+          </>
+        ) : null}
         <Button asChild size="sm" variant="quiet">
           <a href={verifyPath} target="_blank" rel="noreferrer"><ExternalLink aria-hidden className="size-4" />Check page<span className="sr-only"> (opens in a new tab)</span></a>
         </Button>

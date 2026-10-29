@@ -10,6 +10,7 @@ export function SettingsTabs({ slug }: { slug: string }) {
   const items = [
     { href: base, label: "Profile" },
     { href: `${base}/structure`, label: "Units and roles" },
+    { href: `${base}/roles`, label: "Staff roles" },
     { href: `${base}/money`, label: "Money and year" },
     { href: `${base}/payments`, label: "Payments and tax" },
     { href: `${base}/cards`, label: "Cards" },

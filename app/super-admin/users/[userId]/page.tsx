@@ -2,7 +2,6 @@ import { requireSuperAdmin } from "@/lib/permissions";
 import { loadSuperAdminUserDetailView } from "@/lib/views/app__super-admin__users__userId__page";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { ROLE_LABELS } from "@/lib/permissionRoles";
 import { AdminPanel, MetricRows, NameCell } from "@/components/super-admin/AdminPanel";
 import { AuditTable } from "@/components/super-admin/AuditTable";
 import { Avatar, Chip, EmptyState } from "@/components/ui/display";
@@ -15,7 +14,7 @@ type Props = {
 /** Support lookup for one person: account posture, organisation teams and their audit trail. */
 export default async function SuperAdminUserDetailPage({ params }: Props) {
   await requireSuperAdmin();
-  const { user, hasPassword, accounts, activeSessions, memberships, auditEvents, displayName, viewerId } = await loadSuperAdminUserDetailView({ params });
+  const { user, hasPassword, accounts, activeSessions, memberships, auditEvents, displayName } = await loadSuperAdminUserDetailView({ params });
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-4">
@@ -68,7 +67,7 @@ export default async function SuperAdminUserDetailPage({ params }: Props) {
                 {memberships.map((membership) => (
                   <TR key={membership.id}>
                     <TD><NameCell href={`/super-admin/orgs/${membership.organisation.id}`} name={membership.organisation.name} sub={`/o/${membership.organisation.slug}`} /></TD>
-                    <TD><Chip size="sm" tone={membership.role === "OWNER" ? "ink" : "neutral"}>{ROLE_LABELS[membership.role]}</Chip></TD>
+                    <TD><Chip size="sm" tone={membership.orgRole.isOwner ? "ink" : "neutral"}>{membership.orgRole.name}</Chip></TD>
                     <TD className="whitespace-nowrap text-ink-secondary">{membership.createdAt.toLocaleDateString()}</TD>
                   </TR>
                 ))}

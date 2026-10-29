@@ -48,7 +48,8 @@ function refresh(member: OwnMember) {
 function failure(error: unknown): { ok: false; error: string } {
   if (error instanceof MembershipError || error instanceof PaymentError) return { ok: false, error: error.message };
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return { ok: false, error: "You already have an open renewal on this plan." };
-  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2004") return { ok: false, error: "That would overlap a membership you already have." };
+  // The no-overlap exclusion constraint has no Prisma error code, so it arrives as an unknown request error.
+  if (error instanceof Prisma.PrismaClientUnknownRequestError && error.message.includes("MembershipTerm_no_overlap")) return { ok: false, error: "That would overlap a membership you already have." };
   throw error;
 }
 

@@ -27,7 +27,7 @@ describe("public derivative route", () => {
   });
 
   it("serves only the registered safe derivative with immutable image controls", async () => {
-    const key = `organisations/org_1/event-covers/${uuid}.webp`;
+    const key = `organisations/org_1/organisation-logos/${uuid}.webp`;
     const response = await GET(new NextRequest(`https://members.example.test/api/uploads/${key}`), {
       params: Promise.resolve({ key: key.split("/") }),
     });

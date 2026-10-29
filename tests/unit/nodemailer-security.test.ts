@@ -11,8 +11,8 @@ describe("real Nodemailer composition and access restrictions", () => {
     disableFileAccess: true, disableUrlAccess: true,
   });
   const envelope = {
-    from: "Space Works Events <noreply@example.test>", to: "Attendee <attendee@example.test>",
-    subject: "Your event", messageId: "<stable-outbox@example.test>",
+    from: "Space Works <noreply@example.test>", to: "Member <member@example.test>",
+    subject: "Your membership", messageId: "<stable-outbox@example.test>",
   };
   let directory: string;
   let file: string;
@@ -42,23 +42,23 @@ describe("real Nodemailer composition and access restrictions", () => {
     if (directory) await rm(directory, { recursive: true, force: true });
   });
 
-  it("composes text, HTML and a client-recognised calendar event without SMTP", async () => {
-    const calendar = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nEND:VCALENDAR\r\n";
+  it("composes text, HTML and a PDF attachment without SMTP", async () => {
+    const pdf = Buffer.from("%PDF-1.7\n%%EOF\n");
     const result = await transporter.sendMail({
-      ...envelope, text: "Event details", html: "<p>Event details</p>",
-      icalEvent: { filename: "event.ics", content: calendar, method: "PUBLISH" },
+      ...envelope, text: "Membership details", html: "<p>Membership details</p>",
+      attachments: [{ filename: "card.pdf", content: pdf, contentType: "application/pdf" }],
     });
     const message = result.message.toString();
     expect(result.messageId).toBe(envelope.messageId);
-    expect(result.envelope).toEqual({ from: "noreply@example.test", to: ["attendee@example.test"] });
-    expect(message).toContain("Subject: Your event");
+    expect(result.envelope).toEqual({ from: "noreply@example.test", to: ["member@example.test"] });
+    expect(message).toContain("Subject: Your membership");
     expect(message).toContain("Message-ID: <stable-outbox@example.test>");
     expect(message).toContain("Content-Type: text/plain");
     expect(message).toContain("Content-Type: text/html");
-    expect(message).toContain("<p>Event details</p>");
-    expect(message).toContain("Content-Type: text/calendar");
-    expect(message).toContain('filename=event.ics');
-    expect(message.replace(/\r?\n/g, "")).toContain(Buffer.from(calendar).toString("base64"));
+    expect(message).toContain("<p>Membership details</p>");
+    expect(message).toContain("Content-Type: application/pdf");
+    expect(message).toContain("filename=card.pdf");
+    expect(message.replace(/\r?\n/g, "")).toContain(pdf.toString("base64"));
   });
 
   it.each(["attachment", "raw"] as const)("rejects file-backed %s content despite message-level overrides", async kind => {

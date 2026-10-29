@@ -22,8 +22,10 @@ export function EditOrgForm(props: {
   initial: OrgProfile;
   /** Element id for the card, used by the settings section nav. */
   id?: string;
+  /** False for staff who may read settings but not change them (a role held for one unit). */
+  canEdit?: boolean;
 }) {
-  const { organisationSlug, initial, id } = props;
+  const { organisationSlug, initial, id, canEdit = true } = props;
   const router = useRouter();
   const { showToast } = useToast();
   const titleId = useId();
@@ -122,7 +124,7 @@ export function EditOrgForm(props: {
               label="Logo"
               placeholder="Your logo will appear here."
               objectFit="cover"
-              disabled={pending}
+              disabled={pending || !canEdit}
               onChange={(file, previewUrl) => {
                 setLogoFile(file);
                 setLogoPreviewUrl(previewUrl);
@@ -131,10 +133,10 @@ export function EditOrgForm(props: {
           </div>
 
           <Field label="Name" required error={fieldErrors.name?.[0]}>
-            <Input name="name" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} autoComplete="organization" />
+            <Input name="name" disabled={!canEdit} value={name} maxLength={120} onChange={(e) => setName(e.target.value)} autoComplete="organization" />
           </Field>
           <Field label="Description" helperText="Shown under your name on the public page." error={fieldErrors.description?.[0]}>
-            <Textarea name="description" rows={4} maxLength={2000} value={description} onChange={(e) => setDescription(e.target.value)} />
+            <Textarea name="description" disabled={!canEdit} rows={4} maxLength={2000} value={description} onChange={(e) => setDescription(e.target.value)} />
           </Field>
         </div>
 
@@ -156,17 +158,21 @@ export function EditOrgForm(props: {
         </aside>
       </div>
 
-      <div className="flex flex-wrap items-center justify-end gap-2.5 border-t border-line bg-subtle px-5 py-3.5 sm:px-6">
-        <span role="status" className="min-w-0 flex-1 text-sm text-warning-solid">
-          {dirty ? "You have unsaved changes" : null}
-        </span>
-        <Button type="button" variant="quiet" onClick={discard} disabled={!dirty || pending}>
-          Discard
-        </Button>
-        <Button type="submit" variant="primary" disabled={pending} loading={pending}>
-          Save changes
-        </Button>
-      </div>
+      {canEdit ? (
+        <div className="flex flex-wrap items-center justify-end gap-2.5 border-t border-line bg-subtle px-5 py-3.5 sm:px-6">
+          <span role="status" className="min-w-0 flex-1 text-sm text-warning-solid">
+            {dirty ? "You have unsaved changes" : null}
+          </span>
+          <Button type="button" variant="quiet" onClick={discard} disabled={!dirty || pending}>
+            Discard
+          </Button>
+          <Button type="submit" variant="primary" disabled={pending} loading={pending}>
+            Save changes
+          </Button>
+        </div>
+      ) : (
+        <p className="border-t border-line bg-subtle px-5 py-3.5 text-sm text-ink-muted sm:px-6">Only staff for the whole organisation can change the profile.</p>
+      )}
     </form>
   );
 }

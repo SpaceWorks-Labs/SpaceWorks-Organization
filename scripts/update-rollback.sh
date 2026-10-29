@@ -8,11 +8,12 @@ rollback_application_images() {
   export SWO_IMAGE_TAG="$previous_version"
   printf '%s\n' "$previous_version" > "$VERSION_FILE" || \
     say "WARNING: could not reset $VERSION_FILE to $previous_version."
-  "${COMPOSE[@]}" pull --quiet backend scheduler || \
+  serving_services
+  "${COMPOSE[@]}" pull --quiet "${SERVING_SERVICES[@]}" || \
     say "Could not refresh previous images; trying the host's cached copies."
   # --no-deps prevents old migrations from being applied to the forward schema.
-  serving_services
   if "${COMPOSE[@]}" up -d --wait --wait-timeout 300 --no-deps "${SERVING_SERVICES[@]}"; then
+    remove_undefined_services
     say "Rollback complete: $previous_version is healthy."
     say "Database changes remain; backup retained at backups/${backup_name:-<none>}."
   else

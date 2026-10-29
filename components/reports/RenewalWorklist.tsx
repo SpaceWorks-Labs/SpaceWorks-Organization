@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/choice";
 import { Chip } from "@/components/ui/display";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 
-export type WorklistItem = { termId: string; memberId: string; memberNumber: number; name: string; email: string; phone: string; planName: string; validUntil: string; daysLeft: number; inGrace: boolean; lastReminder: Date | null; remindedToday: boolean };
+type WorklistItem = { termId: string; memberId: string; memberNumber: number; name: string; email: string; phone: string; planName: string; validUntil: string; daysLeft: number; inGrace: boolean; lastReminder: Date | null; remindedToday: boolean };
 
 const when = (date: Date | null) => (date ? new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" }).format(new Date(date)) : "Never");
 

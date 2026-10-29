@@ -27,7 +27,7 @@ export function erasedEmail(memberId: string) {
  * This is the one place anonymisation happens: P7 extends it to anonymise payment rows (payer names,
  * emails and notes) in the same transaction. Returns upload keys to delete once the transaction commits.
  */
-export async function anonymiseMember(tx: Tx, args: { org: OrgClock; memberId: string; actorUserId: string; now?: Date }) {
+async function anonymiseMember(tx: Tx, args: { org: OrgClock; memberId: string; actorUserId: string; now?: Date }) {
   const now = args.now ?? new Date();
   const member = await tx.member.findFirst({ where: { id: args.memberId, organisationId: args.org.id } });
   if (!member) throw new MembershipError("Member not found.");

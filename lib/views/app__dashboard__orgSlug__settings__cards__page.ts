@@ -3,31 +3,25 @@ import { prisma } from "@/lib/db";
 import { can, requireOrgCapability } from "@/lib/permissions";
 import { memberWhere, teamScope } from "@/lib/membership/scope";
 import { deriveCardPrefix } from "@/lib/cards/core";
-import { brandingFor, designFor, loadCardOrgContext, organisationDesignRow, type DesignSource } from "@/lib/cards/data";
+import { brandingFor, designFor, loadCardOrgContext, loadRoleCardRows, organisationDesignRow, type DesignSource } from "@/lib/cards/data";
 import { normalizeCardDesign, withOwnArtwork } from "@/lib/cards/design/presets";
 import { draftDiffers, readDraft } from "@/lib/cards/draft";
 import { DEFAULT_NUMBER_FORMAT } from "@/lib/cards/numbering";
 
 /**
  * The card designer for the organisation default, one plan or one member role: the draft waiting for
- * the owner's approval when there is one, else the live design; and the requester's recent bulk exports.
+ * the owner's approval when there is one, else the live design.
  */
 export async function loadOrgCardSettingsView({ params, searchParams }: { params: Promise<{ orgSlug: string }>; searchParams: Promise<{ plan?: string; role?: string }> }) {
   const { orgSlug } = await params;
   const { plan: planParam, role: roleParam } = await searchParams;
-  const { organisation, membership, userId } = await requireOrgCapability(orgSlug, "org.settings");
+  const { organisation, membership } = await requireOrgCapability(orgSlug, "cards.design");
   const ctx = await loadCardOrgContext(organisation.id);
   if (!ctx) notFound();
-  const [plans, roles, rows, exports, cardCount] = await Promise.all([
+  const [plans, roles, rows, cardCount] = await Promise.all([
     prisma.membershipPlan.findMany({ where: { organisationId: organisation.id, archivedAt: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
     prisma.memberRole.findMany({ where: { organisationId: organisation.id, archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true } }),
     prisma.cardDesign.findMany({ where: { organisationId: organisation.id }, select: { planId: true, roleId: true, design: true, draft: true, numberPrefix: true, numberFormat: true, watermarkUrl: true, draftUpdatedAt: true, approvedAt: true } }),
-    prisma.cardExportJob.findMany({
-      where: { organisationId: organisation.id, requestedById: userId },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-      select: { id: true, format: true, status: true, cardCount: true, byteSize: true, error: true, createdAt: true, finishedAt: true, expiresAt: true, storageKey: true },
-    }),
     prisma.memberCard.count({ where: { organisationId: organisation.id, revokedAt: null, member: memberWhere(await teamScope(organisation.id, membership.unitId)) } }),
   ]);
   const plan = planParam && !roleParam ? plans.find((item) => item.id === planParam) ?? null : null;
@@ -65,13 +59,14 @@ export async function loadOrgCardSettingsView({ params, searchParams }: { params
       live: Boolean(row?.design),
       draftUpdatedAt: row?.draft ? row.draftUpdatedAt?.toISOString() ?? null : null,
       approvedAt: row?.approvedAt?.toISOString() ?? null,
-      canApprove: can(membership.role, "cards.approve"),
+      canApprove: can(membership, "cards.approve"),
     },
     fields: [...fields.values()],
     numbering: plan ? null : draft ? { prefix: draft.numberPrefix, format: draft.numberFormat } : liveNumbering,
     cardCount,
-    exports: exports.map(({ storageKey, ...job }) => ({ ...job, downloadable: job.status === "DONE" && Boolean(storageKey) && (!job.expiresAt || job.expiresAt > new Date()) })),
-    canEdit: !membership.unitId,
-    canExport: can(membership.role, "cards.manage"),
+    canEdit: can(membership, "cards.design", { write: true }),
+    unitLevels: ctx.organisation.unitLevels,
+    // Which member roles carry their own card, for the people who design them (counts are organisation-wide).
+    roleCards: can(membership, "cards.design", { write: true }) ? await loadRoleCardRows(organisation.id) : [],
   };
 }

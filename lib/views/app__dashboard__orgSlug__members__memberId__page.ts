@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { can, requireOrgCapability } from "@/lib/permissions";
 import { deriveStatus, statusAt } from "@/lib/membership/lifecycle";
-import { memberWhere, teamScope } from "@/lib/membership/scope";
+import { memberWhere, teamScope, unitInScope } from "@/lib/membership/scope";
+import { pathWithin } from "@/lib/membership/planUnits";
 import { loadMemberCardPanel } from "@/lib/cards/panel";
 
 /** One member: profile, roles, every membership with its history, and consent. */
@@ -13,7 +14,7 @@ export async function loadMemberView({ params }: { params: Promise<{ orgSlug: st
   const member = await prisma.member.findFirst({
     where: { AND: [memberWhere(scope), { id: memberId }] },
     include: {
-      unit: { select: { id: true, name: true } },
+      unit: { select: { id: true, name: true, path: true } },
       roles: { include: { role: { select: { id: true, name: true, color: true } } }, orderBy: { isPrimary: "desc" } },
       consents: { orderBy: { grantedAt: "desc" }, take: 20 },
       erasureRequests: { orderBy: { createdAt: "desc" }, take: 5, select: { id: true, status: true, reason: true, createdAt: true, decidedAt: true, decisionNote: true } },
@@ -26,8 +27,8 @@ export async function loadMemberView({ params }: { params: Promise<{ orgSlug: st
   const [org, plans, roles, units, fields] = await Promise.all([
     prisma.organisation.findUniqueOrThrow({ where: { id: organisation.id }, select: { name: true, slug: true, logoUrl: true, timezone: true, locale: true, unitLevels: true } }),
     prisma.membershipPlan.findMany({ where: { organisationId: organisation.id, archivedAt: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
-    prisma.memberRole.findMany({ where: { organisationId: organisation.id, archivedAt: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, color: true } }),
-    prisma.orgUnit.findMany({ where: { organisationId: organisation.id, archivedAt: null }, orderBy: { path: "asc" }, select: { id: true, name: true, level: true } }),
+    prisma.memberRole.findMany({ where: { organisationId: organisation.id, archivedAt: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, color: true, unit: { select: { path: true } } } }),
+    prisma.orgUnit.findMany({ where: { organisationId: organisation.id, archivedAt: null }, orderBy: { path: "asc" }, select: { id: true, name: true, level: true, path: true } }),
     prisma.planField.findMany({ where: { organisationId: organisation.id }, distinct: ["key"], orderBy: { sortOrder: "asc" }, select: { key: true, label: true, type: true, options: true, required: false, helpText: true } }),
   ]);
 
@@ -48,20 +49,27 @@ export async function loadMemberView({ params }: { params: Promise<{ orgSlug: st
     .sort((a, b) => b.recordedAt.getTime() - a.recordedAt.getTime())
     .slice(0, 40);
 
-  const cards = await loadMemberCardPanel(organisation.id, member.id, memberships.map((m) => ({ planId: m.planId, planName: m.planName, started: m.terms.some((term) => term.startsAt !== null) })));
+  // The same rule as the card download route (lib/cards/access.ts); the member is already inside this viewer's unit scope.
+  const canDownloadCards = can(membership, "cards.manage") || can(membership, "members.contact");
+  const cards = await loadMemberCardPanel(organisation.id, member.id, memberships.map((m) => ({ planId: m.planId, planName: m.planName, started: m.terms.some((term) => term.startsAt !== null) })), canDownloadCards);
 
   return {
     org,
     member,
     cards,
-    canManageCards: can(membership.role, "cards.manage"),
+    canManageCards: can(membership, "cards.manage"),
     memberships,
     timeline,
     plans,
-    roles,
-    units,
+    // Roles limited to a unit are offered only to members of its subtree (plus any the member already holds, so they can be removed).
+    roles: roles
+      .filter((role) => !role.unit || (member.unit && pathWithin(member.unit.path, role.unit.path)) || member.roles.some((held) => held.roleId === role.id))
+      .map(({ id, name, color }) => ({ id, name, color })),
+    units: units.filter((unit) => unitInScope(scope, unit.path)).map(({ id, name, level }) => ({ id, name, level })),
     fields,
-    canManage: can(membership.role, "members.manage"),
-    showContact: can(membership.role, "members.contact"),
+    canManage: can(membership, "members.manage"),
+    // Erasure requests are decided with their own permission, as the action checks.
+    canDecideErasure: can(membership, "erasure.decide", { write: true }),
+    showContact: can(membership, "members.contact"),
   };
 }

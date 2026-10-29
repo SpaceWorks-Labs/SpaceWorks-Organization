@@ -2,6 +2,8 @@ import { prisma } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 import { can, requireOrgCapability } from "@/lib/permissions";
 import { memberWhere, teamScope } from "@/lib/membership/scope";
+import { DIGEST_CAPABILITY } from "@/lib/reports/digest";
+import { loadHomeAnalytics } from "@/lib/reports/homeData";
 
 const DAY_MS = 86_400_000;
 
@@ -18,7 +20,7 @@ async function memberStats(organisationId: string, unitId: string | null, now: D
   return { active, approval, payment, renewals };
 }
 
-/** The organisation's home: status, team size and the first steps still to do. */
+/** The organisation's home: status, team size, the first steps still to do, and the H6 charts. */
 export async function loadOrgOverviewView({ params }: { params: Promise<{ orgSlug: string }> }) {
   const { orgSlug } = await params;
   const { organisation, membership } = await requireOrgCapability(orgSlug, "org.view");
@@ -26,21 +28,23 @@ export async function loadOrgOverviewView({ params }: { params: Promise<{ orgSlu
   const [details, teamCount, openInvites, members, planCount] = await Promise.all([
     prisma.organisation.findUniqueOrThrow({
       where: { id: organisation.id },
-      select: { name: true, slug: true, status: true, logoUrl: true, kind: true, description: true, contactEmail: true },
+      select: { name: true, slug: true, status: true, logoUrl: true, kind: true, description: true, contactEmail: true, timezone: true, financialYearStartMonth: true, currency: true },
     }),
     prisma.teamMember.count({ where: { organisationId: organisation.id } }),
     prisma.teamInvite.count({ where: { organisationId: organisation.id, usedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] } }),
-    can(membership.role, "members.view") ? memberStats(organisation.id, membership.unitId, now) : null,
+    can(membership, "members.view") ? memberStats(organisation.id, membership.unitId, now) : null,
     prisma.membershipPlan.count({ where: { organisationId: organisation.id, archivedAt: null } }),
   ]);
-  const manager = can(membership.role, "org.settings");
   const steps = [
-    { id: "logo", label: "Add your logo", description: "It appears on your public page, receipts and member cards.", done: Boolean(details.logoUrl), href: `/dashboard/${details.slug}/settings`, visible: manager },
-    { id: "team", label: "Invite your team", description: "Add treasurers and admins who help run memberships.", done: teamCount > 1, href: `/dashboard/${details.slug}/team`, visible: can(membership.role, "team.manage") },
-    { id: "plan", label: "Create a membership plan", description: "Set the price, duration and how people join.", done: planCount > 0, href: `/dashboard/${details.slug}/plans/new`, visible: manager },
+    { id: "logo", label: "Add your logo", description: "It appears on your public page, receipts and member cards.", done: Boolean(details.logoUrl), href: `/dashboard/${details.slug}/settings`, visible: can(membership, "org.settings", { write: true }) },
+    { id: "team", label: "Invite your team", description: "Add treasurers and admins who help run memberships.", done: teamCount > 1, href: `/dashboard/${details.slug}/team`, visible: can(membership, "team.manage") },
+    { id: "plan", label: "Create a membership plan", description: "Set the price, duration and how people join.", done: planCount > 0, href: `/dashboard/${details.slug}/plans/new`, visible: can(membership, "plans.manage", { write: true }) },
   ].filter((step) => step.visible);
-  const digest = ["OWNER", "ADMIN", "TREASURER"].includes(membership.role)
+  const digest = can(membership, DIGEST_CAPABILITY) && !membership.superAdmin
     ? (await prisma.teamMember.findUnique({ where: { id: membership.id }, select: { reportDigest: true } }))?.reportDigest ?? true
     : null;
-  return { organisation: details, role: membership.role, teamCount, openInvites, members, steps, digest };
+  // H6 charts, inside the viewer's unit scope; money only for `reports.finance`.
+  const { timezone, financialYearStartMonth, currency, ...shown } = details;
+  const analytics = await loadHomeAnalytics({ id: organisation.id, timezone, financialYearStartMonth, currency }, membership, now);
+  return { organisation: shown, roleName: membership.superAdmin ? "Platform super admin" : membership.orgRole.name, teamCount, openInvites, members, steps, digest, analytics };
 }

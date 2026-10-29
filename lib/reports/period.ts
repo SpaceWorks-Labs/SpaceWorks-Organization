@@ -7,7 +7,7 @@ import { addDays, addMonths, financialYearLabel, financialYearStart, localDate, 
 
 export type OrgCalendar = { timezone: string; financialYearStartMonth: number };
 
-export const PERIOD_PRESETS = ["fy", "last-fy", "12m", "90d", "30d", "month", "custom"] as const;
+const PERIOD_PRESETS = ["fy", "last-fy", "12m", "90d", "30d", "month", "custom"] as const;
 export type PeriodPreset = (typeof PERIOD_PRESETS)[number];
 
 export type ReportPeriod = {
@@ -38,7 +38,7 @@ export function parseDayKey(value: string | undefined | null): CalendarDate | nu
   return date;
 }
 
-export function formatDay(date: CalendarDate): string {
+function formatDay(date: CalendarDate): string {
   return `${date.day} ${MONTHS[date.month - 1]} ${date.year}`;
 }
 

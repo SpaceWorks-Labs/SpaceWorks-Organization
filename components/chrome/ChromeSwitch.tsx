@@ -7,7 +7,7 @@ import { SiteFooter } from "./SiteFooter";
 
 /** Space Works Organization public pages: site header + footer, centred content. */
 const SITE_PREFIXES = ["/about", "/privacy", "/terms", "/join/", "/organisations"];
-/** Pages that render their own complete chrome (app shell, kiosk, embed, split sign-in). */
+/** Pages that render their own complete chrome (app shell, organisation pages, split sign-in). */
 const OWN_CHROME_PREFIXES = ["/dashboard", "/account", "/super-admin", "/login", "/o/"];
 /** Auth flows: minimal header with the logo only. */
 const AUTH_PREFIXES = ["/reset-password", "/verify-email", "/start", "/verify/", "/pay/"];
@@ -20,9 +20,9 @@ function matches(pathname: string, prefixes: string[]) {
 /** Full-bleed marketing pages that lay out their own sections. */
 const FULL_BLEED = ["/"];
 
-export type ChromeKind = "site" | "auth" | "own";
+type ChromeKind = "site" | "auth" | "own";
 
-export function chromeFor(pathname: string): ChromeKind {
+function chromeFor(pathname: string): ChromeKind {
   if (pathname === "/") return "site";
   if (matches(pathname, AUTH_PREFIXES)) return "auth";
   if (matches(pathname, OWN_CHROME_PREFIXES)) return "own";

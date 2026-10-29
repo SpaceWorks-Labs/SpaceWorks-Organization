@@ -9,7 +9,7 @@ import { Callout } from "@/components/ui/display";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { Field, Textarea } from "@/components/ui/field";
 
-export type RefundPanelProps = {
+type RefundPanelProps = {
   organisationSlug: string;
   organisationName: string;
   planName: string;

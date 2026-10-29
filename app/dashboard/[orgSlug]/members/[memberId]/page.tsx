@@ -6,9 +6,9 @@ import { loadMemberPayments } from "@/lib/views/app__dashboard__orgSlug__members
 import { MemberPaymentsSection } from "@/components/payments/MemberPaymentsSection";
 import { MemberPhotoField } from "@/components/members/MemberPhotoField";
 import { TERM_STATUS_LABELS } from "@/lib/membership/lifecycle";
-import { formatCalendarDate, lastValidDay, localDate } from "@/lib/membership/periods";
-import { money } from "@/lib/membership/describe";
-import { MembershipPanel, type MembershipView } from "@/components/members/MembershipPanel";
+import { formatCalendarDate, localDate } from "@/lib/membership/periods";
+import { MembershipPanel } from "@/components/members/MembershipPanel";
+import { membershipViews } from "@/components/members/membershipViews";
 import { MemberProfileForm } from "@/components/members/MemberProfileForm";
 import { MemberRolesPicker } from "@/components/members/MemberRolesPicker";
 import { MemberCardPanel } from "@/components/cards/MemberCardPanel";
@@ -24,20 +24,7 @@ export default async function MemberPage({ params }: { params: Promise<{ orgSlug
   const { org, member } = view;
   const tz = org.timezone;
   const day = (date: Date) => formatCalendarDate(localDate(date, tz));
-  const memberships: MembershipView[] = view.memberships.map((membership) => ({
-    planId: membership.planId,
-    planName: membership.planName,
-    status: membership.status,
-    terms: membership.terms.map((term) => ({
-      id: term.id,
-      status: term.liveStatus,
-      kind: term.kind,
-      dates: term.startsAt ? `${day(term.startsAt)} – ${term.endsAt ? formatCalendarDate(lastValidDay(term.endsAt, tz)) : "lifetime"}` : `Opened ${day(term.createdAt)}`,
-      amount: term.priceMinor + term.joiningFeeMinor === 0 ? "Free" : money(term.priceMinor + term.joiningFeeMinor, term.currency, org.locale),
-      reason: term.reason,
-      lastDay: term.endsAt ? (() => { const d = lastValidDay(term.endsAt, tz); return `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`; })() : null,
-    })),
-  }));
+  const memberships = membershipViews(view.memberships, org);
   const values = (member.fieldValues ?? {}) as Record<string, string | boolean>;
   const primary = member.roles.find((assignment) => assignment.isPrimary)?.roleId ?? null;
 
@@ -84,7 +71,7 @@ export default async function MemberPage({ params }: { params: Promise<{ orgSlug
         </div>
         <div className="flex min-w-0 flex-col gap-6">
           <MemberCardPanel slug={org.slug} memberId={member.id} memberName={member.name} plans={view.cards} canManage={view.canManageCards} />
-          <ErasureRequestCard slug={org.slug} requests={member.erasureRequests} anonymisedAt={member.anonymisedAt} canManage={view.canManage} timeZone={tz} />
+          <ErasureRequestCard slug={org.slug} requests={member.erasureRequests} anonymisedAt={member.anonymisedAt} canManage={view.canDecideErasure} timeZone={tz} />
           <MemberRolesPicker slug={org.slug} memberId={member.id} roles={view.roles} initial={member.roles.map((a) => a.roleId)} initialPrimary={primary} canManage={view.canManage} />
           <Card as="section" className="rounded-xl">
             <CardHeader title="History" />

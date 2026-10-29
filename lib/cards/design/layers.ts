@@ -1,6 +1,7 @@
 import { managedImageUrl } from "@/lib/cards/imageUrl";
 import { cardFont, DEFAULT_CARD_FONT } from "@/lib/cards/fontCatalog";
 import type { CardHolder } from "@/lib/cards/types";
+import { ownUnit, unitAtLevel } from "@/lib/cards/units";
 import { CARD_ELEMENTS, clamp, round1, type CardElement } from "./elements";
 
 /*
@@ -15,7 +16,7 @@ export type CardLayerKind = (typeof LAYER_KINDS)[number];
 export const MAX_LAYERS = 30;
 export const LAYER_TEXT_MAX = 400;
 export const LAYER_ID_PATTERN = /^l[a-z0-9]{3,24}$/;
-export const HEX_COLOUR = /^#[0-9A-F]{6}$/;
+const HEX_COLOUR = /^#[0-9A-F]{6}$/;
 
 type LayerBase = { id: string; name: string; xMm: number; yMm: number; wMm: number; hMm: number; rotationDeg: number; opacityPct: number; hidden: boolean; locked: boolean };
 export type CardTextLayer = LayerBase & { kind: "text"; text: string; font: string; sizePt: number; bold: boolean; uppercase: boolean; align: "left" | "center" | "right"; color: string; trackingEm: number; lineHeight: number };
@@ -31,18 +32,34 @@ export const DEFAULT_BACKGROUND: CardBackground = { imageUrl: null, fit: "cover"
 /** Built-in items bottom first, as cards stacked them before layers existed: text, then graphics. */
 export const DEFAULT_ORDER: readonly CardElement[] = ["header", "name", "role", "plan", "idNumber", "validUntil", "details", "footer", "logo", "photo", "symbol", "qr"];
 
-/** Text placeholders filled per member. */
-export const LAYER_PLACEHOLDERS = ["name", "role", "plan", "number", "validUntil"] as const;
+/**
+ * Text placeholders filled per member. `unit` and `unitCode` are the member's own unit, `units` the
+ * whole chain ("North · North 1"), and `level1`…`level4` the unit at each level, top first; the
+ * designer labels those with the organisation's level names. A member without one prints nothing.
+ */
+export const LAYER_PLACEHOLDERS = ["name", "role", "plan", "number", "validUntil", "unit", "unitCode", "units", "level1", "level2", "level3", "level4"] as const;
+export type LayerPlaceholder = (typeof LAYER_PLACEHOLDERS)[number];
 
-export function fillLayerText(text: string, holder: Pick<CardHolder, "displayName" | "role" | "planName" | "idNumber" | "validUntil">) {
-  const values: Record<(typeof LAYER_PLACEHOLDERS)[number], string> = {
+const PLACEHOLDER = new RegExp(`\\{(${LAYER_PLACEHOLDERS.join("|")})\\}`, "g");
+
+export function fillLayerText(text: string, holder: Pick<CardHolder, "displayName" | "role" | "planName" | "idNumber" | "validUntil" | "units">) {
+  const own = ownUnit(holder.units);
+  const level = (n: number) => unitAtLevel(holder.units, n)?.name ?? "";
+  const values: Record<LayerPlaceholder, string> = {
     name: holder.displayName,
     role: holder.role ?? "",
     plan: holder.planName ?? "",
     number: holder.idNumber ?? "",
     validUntil: holder.validUntil ?? "",
+    unit: own?.name ?? "",
+    unitCode: own?.code ?? "",
+    units: (holder.units ?? []).map((unit) => unit.name).join(" · "),
+    level1: level(0),
+    level2: level(1),
+    level3: level(2),
+    level4: level(3),
   };
-  return text.replace(/\{(name|role|plan|number|validUntil)\}/g, (_match, key: keyof typeof values) => values[key]);
+  return text.replace(PLACEHOLDER, (_match, key: LayerPlaceholder) => values[key]);
 }
 
 const record = (value: unknown) => (value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null);

@@ -18,12 +18,14 @@ export type Bucket =
   | "upload"
   | "invite"
   | "verifyCard"
+  | "verifyCardImage"
   | "apiRead"
   | "apiWrite"
   | "dataExport"
   | "reportExport"
   | "documentView"
-  | "cardRender";
+  | "cardRender"
+  | "testEmail";
 
 const limits: Record<Bucket, { max: number; windowMs: number; }> = {
   global: { max: 300, windowMs: 60_000 },
@@ -46,6 +48,8 @@ const limits: Record<Bucket, { max: number; windowMs: number; }> = {
   invite: { max: 30, windowMs: 60 * 60_000 },
   // Public card checks. Doors and desks scan many cards from one address, so stay generous.
   verifyCard: { max: 120, windowMs: 60_000 },
+  // The card image on the public check page: drawn on demand, so tighter than the check itself.
+  verifyCardImage: { max: 30, windowMs: 60_000 },
   apiRead: { max: 600, windowMs: 60_000 },
   apiWrite: { max: 60, windowMs: 60_000 },
   // A person's own data export: heavy and rarely needed.
@@ -56,6 +60,8 @@ const limits: Record<Bucket, { max: number; windowMs: number; }> = {
   documentView: { max: 300, windowMs: 60 * 60_000 },
   // Member card PDF/PNG renders: CPU-heavy, so per person per hour.
   cardRender: { max: 60, windowMs: 60 * 60_000 },
+  // "Send me a test" for an email template: to the sender's own address only.
+  testEmail: { max: 10, windowMs: 60 * 60_000 },
 };
 
 // Local fallback store
@@ -106,7 +112,7 @@ function keyFor(bucket: Bucket, id: string) {
   return `ratelimit:${bucket}:${id}`;
 }
 
-export function getClientIp(request: NextRequest): string {
+function getClientIp(request: NextRequest): string {
   const configuredHeader = process.env.TRUSTED_PROXY_IP_HEADER;
   if (isTrustedProxyHeader(configuredHeader)) return readConfiguredIp(request.headers, configuredHeader);
   return "unknown";

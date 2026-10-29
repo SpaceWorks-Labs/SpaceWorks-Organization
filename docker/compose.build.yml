@@ -13,7 +13,9 @@ x-build-app: &build-app
 services:
   backend:
     build: *build-app
-  scheduler:
+  worker:
+    build: *build-app
+  beat:
     build: *build-app
   ops:
     build: *build-app

@@ -28,7 +28,7 @@ export const LETTER = {
 /* Materials: paper stays paper in both colour modes. */
 export const PAPER = "var(--sw-brand-warm-cream)";
 export const INK = "var(--sw-brand-deep-ink)";
-export const PAPER_LINE = "rgb(20 44 42 / 0.14)";
+const PAPER_LINE = "rgb(20 44 42 / 0.14)";
 export const HAIRLINE = "rgb(20 44 42 / 0.18)";
 
 export function Lines({ count }: { count: number }) {

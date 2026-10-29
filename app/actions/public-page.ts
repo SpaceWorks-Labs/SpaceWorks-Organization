@@ -5,6 +5,7 @@ import { z } from "zod";
 import { revalidatePath as nextRevalidatePath } from "next/cache";
 import { trackedRevalidation } from "@/lib/frontend/revalidation";
 import { prisma } from "@/lib/db";
+import { invalidateOrg } from "@/lib/cache";
 import { recordAuditEvent, recordThrottledAuditEvent } from "@/lib/audit";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { orgActionAccess } from "@/lib/permissions";
@@ -21,14 +22,15 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 async function editor(organisationSlug: unknown) {
   const access = await orgActionAccess(organisationSlug, "org.settings");
   if (!access.ok) return access;
-  if (access.membership.unitId) return { ok: false as const, error: "Only organisation-wide managers can edit the public page." };
   if (await isActionRateLimited("action", access.userId)) return { ok: false as const, error: "Too many requests. Try again shortly." };
   return access;
 }
 
-function refresh(slug: string) {
-  revalidatePath(`/o/${slug}`);
-  revalidatePath(`/dashboard/${slug}/settings/public-page`);
+/** After the live page changes: drop its cached content (lib/cache.ts) and revalidate both routes. */
+async function refresh(organisation: { id: string; slug: string }) {
+  await invalidateOrg(organisation.id, "public-page");
+  revalidatePath(`/o/${organisation.slug}`);
+  revalidatePath(`/dashboard/${organisation.slug}/settings/public-page`);
 }
 
 const documentSchema = z.object({ organisationSlug: z.string().trim().min(1).max(64), document: z.unknown() });
@@ -58,7 +60,7 @@ export async function publishPublicPage(input: unknown): Promise<ActionResult<Is
   if (!checked.ok) return { ok: false, error: checked.error, fieldErrors: checked.issues };
   await publishPage(access.organisation.id, checked.document, access.userId);
   await recordAuditEvent({ action: "PUBLIC_PAGE_PUBLISHED", actorUserId: access.userId, organisationId: access.organisation.id, targetType: "Organisation", targetId: access.organisation.id, metadata: { sections: checked.document.sections.length } });
-  refresh(access.organisation.slug);
+  await refresh(access.organisation);
   return { ok: true };
 }
 
@@ -86,7 +88,7 @@ export async function unpublishPublicPage(input: unknown): Promise<ActionResult>
   const draft = page.draft ?? { tagline: page.tagline, coverAssetKey: page.coverAssetKey, accentColor: page.accentColor, sections: page.sections };
   await prisma.organisationPage.update({ where: { organisationId: page.organisationId }, data: { publishedAt: null, draft: draft as Prisma.InputJsonValue } });
   await recordAuditEvent({ action: "PUBLIC_PAGE_UNPUBLISHED", actorUserId: access.userId, organisationId: access.organisation.id, targetType: "Organisation", targetId: access.organisation.id });
-  refresh(access.organisation.slug);
+  await refresh(access.organisation);
   return { ok: true };
 }
 

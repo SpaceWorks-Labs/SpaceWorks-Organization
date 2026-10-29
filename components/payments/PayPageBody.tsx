@@ -16,6 +16,8 @@ export function PayPageBody({ view, payToken }: { view: PayView; payToken?: stri
   const { org, term, total, lines } = view;
   const amount = (minor: number) => money(minor, term.currency, org.locale);
   const taxed = total.amountMinor !== total.taxableMinor;
+  // No gateway and the member belongs to a unit: the fee goes to the unit.
+  const toUnit = Boolean(view.offline?.offlineOnly && view.offline.unitName);
 
   return (
     <div className="flex max-w-[720px] flex-col gap-6">
@@ -86,7 +88,7 @@ export function PayPageBody({ view, payToken }: { view: PayView; payToken?: stri
           ) : null}
           {view.offline && (view.offline.upiUri || view.offline.instructions) ? (
             <Card as="section" className="rounded-xl">
-              <CardHeader title={view.online ? "Or pay directly" : "How to pay"} description="Then tell us the reference so the team can match your payment." />
+              <CardHeader title={view.online ? "Or pay directly" : toUnit ? "Pay your fee to your unit" : "How to pay"} description={toUnit ? `${view.offline.unitName}. If you pay by transfer, tell us the reference so the team can match it.` : "Then tell us the reference so the team can match your payment."} />
               <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
                 {view.offline.upiUri ? (
                   <figure className="flex shrink-0 flex-col items-center gap-2">
@@ -105,7 +107,11 @@ export function PayPageBody({ view, payToken }: { view: PayView; payToken?: stri
             </Card>
           ) : null}
           {!view.online && !(view.offline && (view.offline.upiUri || view.offline.instructions)) ? (
-            <Callout tone="info" title="Pay the organisation directly">{org.name} hasn&apos;t set up online payments. Contact them to pay; they&apos;ll record it and your receipt arrives by email.</Callout>
+            toUnit ? (
+              <Callout tone="info" title="Pay your fee to your unit">Pay {view.offline?.unitName} directly. They&apos;ll record it and your receipt arrives by email.</Callout>
+            ) : (
+              <Callout tone="info" title="Pay the organisation directly">{org.name} hasn&apos;t set up online payments. Contact them to pay; they&apos;ll record it and your receipt arrives by email.</Callout>
+            )
           ) : null}
         </>
       ) : null}

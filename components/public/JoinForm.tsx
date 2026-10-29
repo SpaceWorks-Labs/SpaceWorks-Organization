@@ -8,6 +8,7 @@ import { Button, buttonClasses } from "@/components/ui/button";
 import { CheckboxField } from "@/components/ui/choice";
 import { Callout } from "@/components/ui/display";
 import { Dropdown, Field, Input, ReadOnlyValue, Textarea } from "@/components/ui/field";
+import { payToUnitLine, type PaymentGuidance } from "@/lib/payments/unitInstructions";
 
 type Question = { key: string; label: string; helpText: string; type: string; required: boolean; options: string[] };
 
@@ -29,7 +30,8 @@ export function JoinForm({ orgSlug, planSlug, inviteToken, user, units, unitLabe
   const [errors, setErrors] = useState<Record<string, string[] | undefined>>({});
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<string | null>(null);
-  const [termId, setTermId] = useState<string | null>(null);
+  const [links, setLinks] = useState<{ pay: string | null; account: string }>({ pay: null, account: "/account" });
+  const [payment, setPayment] = useState<PaymentGuidance | null>(null);
   const [pending, startTransition] = useTransition();
   const set = (key: keyof typeof values, value: string | boolean) => setValues((current) => ({ ...current, [key]: value }));
 
@@ -39,11 +41,20 @@ export function JoinForm({ orgSlug, planSlug, inviteToken, user, units, unitLabe
       <div className="flex flex-col gap-4 rounded-2xl border border-line bg-panel p-6">
         <h2 className="text-h2 text-ink">{copy.title}</h2>
         <p className="text-body-ui text-ink-secondary">{copy.body}</p>
+        {outcome === "PENDING_PAYMENT" && payment && (payToUnitLine(payment) || payment.instructions) ? (
+          <div className="flex flex-col gap-2 rounded-xl border border-line p-4">
+            <h3 className="text-label font-semibold text-ink">{payToUnitLine(payment) ? "Pay your fee to your unit" : "How to pay"}</h3>
+            {payment.unitName && payment.offlineOnly ? <p className="text-body-ui text-ink">{payment.unitName}</p> : null}
+            {payment.instructions ? <p className="whitespace-pre-wrap text-body-ui text-ink-secondary">{payment.instructions}</p> : null}
+          </div>
+        ) : null}
         <div>
-          {outcome === "PENDING_PAYMENT" && termId ? (
-            <a href={`/account/pay/${termId}`} className={buttonClasses({ variant: "accent" })}>Pay now</a>
-          ) : (
+          {outcome === "PENDING_PAYMENT" && links.pay ? (
+            <a href={links.pay} className={buttonClasses({ variant: "accent" })}>Pay now</a>
+          ) : links.account === "/account" ? (
             <Link href="/account" className={buttonClasses({ variant: "accent" })}>Go to your account</Link>
+          ) : (
+            <Link href={links.account} className={buttonClasses({ variant: "accent" })}>Back to the organisation</Link>
           )}
         </div>
       </div>
@@ -60,7 +71,8 @@ export function JoinForm({ orgSlug, planSlug, inviteToken, user, units, unitLabe
           const result = await submitJoin({ organisationSlug: orgSlug, planSlug, inviteToken, consent, profile: { ...values, unitId: values.unitId || null, stateCode: values.stateCode || null, fieldValues: answers } });
           if (result.ok) {
             setOutcome(result.data?.status ?? "ACTIVE");
-            setTermId(result.data?.termId ?? null);
+            setLinks({ pay: result.data?.payUrl ?? null, account: result.data?.accountUrl ?? "/account" });
+            setPayment(result.data?.payment ?? null);
           }
           else {
             setErrors(result.fieldErrors ?? {});

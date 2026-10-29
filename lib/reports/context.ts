@@ -1,8 +1,8 @@
 import "server-only";
 
-import type { TeamMember } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { can, type Capability } from "@/lib/permissionRoles";
+import type { StaffMembership } from "@/lib/permissions";
 import { teamScope } from "@/lib/membership/scope";
 import { inSubtree } from "./dataset";
 import { resolvePeriod, type ReportPeriod } from "./period";
@@ -11,7 +11,7 @@ import { reportScope, type ReportScope } from "./source";
 /** Query parameters every report understands. Unknown values fall back to defaults; nothing widens scope. */
 export type ReportSearch = { period?: string; from?: string; to?: string; plan?: string; unit?: string; days?: string; page?: string };
 
-export type ReportAccess = { organisation: { id: string; slug: string }; membership: TeamMember; userId: string };
+type ReportAccess = { organisation: { id: string; slug: string }; membership: StaffMembership; userId: string };
 
 export type ReportContext = Awaited<ReturnType<typeof buildReportContext>>;
 
@@ -35,7 +35,7 @@ export async function buildReportContext(access: ReportAccess, search: ReportSea
     prisma.orgUnit.findMany({ where: { organisationId: org.id, archivedAt: null }, orderBy: { path: "asc" }, select: { id: true, name: true, path: true, level: true, parentId: true } }),
     prisma.memberRole.findMany({ where: { organisationId: org.id }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, color: true } }),
   ]);
-  const role = access.membership.role;
+  const actor = access.membership;
   return {
     org,
     now,
@@ -54,10 +54,9 @@ export async function buildReportContext(access: ReportAccess, search: ReportSea
       plan: scope.planId ?? "",
       unit: scope.unitId && scope.unitId !== team.unitId ? scope.unitId : "",
     },
-    role,
     userId: access.userId,
-    can: (capability: Capability) => can(role, capability),
-    showContact: can(role, "members.contact"),
+    can: (capability: Capability) => can(actor, capability),
+    showContact: can(actor, "members.contact"),
   };
 }
 
@@ -67,4 +66,10 @@ export function filterQuery(filters: ReportContext["filters"], extra: Record<str
   for (const [key, value] of Object.entries({ ...filters, ...extra })) if (value && !(key === "period" && value === "fy")) params.set(key, value);
   const text = params.toString();
   return text ? `?${text}` : "";
+}
+
+/** The units a breakdown groups members by: every unit, archived ones too while their subtree still holds one of them. */
+export async function reportingUnits(ctx: Pick<ReportContext, "org">, members: ReadonlyArray<{ unitPath: string | null }>) {
+  const units = await prisma.orgUnit.findMany({ where: { organisationId: ctx.org.id }, orderBy: { path: "asc" }, select: { id: true, name: true, path: true, level: true, parentId: true, archivedAt: true } });
+  return units.filter((unit) => !unit.archivedAt || members.some((member) => inSubtree(member.unitPath, unit.path)));
 }

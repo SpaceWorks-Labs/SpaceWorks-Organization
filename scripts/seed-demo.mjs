@@ -41,6 +41,21 @@ const owner = await user("owner@demo.test", "Abhiram NJ", mfa);
 const treasurer = await user("treasurer@demo.test", "Abdul Samad MJ", mfa);
 const applicant = await user("applicant@demo.test", "Midlaj C");
 
+// The starter staff roles every organisation gets, copied from STARTER_ROLES in lib/permissionRoles.ts (keep in step).
+const MANAGER = [
+  "org.view", "members.view", "reports.membership", "members.contact", "members.export", "payments.view", "payments.manage", "reports.finance",
+  "members.manage", "cards.manage", "audit.view", "erasure.decide", "team.manage",
+  "plans.manage", "payments.settings", "org.settings", "structure.manage", "cards.design", "accounts.manage", "reports.gstr1",
+];
+const TREASURER = ["org.view", "members.view", "reports.membership", "members.contact", "members.export", "payments.view", "payments.manage", "reports.finance", "accounts.manage", "reports.gstr1"];
+const VIEWER = ["org.view", "members.view", "reports.membership"];
+const STARTER_ROLES = [
+  { key: "OWNER", name: "Owner", description: "Everything, including the team, roles and deleting the organisation.", capabilities: [], isOwner: true },
+  { key: "ADMIN", name: "Manager", description: "Plans, members, approvals, cards, payments and settings.", capabilities: MANAGER, isOwner: false },
+  { key: "TREASURER", name: "Treasurer", description: "Payments, receipts and finance reports. Reads members.", capabilities: TREASURER, isOwner: false },
+  { key: "VIEWER", name: "Viewer", description: "Reads members and membership reports. Contact details are hidden.", capabilities: VIEWER, isOwner: false },
+];
+
 const base = { country: "IN", timezone: "Asia/Kolkata", currency: "INR", stateCode: "KL" };
 const organisations = [
   {
@@ -73,7 +88,11 @@ for (const { team, reviews, ...data } of organisations) {
   const existing = await prisma.organisation.findUnique({ where: { slug: data.slug }, select: { id: true } });
   if (existing) continue;
   const org = await prisma.organisation.create({ data: { ...base, ...data } });
-  for (const [member, role] of team) await prisma.teamMember.create({ data: { organisationId: org.id, userId: member.id, role } });
+  const roleIds = {};
+  for (const [sortOrder, { key, ...starter }] of STARTER_ROLES.entries()) {
+    roleIds[key] = (await prisma.orgRole.create({ data: { organisationId: org.id, ...starter, starterKey: key, sortOrder } })).id;
+  }
+  for (const [member, role] of team) await prisma.teamMember.create({ data: { organisationId: org.id, userId: member.id, role, roleId: roleIds[role] } });
   let at = Date.now() - reviews.length * 3_600_000;
   for (const [action, actor, reason] of reviews) {
     await prisma.organisationReview.create({ data: { organisationId: org.id, action, actorUserId: actor.id, reason, createdAt: new Date((at += 3_600_000)) } });

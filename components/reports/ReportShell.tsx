@@ -38,7 +38,7 @@ export function ReportShell({ shell, title, description, actions, children, hide
         }
         actions={actions}
       />
-      <ReportTabs slug={shell.org.slug} query={shell.query} finance={shell.tabs.finance} activity={shell.tabs.activity} />
+      <ReportTabs slug={shell.org.slug} query={shell.query} finance={shell.tabs.finance} activity={shell.tabs.activity} units={shell.tabs.units} />
       {hideFilters ? null : <ReportFilters plans={shell.plans} units={shell.units} initial={shell.filters} unitLabel={unitLabel} />}
       <div className="flex flex-col gap-5 transition-opacity duration-200 [[data-pending]~&]:opacity-60">{children}</div>
     </div>

@@ -10,7 +10,7 @@ import { Callout } from "@/components/ui/display";
 
 export const metadata: Metadata = { title: "Join", robots: { index: false, follow: false } };
 
-type Props = { params: Promise<{ orgSlug: string; planSlug: string }>; searchParams: Promise<{ invite?: string }> };
+type Props = { params: Promise<{ orgSlug: string; planSlug: string }>; searchParams: Promise<{ invite?: string; unit?: string }> };
 
 const LIVE: TermStatus[] = ["PENDING_APPROVAL", "PENDING_PAYMENT", "UPCOMING", "ACTIVE", "GRACE"];
 
@@ -18,7 +18,8 @@ export default async function JoinPage({ params, searchParams }: Props) {
   const view = await loadJoinView({ params, searchParams });
   const { org, plan, user } = view;
   const { price, extras } = describePrice(plan, org.locale);
-  const here = `/o/${org.slug}/join/${plan.slug}${view.inviteToken ? `?invite=${encodeURIComponent(view.inviteToken)}` : ""}`;
+  const query = new URLSearchParams([...(view.inviteToken ? [["invite", view.inviteToken]] : []), ...(view.unitCode ? [["unit", view.unitCode]] : [])]).toString();
+  const here = `/o/${org.slug}/join/${plan.slug}${query ? `?${query}` : ""}`;
 
   let body: React.ReactNode;
   if (!view.open) {
@@ -41,6 +42,8 @@ export default async function JoinPage({ params, searchParams }: Props) {
     body = <Callout tone="warning" title="Verify your email first" action={<Link href="/account" className={buttonClasses({ variant: "secondary", size: "sm" })}>Go to your account</Link>}>We send membership updates by email, so your address needs to be verified before you join.</Callout>;
   } else if (view.inviteState === "other-email") {
     body = <Callout tone="warning" title="This invitation is for someone else">It was sent to a different email address. Sign in with that address to use it.</Callout>;
+  } else if (view.unitNotOffered) {
+    body = <Callout tone="info" title="Not offered in your unit">{`You're a member through ${view.unitNotOffered}, and ${org.name} doesn't offer this plan there. Ask them about moving units.`}</Callout>;
   } else if (view.standing && LIVE.includes(view.standing as TermStatus)) {
     body = <Callout tone="info" title={`You're ${TERM_STATUS_LABELS[view.standing as TermStatus].toLowerCase()} on this plan`} action={<Link href="/account" className={buttonClasses({ variant: "secondary", size: "sm" })}>Your account</Link>}>Everything about your membership is in your account.</Callout>;
   } else {

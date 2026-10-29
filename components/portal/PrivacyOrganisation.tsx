@@ -9,8 +9,8 @@ import { Callout, Card, CardHeader, Chip, OrgLogo } from "@/components/ui/displa
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { Field, Textarea } from "@/components/ui/field";
 
-export type PrivacyConsent = { id: string; purpose: string; noticeVersion: string; granted: string; withdrawn: string | null; byGuardian: boolean };
-export type PrivacyErasure = { id: string; status: "PENDING" | "APPROVED" | "REJECTED" | "WITHDRAWN"; requested: string; decided: string | null; note: string | null };
+type PrivacyConsent = { id: string; purpose: string; noticeVersion: string; granted: string; withdrawn: string | null; byGuardian: boolean };
+type PrivacyErasure = { id: string; status: "PENDING" | "APPROVED" | "REJECTED" | "WITHDRAWN"; requested: string; decided: string | null; note: string | null };
 
 const PURPOSES: Record<string, string> = { membership: "Membership records under the privacy notice" };
 

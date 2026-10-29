@@ -4,10 +4,10 @@ import { contrastRatio, getAccentTokens, normalizeAccentHex } from "@/lib/theme/
 const CANVAS = { light: "#FFF4E8", dark: "#142C2A" } as const;
 
 /** WCAG 2.2: 4.5:1 for text, 3:1 for buttons and other controls against what surrounds them. */
-export const TEXT_RATIO = 4.5;
-export const CONTROL_RATIO = 3;
+const TEXT_RATIO = 4.5;
+const CONTROL_RATIO = 3;
 
-export type AccentCheck = {
+type AccentCheck = {
   accent: string;
   /** Button label on the accent fill (the label colour is picked automatically). */
   label: number;

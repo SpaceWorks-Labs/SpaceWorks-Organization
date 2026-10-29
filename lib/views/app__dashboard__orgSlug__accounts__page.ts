@@ -27,7 +27,7 @@ export async function loadAccountsView({ params, searchParams }: { params: Promi
   if (years.length === 0) years.push({ label: financialYearLabel(current, org.financialYearStartMonth), start: current });
   const year = years.find((entry) => entry.label === fy) ?? years[0];
   const next = addMonths(year.start, 12);
-  const base = { org, scoped, years: years.map((entry) => entry.label), year: year.label, canManage: can(membership.role, "payments.manage") && !scoped };
+  const base = { org, scoped, years: years.map((entry) => entry.label), year: year.label, canManage: can(membership, "accounts.manage", { write: true }) };
   if (scoped) return { ...base, statements: [], entries: [], openings: [], currencies: [org.currency] };
 
   const window = { gte: startOfLocalDay(year.start, org.timezone), lt: startOfLocalDay(next, org.timezone) };

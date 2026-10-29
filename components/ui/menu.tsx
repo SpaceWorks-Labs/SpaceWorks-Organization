@@ -10,7 +10,6 @@ import { cn } from "@/lib/cn";
 
 export const Menu = DropdownMenuPrimitive.Root;
 export const MenuTrigger = DropdownMenuPrimitive.Trigger;
-export const MenuGroup = DropdownMenuPrimitive.Group;
 
 export const MenuContent = forwardRef<ElementRef<typeof DropdownMenuPrimitive.Content>, ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.Content>>(function MenuContent(
   { className, sideOffset = 6, align = "end", ...props },
@@ -90,7 +89,6 @@ export function Tooltip({ content, children, side = "top" }: { content: ReactNod
 
 export const Popover = PopoverPrimitive.Root;
 export const PopoverTrigger = PopoverPrimitive.Trigger;
-export const PopoverAnchor = PopoverPrimitive.Anchor;
 
 export const PopoverContent = forwardRef<ElementRef<typeof PopoverPrimitive.Content>, ComponentPropsWithoutRef<typeof PopoverPrimitive.Content>>(function PopoverContent(
   { className, sideOffset = 6, align = "start", ...props },

@@ -2,7 +2,7 @@ import { ShieldAlert, ShieldCheck, MailCheck, MailWarning } from "lucide-react";
 import { Avatar, Chip } from "@/components/ui/display";
 import { AccountNavTabs } from "@/components/account/AccountNavTabs";
 
-export type AccountHeaderData = {
+type AccountHeaderData = {
   name: string | null;
   email: string | null;
   image: string | null;

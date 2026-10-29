@@ -3,8 +3,7 @@ import type { CardBackground, CardLayer } from "./layers";
 
 /*
  * One side of a member card: what prints, where (millimetres from the top-left corner), how big and
- * in which colours. Shared by the browser canvas, the PDF/PNG renderer and the designer. Ported from
- * the Space Works Events badge engine (lib/idCardPrint.ts), without the event-only items.
+ * in which colours. Shared by the browser canvas, the PDF/PNG renderer and the designer.
  */
 
 export const CARD_ELEMENTS = [
@@ -189,7 +188,7 @@ export function estimateEmWidth(text: string, bold: boolean) {
  * Point size that keeps `text` on one line within `widthMm`, never above `sizePt` and never below
  * `minRatio` of it (then it wraps instead).
  */
-export function fitTextSizePt(text: string, widthMm: number, sizePt: number, bold: boolean, minRatio = 0.6) {
+function fitTextSizePt(text: string, widthMm: number, sizePt: number, bold: boolean, minRatio = 0.6) {
   const fitting = widthMm / (estimateEmWidth(text, bold) * PT_TO_MM);
   return round1(Math.max(sizePt * minRatio, Math.min(sizePt, fitting)));
 }
@@ -198,7 +197,7 @@ export function fitTextSizePt(text: string, widthMm: number, sizePt: number, bol
  * The fixed, non-draggable look of each template, shared by the on-screen card and the server
  * renderer so both draw the same rules, frame and band. Colours come from the palette.
  */
-export type CardTemplateDecor = {
+type CardTemplateDecor = {
   frame: { insetMm: number; ruleMm: number; radiusMm: number } | null;
   headerRule: { gapMm: number; ruleMm: number } | null;
   band: { padXMm: number; padYMm: number; radiusMm: number } | null;

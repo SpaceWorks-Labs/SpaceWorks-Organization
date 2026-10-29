@@ -26,7 +26,7 @@ import { LayerInspector } from "./LayerInspector";
 import { LayersPanel } from "./LayersPanel";
 import { NumberingSection, type Numbering } from "./NumberingSection";
 import { PresetPicker } from "./PresetPicker";
-import { sampleHolder, SAMPLES, type Sample } from "./sample";
+import { sampleHolder, sampleNumberUnits, SAMPLES, type Sample } from "./sample";
 import { SideSettings, type DesignerField } from "./SideSettings";
 import { TemplateGallery } from "./TemplateGallery";
 import { useDesignAutosave } from "./useDesignAutosave";
@@ -41,7 +41,7 @@ const isElement = (key: string | null): key is CardElement => (CARD_ELEMENTS as 
  * draft of the organisation default, one plan (`planId`) or one member role (`roleId`), which reaches
  * members' cards once the owner approves it.
  */
-export function CardDesigner({ organisationSlug, organisationName, planId, planName, roleId, roleName, initialDesign, branding: initialBranding, fields, numbering: initialNumbering, approval }: {
+export function CardDesigner({ organisationSlug, organisationName, planId, planName, roleId, roleName, initialDesign, branding: initialBranding, fields, numbering: initialNumbering, approval, unitLevels }: {
   organisationSlug: string;
   organisationName: string;
   planId: string | null;
@@ -54,6 +54,8 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
   /** Card number prefix and pattern; null when editing a plan's design, which numbers nothing. */
   numbering: Numbering | null;
   approval: ApprovalState;
+  /** The organisation's level names, top first (Organisation.unitLevels), for the unit placeholders and samples. */
+  unitLevels?: string[];
 }) {
   const [edited, setEdited] = useState(false);
   const [design, setDesign] = useState(initialDesign);
@@ -87,9 +89,9 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
 
   const current = design[side];
   const sampleNumber = initialNumbering && !numberFormatError(numbering.format)
-    ? formatCardNumberFrom(normalizeNumberFormat(numbering.format), { prefix: numbering.prefix || "M", seq: 42, memberNumber: 7, year: new Date().getFullYear() })
+    ? formatCardNumberFrom(normalizeNumberFormat(numbering.format), { prefix: numbering.prefix || "M", seq: 42, memberNumber: 7, year: new Date().getFullYear(), ...sampleNumberUnits(unitLevels) })
     : "M-0042";
-  const holder = sampleHolder(SAMPLES[sample], planName, roleName, sampleNumber, fields);
+  const holder = sampleHolder(SAMPLES[sample], planName, roleName, sampleNumber, fields, unitLevels);
 
   /** Replace the side being edited, normalised; `undoStep` false while a drag is under way. */
   const writeSide = (next: CardSideSettings, undoStep: boolean | "coalesce") => {
@@ -203,7 +205,7 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
           </Section>
           {initialNumbering ? (
             <Section title="Card numbers">
-              <NumberingSection value={numbering} role={Boolean(roleId)} onChange={(next) => { setNumbering(next); autosave.set({ numbering: next }); setEdited(true); }} />
+              <NumberingSection value={numbering} role={Boolean(roleId)} unitLevels={unitLevels} onChange={(next) => { setNumbering(next); autosave.set({ numbering: next }); setEdited(true); }} />
             </Section>
           ) : null}
           {side === "back" ? (
@@ -236,7 +238,7 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
 
         <aside aria-label="Selected item and layers" className="order-1 flex flex-col gap-6 border-line p-4 sm:p-5 xl:order-none xl:max-h-[920px] xl:overflow-y-auto xl:border-l">
           {selectedLayer ? (
-            <LayerInspector layer={selectedLayer} card={current} orgAccent={orgAccentHex(branding.orgAccent)} uploading={uploading} onChange={(patch) => layers.change(selectedLayer.id, patch, "coalesce")} onReplaceImage={async (file) => { const url = await uploadArtwork(file); if (url) layers.change(selectedLayer.id, { url } as Partial<CardLayer>, true); }} />
+            <LayerInspector layer={selectedLayer} card={current} orgAccent={orgAccentHex(branding.orgAccent)} uploading={uploading} unitLevels={unitLevels} onChange={(patch) => layers.change(selectedLayer.id, patch, "coalesce")} onReplaceImage={async (file) => { const url = await uploadArtwork(file); if (url) layers.change(selectedLayer.id, { url } as Partial<CardLayer>, true); }} />
           ) : (
             <Inspector settings={current} branding={branding} selected={isElement(selected) ? selected : "name"} onSelect={setSelected} update={update} />
           )}

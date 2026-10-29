@@ -11,7 +11,7 @@ export async function loadStartView() {
     prisma.user.findUnique({ where: { id: session.user.id }, select: { name: true, email: true, emailVerified: true } }),
     isOrganisationApplicationsEnabled(),
     prisma.teamMember.findMany({
-      where: { userId: session.user.id, role: "OWNER", organisation: { status: { in: ["PENDING_REVIEW", "CHANGES_REQUESTED"] } } },
+      where: { userId: session.user.id, orgRole: { is: { isOwner: true } }, organisation: { status: { in: ["PENDING_REVIEW", "CHANGES_REQUESTED"] } } },
       select: { organisation: { select: { name: true, slug: true, status: true } } },
       orderBy: { createdAt: "desc" },
       take: 5,

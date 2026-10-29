@@ -3,7 +3,8 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { enqueueOutbox } from "@/lib/outbox";
 import { queueChatAlerts } from "@/lib/chat/notify";
-import { can } from "@/lib/permissionRoles";
+import { can, type Capability } from "@/lib/permissionRoles";
+import { staffWithCapability } from "@/lib/team/roles";
 import { addMonths, localDate, startOfLocalDay } from "@/lib/membership/periods";
 import { teamScope } from "@/lib/membership/scope";
 import { prepareDataset } from "./dataset";
@@ -13,13 +14,14 @@ import { loadFinanceRows } from "./finance/source";
 import { revenueSummary, type RevenueSummary } from "./finance/revenue";
 
 /**
- * The monthly summary email: on the first scheduler pass of each month, every owner, manager and treasurer
- * who hasn't switched it off gets last month's figures for what they can see (their unit when scoped).
+ * The monthly summary email: on the first scheduler pass of each month, staff whose role holds DIGEST_CAPABILITY
+ * and who haven't switched it off get last month's figures for what they can see (their unit when scoped).
  * One claim per organisation and month, so replicas and retries never send twice.
  */
 
 const RUN_EVERY_MS = 60 * 60_000;
-const DIGEST_ROLES = ["OWNER", "ADMIN", "TREASURER"] as const;
+/** Who gets the digest: the finance-report permission, held by the starter Owner, Manager and Treasurer roles (not Viewer). */
+export const DIGEST_CAPABILITY: Capability = "reports.finance";
 
 function state() {
   return globalThis as typeof globalThis & { __sworgDigestAt?: number };
@@ -45,7 +47,7 @@ export async function queueMonthlyDigests(now = new Date(), force = false) {
         INSERT INTO "OrgCounter" ("organisationId", "name", "next") VALUES (${org.id}, ${key}, 1)
         ON CONFLICT ("organisationId", "name") DO NOTHING RETURNING "next"`;
       if (claimed.length === 0) return 0;
-      const team = await tx.teamMember.findMany({ where: { organisationId: org.id, reportDigest: true, role: { in: [...DIGEST_ROLES] }, user: { emailVerified: { not: null } } }, select: { userId: true } });
+      const team = await staffWithCapability(tx, org.id, DIGEST_CAPABILITY, { where: { reportDigest: true, user: { emailVerified: { not: null } } } });
       for (const person of team) await enqueueOutbox(tx, "report-digest", { organisationId: org.id, userId: person.userId, month: monthKey(last) });
       await queueChatAlerts(tx, org.id, "monthly-summary", { month: monthKey(last) });
       return team.length;
@@ -54,13 +56,14 @@ export async function queueMonthlyDigests(now = new Date(), force = false) {
   return queued;
 }
 
-export type Digest = {
+type Digest = {
   organisation: { name: string; slug: string; locale: string | null; currency: string };
   to: string;
   firstName: string;
   monthLabel: string;
   unitName: string | null;
-  membership: MembershipSummary;
+  /** Null without permission to read membership reports, like money without finance. */
+  membership: MembershipSummary | null;
   money: RevenueSummary | null;
   waitingForApproval: number;
 };
@@ -69,25 +72,26 @@ export type Digest = {
 export async function buildDigest(payload: { organisationId: string; userId: string; month: string }, now = new Date()): Promise<Digest | null> {
   const member = await prisma.teamMember.findUnique({
     where: { userId_organisationId: { userId: payload.userId, organisationId: payload.organisationId } },
-    select: { role: true, unitId: true, reportDigest: true, user: { select: { email: true, name: true, emailVerified: true } }, organisation: { select: { name: true, slug: true, status: true, timezone: true, locale: true, currency: true } }, unit: { select: { name: true } } },
+    select: { orgRole: { select: { isOwner: true, capabilities: true } }, unitId: true, reportDigest: true, user: { select: { email: true, name: true, emailVerified: true } }, organisation: { select: { name: true, slug: true, status: true, timezone: true, locale: true, currency: true } }, unit: { select: { name: true } } },
   });
-  if (!member?.reportDigest || !member.user.email || !member.user.emailVerified || member.organisation.status !== "ACTIVE" || !(DIGEST_ROLES as readonly string[]).includes(member.role)) return null;
+  if (!member?.reportDigest || !member.user.email || !member.user.emailVerified || member.organisation.status !== "ACTIVE" || !can(member, DIGEST_CAPABILITY)) return null;
   const [year, month] = payload.month.split("-").map(Number);
   if (!year || !month) return null;
   const org = member.organisation;
   const first = { year, month, day: 1 };
   const window = { from: startOfLocalDay(first, org.timezone), to: startOfLocalDay(addMonths(first, 1), org.timezone) };
   const scope = await reportScope(await teamScope(payload.organisationId, member.unitId), {});
-  const data = prepareDataset(await loadReportRows(scope));
-  const money = can(member.role, "reports.finance") ? revenueSummary(await loadFinanceRows(scope), window, org.currency) : null;
-  const waitingForApproval = await prisma.membershipTerm.count({ where: { organisationId: payload.organisationId, status: "PENDING_APPROVAL", member: { is: scope.unitPath ? { unit: { is: { OR: [{ path: scope.unitPath }, { path: { startsWith: `${scope.unitPath}/` } }] } } } : {} } } });
+  const members = can(member, "reports.membership");
+  const membership = members ? membershipSummary(prepareDataset(await loadReportRows(scope)), window, now) : null;
+  const money = can(member, "reports.finance") ? revenueSummary(await loadFinanceRows(scope), window, org.currency) : null;
+  const waitingForApproval = !members ? 0 : await prisma.membershipTerm.count({ where: { organisationId: payload.organisationId, status: "PENDING_APPROVAL", member: { is: scope.unitPath ? { unit: { is: { OR: [{ path: scope.unitPath }, { path: { startsWith: `${scope.unitPath}/` } }] } } } : {} } } });
   return {
     organisation: { name: org.name, slug: org.slug, locale: org.locale, currency: org.currency },
     to: member.user.email,
     firstName: (member.user.name ?? "").split(/\s+/)[0] || "there",
     monthLabel: new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, 15))),
     unitName: member.unit?.name ?? null,
-    membership: membershipSummary(data, window, now),
+    membership,
     money,
     waitingForApproval,
   };

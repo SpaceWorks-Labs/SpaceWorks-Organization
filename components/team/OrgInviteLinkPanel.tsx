@@ -9,12 +9,16 @@ import { Chip } from "@/components/ui/display";
 import { createOrgInvite, revokeOrgInvite } from "@/app/actions/org-invites";
 import { useToast } from "@/components/feedback/ToastProvider";
 import { ConfirmationDialog } from "@/components/feedback/ConfirmationDialog";
+import { Dropdown, Field } from "@/components/ui/field";
+import { leastPrivilegedRole, type TeamRoleOption, type TeamUnitOption } from "@/components/team/memberSummary";
 
-export type OrgInviteRow = {
+type OrgInviteRow = {
   id: string;
   token: string;
   /** Pre-formatted on the server ("2 days ago") so it hydrates identically. */
   createdLabel: string;
+  /** What the link gives: "Manager" or "Manager · South". */
+  grantLabel: string;
 };
 
 function lowerFirst(text: string) {
@@ -22,15 +26,22 @@ function lowerFirst(text: string) {
 }
 
 /**
- * Single-use organisation invite links (OWNER/ADMIN only; the actions
- * re-check the role). Only the newest link's URL is ever rendered.
+ * Single-use organisation invite links for staff who manage the team (the actions re-check the role and unit).
+ * Each link gives one role, for the whole organisation or one unit. Only the newest link's URL is ever rendered.
  */
 export function OrgInviteLinkPanel(props: {
   organisationSlug: string;
   baseUrl: string;
   invites: OrgInviteRow[];
+  roleOptions: TeamRoleOption[];
+  units: TeamUnitOption[];
+  canGrantOrgWide: boolean;
 }) {
-  const { organisationSlug, baseUrl } = props;
+  const { organisationSlug, baseUrl, roleOptions, units, canGrantOrgWide } = props;
+  const [unitId, setUnitId] = useState(canGrantOrgWide ? "" : (units[0]?.id ?? ""));
+  const reachable = roleOptions.filter((option) => (unitId ? option.scoped : option.orgWide));
+  const [chosenRole, setChosenRole] = useState(() => leastPrivilegedRole(reachable));
+  const roleId = reachable.some((option) => option.id === chosenRole) ? chosenRole : leastPrivilegedRole(reachable);
   const router = useRouter();
   const [invites, setInvites] = useState<OrgInviteRow[]>(props.invites);
   const [pending, startTransition] = useTransition();
@@ -42,13 +53,15 @@ export function OrgInviteLinkPanel(props: {
 
   function createLink() {
     startTransition(async () => {
-      const res = await createOrgInvite({ organisationSlug });
+      const res = await createOrgInvite({ organisationSlug, roleId, unitId: unitId || null });
       if (!res.ok) {
         showToast(res.error, "error");
         return;
       }
       const { inviteId, token } = res.data as { inviteId: string; token: string };
-      setInvites((prev) => [{ id: inviteId, token, createdLabel: "Just now" }, ...prev]);
+      const roleName = roleOptions.find((option) => option.id === roleId)?.name ?? "";
+      const unitName = units.find((unit) => unit.id === unitId)?.name;
+      setInvites((prev) => [{ id: inviteId, token, createdLabel: "Just now", grantLabel: unitName ? `${roleName} · ${unitName}` : roleName }, ...prev]);
       showToast("Invite link created", "success");
       router.refresh();
     });
@@ -62,6 +75,23 @@ export function OrgInviteLinkPanel(props: {
           <h2 id="invite-title" className="text-h4 text-ink">Invite people</h2>
           <p className="text-body-ui text-ink-secondary">Each link adds one person to the team with the role you choose. You can change it after they join.</p>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
+        <Field label="Role">
+          <Dropdown value={roleId} disabled={pending || !reachable.length} onChange={(event) => setChosenRole(event.target.value)}>
+            {reachable.length ? null : <option value="">No role you can give here</option>}
+            {reachable.map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}
+          </Dropdown>
+        </Field>
+        {units.length ? (
+          <Field label="Where" helperText="Limit them to one unit and everything under it.">
+            <Dropdown value={unitId} disabled={pending} onChange={(event) => setUnitId(event.target.value)}>
+              {canGrantOrgWide ? <option value="">Whole organisation</option> : null}
+              {units.map((unit) => <option key={unit.id} value={unit.id}>{`${"— ".repeat(unit.level)}${unit.name}`}</option>)}
+            </Dropdown>
+          </Field>
+        ) : null}
       </div>
 
       <div className="flex flex-col gap-2">
@@ -90,12 +120,12 @@ export function OrgInviteLinkPanel(props: {
               >
                 Copy link
               </Button>
-              <Button variant="secondary" loading={pending} loadingLabel="Creating link" startIcon={<Link2 />} onClick={createLink}>
+              <Button variant="secondary" loading={pending} loadingLabel="Creating link" disabled={!roleId} startIcon={<Link2 />} onClick={createLink}>
                 New link
               </Button>
             </>
           ) : (
-            <Button variant="primary" loading={pending} loadingLabel="Creating link" startIcon={<Link2 />} onClick={createLink}>
+            <Button variant="primary" loading={pending} loadingLabel="Creating link" disabled={!roleId} startIcon={<Link2 />} onClick={createLink}>
               Create link
             </Button>
           )}
@@ -108,7 +138,10 @@ export function OrgInviteLinkPanel(props: {
           <ul className="flex flex-col">
             {invites.map((invite, index) => (
               <li key={invite.id} className="flex min-w-0 items-center gap-2.5">
-                <span className="min-w-0 flex-1 truncate text-body-ui text-ink">Created {lowerFirst(invite.createdLabel)}</span>
+                <span className="min-w-0 flex-1 truncate text-body-ui text-ink">
+                  {invite.grantLabel}
+                  <span className="text-ink-muted"> · created {lowerFirst(invite.createdLabel)}</span>
+                </span>
                 {index === 0 ? <Chip size="sm" tone="outline" className="shrink-0">Newest</Chip> : null}
                 <Button size="sm" variant="dangerQuiet" disabled={pending} onClick={() => setRevokeTarget(invite)}>
                   Revoke

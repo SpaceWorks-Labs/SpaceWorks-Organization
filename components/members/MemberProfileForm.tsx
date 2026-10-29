@@ -9,8 +9,8 @@ import { CheckboxField } from "@/components/ui/choice";
 import { Callout } from "@/components/ui/display";
 import { Dropdown, Field, Input, Textarea } from "@/components/ui/field";
 
-export type ProfileFieldDef = { key: string; label: string; type: string; options: string[]; helpText: string };
-export type MemberProfileValues = {
+type ProfileFieldDef = { key: string; label: string; type: string; options: string[]; helpText: string };
+type MemberProfileValues = {
   name: string; email: string; phone: string; stateCode: string; unitId: string;
   isMinor: boolean; guardianName: string; guardianEmail: string; guardianPhone: string;
   fieldValues: Record<string, string | boolean>;

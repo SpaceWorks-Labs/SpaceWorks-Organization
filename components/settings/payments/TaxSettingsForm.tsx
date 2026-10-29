@@ -10,7 +10,7 @@ import { CheckboxField, SegmentedControl } from "@/components/ui/choice";
 import { Callout } from "@/components/ui/display";
 import { Dropdown, Field, Input, Textarea } from "@/components/ui/field";
 
-export type TaxValues = {
+type TaxValues = {
   mode: "NONE" | "SIMPLE" | "GST"; scheme: "REGULAR" | "COMPOSITION"; gstin: string; legalName: string; address: string; stateCode: string; sacCode: string;
   rateBps: number; inclusive: boolean; exempt: boolean; foreignCurrencyTax: "EXPORT_LUT" | "NO_TAX"; lutNumber: string; simpleTaxName: string; receiptPrefix: string;
 };

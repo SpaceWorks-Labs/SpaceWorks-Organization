@@ -4,7 +4,8 @@
 #   spaceworks-organization-backend:
 #     --role backend node server.js                   the web app and API (image default)
 #     --role migrate                                  apply pending migrations once, then exit
-#     --role scheduler node docker/ops/scheduler.mjs  one scheduler pass a minute
+#     --role worker node dist/worker.js               BullMQ worker: outbox delivery and every registered job
+#     --role beat node dist/beat.js                   BullMQ beat: keeps the repeatable job schedules in Redis
 #     --role ops node docker/ops/check.mjs            operator checks
 #   spaceworks-organization-frontend:
 #     --role frontend node frontend/server.js         the website alone (image default)
@@ -36,7 +37,7 @@ migrate() {
 }
 
 if [ "${1:-}" != --role ] || [ -z "${2:-}" ]; then
-  echo "[entrypoint] An explicit --role (backend, migrate, scheduler, ops or frontend) and command are required." >&2
+  echo "[entrypoint] An explicit --role (backend, migrate, worker, beat, ops or frontend) and command are required." >&2
   exit 64
 fi
 role=$2
@@ -46,8 +47,8 @@ case "$role" in
     echo "[entrypoint] Applying database migrations"
     if [ $# -eq 0 ]; then migrate; exit 0; fi
     exec "$@" ;;
-  scheduler|ops)
-    # The scheduler and operator checks never serve pages and need no web settings.
+  worker|beat|ops)
+    # Background roles and operator checks never serve pages and need no web settings.
     [ $# -gt 0 ] || { echo "[entrypoint] --role $role needs a command." >&2; exit 64; }
     exec "$@" ;;
   backend|frontend)

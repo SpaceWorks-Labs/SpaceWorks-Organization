@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { afterAll, describe, expect, it, vi } from "vitest";
+import { addStaff } from "../helpers/staff";
 
 const identity = vi.hoisted(() => ({ current: { id: "" } as { id: string } }));
 vi.mock("@/lib/auth", () => ({ auth: async () => (identity.current.id ? { user: identity.current } : null) }));
@@ -99,7 +100,7 @@ describe.sequential("staff need an authenticator", () => {
   it("refuses dashboard actions to a team member without one, and allows them once it's on", async () => {
     const owner = await prisma.user.create({ data: { email: `owner-${tag}@example.test`, emailVerified: new Date() } });
     const org = await prisma.organisation.create({ data: { name: "MFA Test", slug: `mfa-${tag}`, status: "ACTIVE" } });
-    await prisma.teamMember.create({ data: { userId: owner.id, organisationId: org.id, role: "OWNER" } });
+    await addStaff(org.id, owner.id, "OWNER");
     identity.current = { id: owner.id };
     expect(await hasAuthenticator(owner.id)).toBe(false);
     expect(await orgActionAccess(org.slug, "org.settings")).toMatchObject({ ok: false, error: expect.stringContaining("authenticator") });

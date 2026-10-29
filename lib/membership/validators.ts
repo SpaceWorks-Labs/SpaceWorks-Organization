@@ -73,9 +73,7 @@ export const planSchema = z
     };
   });
 
-export type PlanInput = z.infer<typeof planSchema>;
-
-export const planFieldSchema = z.object({
+const planFieldSchema = z.object({
   key: z.string().trim().regex(/^[a-z][a-z0-9_]{0,39}$/, "Keys are lowercase letters, numbers and underscores"),
   label: z.string().trim().min(1, "Label the question").max(120),
   helpText: z.string().trim().max(300).optional().default(""),
@@ -101,10 +99,14 @@ export const planFieldsSchema = z.object({
     }),
 });
 
+export const unitCodeSchema = z.string().trim().toUpperCase().regex(/^[A-Z0-9]{1,6}$/, "1 to 6 letters or digits");
+
 export const unitSchema = z.object({
   organisationSlug: z.string().trim().min(1),
   name: z.string().trim().min(2, "Name the unit").max(80),
   slug,
+  /** Left out, a code is made from the name. */
+  code: unitCodeSchema.optional(),
   parentId: id.optional().nullable(),
 });
 
@@ -138,8 +140,6 @@ export const memberProfileSchema = z
     if (value.isMinor && !value.guardianName) ctx.addIssue({ code: "custom", path: ["guardianName"], message: "A guardian is needed for members under 18" });
     if (value.isMinor && !value.guardianEmail) ctx.addIssue({ code: "custom", path: ["guardianEmail"], message: "The guardian's email is needed" });
   });
-
-export type MemberProfileInput = z.infer<typeof memberProfileSchema>;
 
 type FieldDef = { key: string; label: string; type: string; required: boolean; options: string[]; adminOnly: boolean };
 

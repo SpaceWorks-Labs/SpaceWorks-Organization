@@ -6,7 +6,7 @@ import { loadCardFonts, type CardFonts } from "./fonts";
 import type { CardOp, CardScene } from "./layout";
 import type { CardSymbolVariant } from "./palette";
 import { drawShapedText, glyphContext, opacityState, type GlyphContext } from "./pdfGlyphs";
-import { cropMarks, mmToPt, PT_PER_MM, sheetLayout, sheetSlot } from "./sheet";
+import { cropMarks, mmToPt, PT_PER_MM, sheetPlacer } from "./sheet";
 
 /*
  * Cards as PDF: one card side per page at card size, or CR80 sheets on A4 with crop marks. Text is
@@ -129,10 +129,11 @@ async function drawScene(context: Context, page: PDFPage, scene: CardScene, orig
 }
 
 /**
- * Render scenes to one PDF. Scenes arrive as an async iterable so callers can stream members from
- * the database in batches; only the document itself is held in memory.
+ * Render cards to one PDF, each card as its sides (front, then back when it has one). Cards arrive as an
+ * async iterable so callers can stream members from the database in batches; only the document itself is
+ * held in memory.
  */
-export async function renderCardsPdf(scenes: AsyncIterable<CardScene> | Iterable<CardScene>, options: { layout: CardPdfLayout; title: string }) {
+export async function renderCardsPdf(cards: AsyncIterable<CardScene[]> | Iterable<CardScene[]>, options: { layout: CardPdfLayout; title: string }) {
   const pdf = await PDFDocument.create();
   pdf.setTitle(options.title);
   pdf.setCreator("Space Works Organization");
@@ -141,23 +142,25 @@ export async function renderCardsPdf(scenes: AsyncIterable<CardScene> | Iterable
 
   let index = 0;
   let sheetPage: PDFPage | null = null;
-  for await (const scene of scenes) {
-    if (options.layout === "card") {
-      const page = pdf.addPage([mmToPt(scene.widthMm), mmToPt(scene.heightMm)]);
-      await drawScene(context, page, scene, 0, 0);
-    } else {
-      const layout = sheetLayout(scene.widthMm, scene.heightMm);
-      const slot = sheetSlot(layout, index);
-      if (index % layout.perSheet === 0 || !sheetPage) {
-        sheetPage = pdf.addPage([mmToPt(layout.sheetWidthMm), mmToPt(layout.sheetHeightMm)]);
+  const place = sheetPlacer();
+  for await (const sides of cards) {
+    const placements = options.layout === "a4" ? place(sides) : [];
+    for (const [side, scene] of sides.entries()) {
+      const at = placements[side];
+      if (!at) {
+        await drawScene(context, pdf.addPage([mmToPt(scene.widthMm), mmToPt(scene.heightMm)]), scene, 0, 0);
+        continue;
+      }
+      if (at.newSheet || !sheetPage) {
+        sheetPage = pdf.addPage([mmToPt(at.layout.sheetWidthMm), mmToPt(at.layout.sheetHeightMm)]);
         const height = sheetPage.getHeight();
-        for (const mark of cropMarks(layout)) {
+        for (const mark of cropMarks(at.layout)) {
           sheetPage.drawLine({ start: { x: mmToPt(mark.x1), y: height - mmToPt(mark.y1) }, end: { x: mmToPt(mark.x2), y: height - mmToPt(mark.y2) }, thickness: 0.25, color: rgb(0, 0, 0) });
         }
       }
-      await drawScene(context, sheetPage, scene, slot.xMm, slot.yMm);
+      await drawScene(context, sheetPage, scene, at.xMm, at.yMm);
     }
-    index += 1;
+    index += sides.length;
   }
   if (index === 0) pdf.addPage([mmToPt(210), mmToPt(297)]);
   return pdf.save({ objectsPerTick: 200 });

@@ -83,9 +83,9 @@ function adjustUntil(color: string, target: string, surfaces: string[], ratio: n
   return target;
 }
 
-export type AccentScheme = "light" | "dark";
+type AccentScheme = "light" | "dark";
 
-export type AccentTokens = {
+type AccentTokens = {
   "--sw-accent": string;
   "--sw-accent-soft": string;
   "--sw-on-accent": string;

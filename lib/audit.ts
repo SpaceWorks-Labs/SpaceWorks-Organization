@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 
 /**
  * Write a deliberately minimal audit record. Callers must not pass PII,
- * passwords, reset links, check-in tokens, or registration answers in metadata.
+ * passwords, reset links, tokens, or join-form answers in metadata.
  */
 export async function recordAuditEvent(params: {
   action: string;

@@ -2,7 +2,7 @@ import { redactSensitiveText } from "@/lib/redactSensitiveText";
 import { NameCell } from "@/components/super-admin/AdminPanel";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 
-export type AuditRow = {
+type AuditRow = {
   id: string;
   action: string;
   targetType: string | null;

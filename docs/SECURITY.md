@@ -38,7 +38,7 @@ public issue.
   unreadable: keep an encrypted, off-server copy of `.env` and `tls/` (`bash scripts/backup.sh` archives them).
 - Backups contain personal data and every secret. Copy them off the server encrypted, and restrict who can
   read `backups/`.
-- Scheduler (`CRON_SECRET`) and readiness (`HEALTHCHECK_SECRET`) endpoints answer 404 without their bearer
+- Internal job (`CRON_SECRET`: `/api/internal/jobs`, `/api/internal/outbox`) and readiness (`HEALTHCHECK_SECRET`) endpoints answer 404 without their bearer
   secret.
 
 ## Releases and automatic deploys
@@ -63,14 +63,40 @@ public issue.
   your edge overwrites (`TRUSTED_PROXY_IP_HEADER`).
 - Money rows are never edited or deleted; reversals use credit notes, and receipt numbers are gapless.
 
+### Card scans (`/verify`)
+
+- **Public check.** Anyone who scans a card's QR sees its verdict (current, renewal due, not started, not current,
+  revoked) with the member's name, plan, card number and valid-until date, never contact details. While the card is
+  live (not revoked or replaced), the membership is current or in grace, the member is not erased and the
+  organisation is active, the page also shows the card itself, front and back. It is drawn on demand by
+  `/api/verify/<token>/card` (`lib/cards/publicCard.ts`), never stored, sent `private, no-store`, limited per address
+  (`verifyCardImage`), and any other token gets the same 404.
+- **Staff scans.** Signed-in staff of the card's organisation who read members, with an authenticator and the
+  member inside their unit scope, also see that organisation's record of the member: memberships, payments and
+  cards, with contact details only for roles holding `members.contact`. The buttons call the dashboard's own server
+  actions, which check the organisation, unit and permission again. Each scan writes `CARD_SCANNED` (throttled);
+  a super admin's also writes `SUPER_ADMIN_ORG_ENTERED`. Staff of another organisation, or limited to another unit,
+  see exactly the public check, so a scan never shows that someone is a member elsewhere. Staff without an
+  authenticator are asked to set one up instead.
+
 ### Sign-in
 
-- **Staff need an authenticator.** Anyone on an organisation's team (owner, manager, treasurer, viewer) must
+- **Staff need an authenticator.** Anyone on an organisation's team (whatever their role) must
   turn on an authenticator app before the dashboard, its actions or its exports open (`hasAuthenticator` in
   `lib/permissions.ts`). Members never need one.
 - **Super admins** sign in with email and password only. Their accounts and passwords are created and changed
   only on the server (`scripts/admin.sh`); password-reset emails, in-app password changes and Google, GitHub or
   Apple sign-in are refused for them.
+- **Platform access.** By the owner's decision (2026-10-29), super admins have full owner-level access to every
+  organisation's dashboard, with no session or time limit (`platformAccess` in `lib/permissions.ts`). Safeguards:
+  - they need an authenticator before an organisation's dashboard opens, like all staff;
+  - every action writes `SUPER_ADMIN_ORG_ACTION` and entering an organisation writes `SUPER_ADMIN_ORG_ENTERED`
+    (throttled), and the organisation's activity report lists them as "Platform super admin";
+  - a banner shows on every page they open there;
+  - they are never on the team: not listed, not counted against limits, not emailed. Money stays under the payment
+    triggers (paid rows are never edited or deleted).
+  A compromised super-admin account reaches every organisation, so keep super admins few and their authenticators
+  on.
 - **Unusual sign-ins.** Each browser that signs in is remembered by a long-lived random cookie, stored only as a
   hash (`KnownDevice`). An account without an authenticator signing in from a new browser must enter a six-digit
   code emailed to it (valid 10 minutes, single use), unless it verified its email in the last hour.

@@ -33,8 +33,6 @@ export type TermLike = {
 /** Statuses whose meaning changes with the clock. */
 export const TIMED_STATUSES: ReadonlySet<TermStatus> = new Set(["UPCOMING", "ACTIVE", "GRACE"]);
 export const PENDING_STATUSES: ReadonlySet<TermStatus> = new Set(["PENDING_APPROVAL", "PENDING_PAYMENT"]);
-/** Finished for good: no transition leaves these (except REVOKED → reinstate). */
-export const TERMINAL_STATUSES: ReadonlySet<TermStatus> = new Set(["ENDED", "LAPSED", "EXPIRED", "CANCELLED", "REJECTED", "REVOKED"]);
 
 /**
  * What a term's status is at `now`, from its dates. Only timed statuses move; a pending payment past its
@@ -51,7 +49,7 @@ export function statusAt(term: TermLike, now: Date, hasPaidSuccessor = false): T
   return "LAPSED";
 }
 
-export type DerivedStatus = {
+type DerivedStatus = {
   /** The member's standing on this plan right now. NONE when they never held a term. */
   status: TermStatus | "NONE";
   /** The term that decides `status`. */
@@ -106,7 +104,7 @@ export function canTransition(action: TermAction, status: TermStatus): boolean {
   return (TRANSITIONS[action] as readonly TermStatus[]).includes(status);
 }
 
-export type RejoinFeeRule = "NEVER" | "ONCE" | "EACH_JOIN" | "AFTER_LAPSE";
+type RejoinFeeRule = "NEVER" | "ONCE" | "EACH_JOIN" | "AFTER_LAPSE";
 
 /**
  * Whether a new (not renewal) term charges the joining fee, given the member's earlier terms on the plan.

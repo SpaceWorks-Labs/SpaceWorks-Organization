@@ -10,10 +10,10 @@ import { Callout, Chip } from "@/components/ui/display";
 import { Field, Input, PasswordInput } from "@/components/ui/field";
 
 type Provider = "NONE" | "RAZORPAY" | "STRIPE";
-export type GatewayState = { provider: Provider; keyId: string | null; hasSecret: boolean; hasWebhookSecret: boolean; testMode: boolean; verifiedAt: string | null; webhookUrls: Record<"RAZORPAY" | "STRIPE", string> | null };
+type GatewayState = { provider: Provider; keyId: string | null; hasSecret: boolean; hasWebhookSecret: boolean; testMode: boolean; verifiedAt: string | null; webhookUrls: Record<"RAZORPAY" | "STRIPE", string> | null };
 
 const EVENTS = {
-  RAZORPAY: "payment.captured, payment.failed, refund.processed and refund.failed",
+  RAZORPAY: "payment.captured, refund.processed and refund.failed",
   STRIPE: "checkout.session.completed, checkout.session.async_payment_succeeded, checkout.session.async_payment_failed, checkout.session.expired, refund.created, refund.updated and refund.failed",
 };
 

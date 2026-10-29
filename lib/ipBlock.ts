@@ -77,7 +77,7 @@ export async function currentRequestBlocked() {
   return isIpBlocked(getClientIpFromHeaders(await headers()));
 }
 
-export type BlockedAddress = { ip: string; blockedAt: string | null; expiresAt: string };
+type BlockedAddress = { ip: string; blockedAt: string | null; expiresAt: string };
 
 /** Addresses blocked right now, newest first (at most 200). */
 export async function listBlockedIps(): Promise<BlockedAddress[]> {

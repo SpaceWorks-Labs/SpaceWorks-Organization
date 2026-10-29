@@ -8,7 +8,7 @@ import { creditNoteLines, placeOfSupply, sumSplits, type TaxSnapshot } from "./t
 type Tx = Prisma.TransactionClient;
 type OrgForDocs = Pick<Organisation, "id" | "name" | "timezone" | "financialYearStartMonth" | "addressLine" | "city" | "stateCode" | "postalCode" | "contactEmail" | "locale" | "logoUrl">;
 
-export const DOCUMENT_TEMPLATE_VERSION = 1;
+const DOCUMENT_TEMPLATE_VERSION = 1;
 
 /** Everything a document PDF needs, frozen at issue so a re-render years later looks identical. */
 export type DocumentSnapshot = {

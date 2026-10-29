@@ -36,7 +36,6 @@ const channelSchema = z.object({
 async function access(organisationSlug: unknown) {
   const ctx = await orgActionAccess(organisationSlug, "org.settings");
   if (!ctx.ok) return ctx;
-  if (ctx.membership.unitId) return { ok: false as const, error: "Notifications apply to the whole organisation, so a manager limited to one unit can't change them." };
   if (await isActionRateLimited("action", ctx.userId)) return { ok: false as const, error: "Too many requests. Try again shortly." };
   return ctx;
 }

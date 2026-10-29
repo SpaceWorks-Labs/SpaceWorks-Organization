@@ -18,7 +18,7 @@
 
 {$SITE_ADDRESS} {
 	encode zstd gzip
-	# The scheduler calls this inside the stack; never from the internet.
+	# External-cron hooks (outbox, jobs): inside the stack only, never from the internet.
 	handle /api/internal/* {
 		respond 404
 	}

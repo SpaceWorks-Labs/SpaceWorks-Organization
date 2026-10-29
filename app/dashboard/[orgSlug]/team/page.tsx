@@ -5,6 +5,8 @@ import { OrgPageHeader } from "@/components/dashboard/org/OrgPageHeader";
 import { OrgInviteLinkPanel } from "@/components/team/OrgInviteLinkPanel";
 import { MemberStat, RolesCard } from "@/components/team/MemberSections";
 import { TeamList } from "@/components/team/TeamList";
+import { TransferOwnershipPanel } from "@/components/team/TransferOwnershipPanel";
+import { OwnershipOfferPanel } from "@/components/team/OwnershipOfferPanel";
 import { roleBreakdown, roleDots } from "@/components/team/memberSummary";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/display";
@@ -26,7 +28,7 @@ export const metadata: Metadata = {
 
 
 export default async function OrgMembersPage({ params, searchParams }: Props) {
-  const { organisation, profile, adminView, memberCount, roleCounts, recentCount, recentHint, openInviteCount, rows, membership, memberPages, memberPage, baseUrl, invites, units, now } = await loadOrgMembersView({ params, searchParams });
+  const { organisation, profile, adminView, memberCount, roleCounts, recentCount, recentHint, openInviteCount, rows, memberPages, memberPage, baseUrl, invites, units, roleOptions, canGrantOrgWide, transfer, offer, roles, canManageRoles, now } = await loadOrgMembersView({ params, searchParams });
   return (
     <div className="flex flex-col gap-7 pb-4">
       <OrgPageHeader
@@ -46,7 +48,7 @@ export default async function OrgMembersPage({ params, searchParams }: Props) {
           {rows.length === 0 ? (
             <EmptyState mood="sleepy">No members found.</EmptyState>
           ) : (
-            <TeamList organisationSlug={organisation.slug} actorRole={membership.role} rows={rows} showEmail={adminView} units={units} />
+            <TeamList organisationSlug={organisation.slug} rows={rows} roles={roleCounts.filter((role) => role.count > 0)} showEmail={adminView} units={units} roleOptions={roleOptions} canGrantOrgWide={canGrantOrgWide} />
           )}
           {memberPages > 1 ? (
             <nav aria-label="Member pages" className="flex flex-wrap items-center justify-end gap-2">
@@ -66,18 +68,26 @@ export default async function OrgMembersPage({ params, searchParams }: Props) {
         </div>
 
         <aside className="flex min-w-0 flex-col gap-5">
+          {offer ? <OwnershipOfferPanel offer={offer} /> : null}
           {adminView ? (
             <OrgInviteLinkPanel
               organisationSlug={organisation.slug}
               baseUrl={baseUrl}
+              roleOptions={roleOptions}
+              units={units}
+              canGrantOrgWide={canGrantOrgWide}
               invites={invites.map((invite) => ({
                 id: invite.id,
                 token: invite.token,
+                grantLabel: invite.grantLabel,
                 createdLabel: formatRelativeTime(invite.createdAt, DISPLAY_TIME_ZONE, now),
               }))}
             />
           ) : null}
-          <RolesCard />
+          <RolesCard roles={roles} manageHref={canManageRoles ? `/dashboard/${organisation.slug}/settings/roles` : undefined} />
+          {transfer ? (
+            <TransferOwnershipPanel organisationSlug={organisation.slug} candidates={transfer.candidates} keepRoles={transfer.keepRoles} defaultKeepRoleId={transfer.defaultKeepRoleId} pending={transfer.pending} />
+          ) : null}
         </aside>
       </div>
     </div>

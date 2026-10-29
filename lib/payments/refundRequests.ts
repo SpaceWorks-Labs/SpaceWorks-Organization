@@ -13,17 +13,17 @@ import { refundOffer, type RefundOffer, type RefundPolicyName } from "./refundPo
 type Tx = Prisma.TransactionClient;
 
 /** The membership fee on a payment, tax included; joining and rejoining fees are never offered back. */
-export function membershipFeeMinor(lines: Array<{ kind: string; amountMinor: number }>) {
+function membershipFeeMinor(lines: Array<{ kind: string; amountMinor: number }>) {
   return lines.filter((line) => line.kind === "TERM_FEE").reduce((sum, line) => sum + line.amountMinor, 0);
 }
 
 /** The paid payment a membership term was bought with (the latest, if there were several). */
-export async function paidPaymentForTerm(tx: Tx, organisationId: string, termId: string) {
+async function paidPaymentForTerm(tx: Tx, organisationId: string, termId: string) {
   return tx.payment.findFirst({ where: { organisationId, termId, status: "PAID" }, orderBy: { paidAt: "desc" }, select: { id: true } });
 }
 
 /** What the policy offers on a payment right now, with the term it belongs to and any open request. */
-export async function refundOfferForPayment(tx: Tx, organisationId: string, paymentId: string, now = new Date()) {
+async function refundOfferForPayment(tx: Tx, organisationId: string, paymentId: string, now = new Date()) {
   const [payment, settings] = await Promise.all([
     tx.payment.findFirst({ where: { id: paymentId, organisationId }, include: { lines: { select: { kind: true, amountMinor: true } }, term: true, refundRequests: { where: { status: "OPEN" }, select: { id: true } } } }),
     tx.orgPaymentSettings.findUnique({ where: { organisationId }, select: { refundPolicy: true, refundWindowDays: true, refundPolicyText: true } }),
@@ -126,7 +126,7 @@ export async function afterDirectRefund(tx: Tx, args: { org: OrgForPayments; pay
   return args.endMembership && args.termId ? endTermForRefund(tx, args.org, args.termId, args.actorUserId, now) : false;
 }
 
-export type MemberRefundState = {
+type MemberRefundState = {
   termId: string;
   policyText: string;
   currency: string;

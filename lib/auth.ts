@@ -22,7 +22,7 @@ import { getClientIpFromHeaders } from "@/lib/rateLimit";
  * worktree, each with its own secret) would overwrite each other's sign-in; the port keeps them apart.
  * Production serves one origin, so the name stays fixed there.
  */
-export function sessionCookieName(env: NodeJS.ProcessEnv = process.env) {
+function sessionCookieName(env: NodeJS.ProcessEnv = process.env) {
   const base = "swo.session-token.v1";
   if (env.NODE_ENV === "production") return base;
   try {
@@ -63,7 +63,7 @@ class AddressBlockedError extends CredentialsSignin {
   code = "address_blocked";
 }
 
-export const { handlers, auth, signIn, signOut } = NextAuth(async () => {
+export const { handlers, auth } = NextAuth(async () => {
   const oauth = await getOAuthSettings();
   return {
   adapter: authAdapter,

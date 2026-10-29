@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/cn";
 
-export type BarListItem = {
+type BarListItem = {
   key: string;
   label: string;
   value: number;
@@ -54,7 +54,7 @@ export function BarList({ items, label, max, ordinal = false, empty = "Nothing t
   );
 }
 
-export type Segment = { key: string; label: string; value: number; display?: string; href?: string };
+type Segment = { key: string; label: string; value: number; display?: string; href?: string };
 
 /**
  * One 100% stacked bar for part-to-whole (standing mix, ageing): 2px surface gaps between segments,

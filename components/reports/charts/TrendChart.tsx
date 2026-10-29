@@ -5,9 +5,9 @@ import { formatTick, formatValue, labelStride, niceTicks, type ValueFormat } fro
 import { ChartLegend, ChartTooltip } from "./ChartTooltip";
 import { slotColor, useIndexFocus, useWidth } from "./useChartPointer";
 
-export type TrendSeries = { key: string; label: string; slot: number | "muted"; values: Array<number | null> };
+type TrendSeries = { key: string; label: string; slot: number | "muted"; values: Array<number | null> };
 
-export type TrendChartProps = {
+type TrendChartProps = {
   /** One label per x position, oldest first. */
   labels: string[];
   series: TrendSeries[];

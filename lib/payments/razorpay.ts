@@ -56,20 +56,21 @@ export const razorpay: PaymentGateway = {
   parseEvent(rawBody, headers) {
     const body = JSON.parse(rawBody) as Record<string, unknown>;
     // The event id header isn't covered by the signature, so de-duplication keys on the signed body only:
-    // the event, its entity and when Razorpay created it.
+    // the event, its entity and when Razorpay created it. Refund events carry the payment too, so they key on
+    // the refund first: two partial refunds of one payment in the same second are different events.
     void headers;
-    const eventId = `${str(body.event)}:${str(entity(body, "payment").id) ?? str(entity(body, "refund").id) ?? ""}:${num(body.created_at)}`;
+    const [first, second] = String(body.event).startsWith("refund.") ? ["refund", "payment"] : ["payment", "refund"];
+    const eventId = `${str(body.event)}:${str(entity(body, first).id) ?? str(entity(body, second).id) ?? ""}:${num(body.created_at)}`;
     switch (body.event) {
       case "payment.captured": {
         const payment = entity(body, "payment");
         const notes = (payment.notes ?? {}) as Record<string, unknown>;
         return { type: "captured", eventId, orderId: str(payment.order_id), paymentId: str(notes.paymentId), gatewayPaymentId: str(payment.id), amountMinor: num(payment.amount), currency: str(payment.currency) ?? "", method: str(payment.method) };
       }
-      case "payment.failed": {
-        const payment = entity(body, "payment");
-        const notes = (payment.notes ?? {}) as Record<string, unknown>;
-        return { type: "failed", eventId, orderId: str(payment.order_id), paymentId: str(notes.paymentId), reason: str(payment.error_description) ?? "Payment failed" };
-      }
+      // One order takes several attempts, and a member can retry in the same Checkout after a failure, so a
+      // failed attempt never closes ours: it stays open until a capture or the reconcile job's week runs out.
+      case "payment.failed":
+        return { type: "ignored", eventId };
       case "refund.processed": {
         const refund = entity(body, "refund");
         const notes = (refund.notes ?? {}) as Record<string, unknown>;
@@ -90,7 +91,7 @@ export const razorpay: PaymentGateway = {
     const items = Array.isArray(result.items) ? (result.items as Array<Record<string, unknown>>) : [];
     const captured = items.find((item) => item.status === "captured");
     if (captured) return { status: "paid", gatewayPaymentId: str(captured.id), amountMinor: num(captured.amount), currency: str(captured.currency) ?? "", method: str(captured.method) };
-    if (items.length > 0 && items.every((item) => item.status === "failed")) return { status: "failed", reason: "Every attempt failed" };
+    // Failed attempts don't close the order (the member may still retry it), so it stays pending.
     return { status: "pending" };
   },
 

@@ -3,7 +3,6 @@ import { ArrowRight, Plus } from "lucide-react";
 import type { Metadata } from "next";
 import { loadDashboardView } from "@/lib/views/app__dashboard__page";
 import { OrganisationStatusChip } from "@/components/org/OrganisationStatusChip";
-import { ROLE_LABELS } from "@/lib/permissionRoles";
 import { buttonClasses } from "@/components/ui/button";
 import { EmptyState, OrgLogo, PageHeader } from "@/components/ui/display";
 
@@ -44,7 +43,7 @@ export default async function DashboardPage() {
                 <OrgLogo name={team.name} src={team.logoUrl} size="md" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-title text-ink">{team.name}</span>
-                  <span className="block truncate text-caption text-ink-muted">{[ROLE_LABELS[team.role], team.kind].filter(Boolean).join(" · ")}</span>
+                  <span className="block truncate text-caption text-ink-muted">{[team.roleName, team.kind].filter(Boolean).join(" · ")}</span>
                 </span>
                 <ArrowRight aria-hidden className="size-5 shrink-0 text-ink-muted transition-colors group-hover:text-ink" />
               </span>

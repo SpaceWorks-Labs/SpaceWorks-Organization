@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { requireOrgCapability } from "@/lib/permissions";
+import { can, requireOrgCapability } from "@/lib/permissions";
 import { paymentSecretsConfigured } from "@/lib/payments/secrets";
 
 /** The organisation's chat channels: where each posts (never its secret) and how its last delivery went. */
@@ -14,5 +14,5 @@ export async function loadOrgNotificationsView({ params }: { params: Promise<{ o
       select: { id: true, kind: true, name: true, target: true, events: true, includeNames: true, enabled: true, lastDeliveredAt: true, lastError: true },
     }),
   ]);
-  return { org, canEdit: !membership.unitId, secretsReady: paymentSecretsConfigured(), channels };
+  return { org, canEdit: can(membership, "org.settings", { write: true }), secretsReady: paymentSecretsConfigured(), channels };
 }

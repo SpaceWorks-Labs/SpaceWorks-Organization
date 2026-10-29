@@ -1,5 +1,5 @@
 import { requireSuperAdmin } from "@/lib/permissions";
-import { OrganisationStatus, OutboxStatus, TeamRole } from "@prisma/client";
+import { OrganisationStatus, OutboxStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { minutesAgo } from "@/lib/superAdminInsights";
 
@@ -11,7 +11,7 @@ export async function loadSuperAdminOverviewView() {
     prisma.teamMember.count(),
     prisma.outboxMessage.count({ where: { status: OutboxStatus.FAILED } }),
     prisma.outboxMessage.count({ where: { status: OutboxStatus.PENDING, availableAt: { lt: minutesAgo(15) } } }),
-    prisma.user.count({ where: { mfaEnabledAt: null, teamMembers: { some: { role: { in: [TeamRole.OWNER, TeamRole.ADMIN] } } } } }),
+    prisma.user.count({ where: { mfaEnabledAt: null, teamMembers: { some: {} } } }),
     prisma.user.count({ where: { emailVerified: null } }),
     prisma.organisation.count({ where: { status: OrganisationStatus.PENDING_REVIEW, updatedAt: { lt: new Date(Date.now() - 7 * 24 * 60 * 60_000) } } }),
   ]);
@@ -47,7 +47,7 @@ export async function loadSuperAdminOverviewView() {
     { label: "Suspended organisations", value: statusCount(OrganisationStatus.SUSPENDED), href: "/super-admin/orgs?status=SUSPENDED" },
     { label: "Failed emails", value: failedEmails, href: "/super-admin/email" },
     { label: "Emails queued over 15 minutes", value: stuckEmails, href: "/super-admin/email" },
-    { label: "Owners and admins without MFA", value: managersWithoutMfa, href: "/super-admin/security" },
+    { label: "Staff without an authenticator", value: managersWithoutMfa, href: "/super-admin/security" },
     { label: "Users with unverified email", value: unverifiedUsers, href: "/super-admin/users?filter=unverified" },
   ];
   return { stats, attention, activity7d, recentOrgs, organisations };

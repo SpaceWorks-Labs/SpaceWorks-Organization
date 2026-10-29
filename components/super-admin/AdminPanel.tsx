@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Button, buttonClasses } from "@/components/ui/button";
-import { Card, CardHeader, Chip } from "@/components/ui/display";
+import { Card, CardHeader } from "@/components/ui/display";
 import { Input } from "@/components/ui/field";
 import { cn } from "@/lib/cn";
 
@@ -93,9 +93,4 @@ export function LinkRow({ links }: { links: Array<{ href: string; label: string 
       ))}
     </span>
   );
-}
-
-/** Raw status value, toned by meaning. */
-export function StatusValue({ status }: { status: string }) {
-  return <Chip size="sm" tone={status === "PUBLISHED" ? "success" : status === "CANCELLED" ? "danger" : "neutral"}>{status}</Chip>;
 }

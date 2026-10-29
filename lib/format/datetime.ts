@@ -58,7 +58,7 @@ export function formatTime(value: DateInput, timeZone: string) {
 }
 
 /** "IST", "GMT+5:30", "BST" — the abbreviation for the event's zone at that instant. */
-export function formatTimeZoneName(value: DateInput, timeZone: string) {
+function formatTimeZoneName(value: DateInput, timeZone: string) {
   const zone = safeTimeZone(timeZone);
   const short = pick(new Intl.DateTimeFormat("en-US", { timeZone: zone, timeZoneName: "short" }).formatToParts(toDate(value)), "timeZoneName");
   if (zone === "Asia/Kolkata" || zone === "Asia/Calcutta") return "IST";

@@ -1,13 +1,16 @@
 import "server-only";
 
-import type { OrganisationStatus, TeamRole } from "@prisma/client";
+import type { OrganisationStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
+import { can, CAPABILITY_LIST, type Capability } from "@/lib/permissionRoles";
 
 export type ShellOrganisation = {
   slug: string;
   name: string;
   logoUrl: string | null;
-  role: TeamRole;
+  roleName: string;
+  /** What this person may open here (read access), for the navigation. */
+  capabilities: Capability[];
   status: OrganisationStatus;
 };
 
@@ -25,7 +28,7 @@ export async function getAppShellData(userId: string): Promise<{ user: ShellUser
     prisma.user.findUnique({ where: { id: userId }, select: { name: true, email: true, image: true, profileImageUrl: true } }),
     prisma.teamMember.findMany({
       where: { userId },
-      select: { role: true, organisation: { select: { slug: true, name: true, logoUrl: true, status: true } } },
+      select: { unitId: true, orgRole: { select: { name: true, isOwner: true, capabilities: true } }, organisation: { select: { slug: true, name: true, logoUrl: true, status: true } } },
       orderBy: { organisation: { name: "asc" } },
       take: MAX_SHELL_ORGANISATIONS,
     }),
@@ -33,6 +36,10 @@ export async function getAppShellData(userId: string): Promise<{ user: ShellUser
 
   return {
     user: { name: user?.name ?? null, email: user?.email ?? null, image: user?.profileImageUrl ?? user?.image ?? null },
-    organisations: teams.map(({ role, organisation }) => ({ ...organisation, role })),
+    organisations: teams.map(({ unitId, orgRole, organisation }) => ({
+      ...organisation,
+      roleName: orgRole.name,
+      capabilities: CAPABILITY_LIST.filter((capability) => can({ orgRole, unitId }, capability)),
+    })),
   };
 }

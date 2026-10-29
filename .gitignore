@@ -28,6 +28,8 @@ Desktop.ini
 
 # next.js
 /.next/
+# worker and beat bundles (npm run build:jobs)
+/dist/
 /out/
 
 # production
@@ -65,13 +67,7 @@ temp/
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
-!.env.staging.example
 !.env.production.example
-
-# Cloudflare Worker (deploy/cloudflare-cron) local state
-deploy/cloudflare-cron/node_modules/
-.wrangler/
-.dev.vars
 
 # direnv
 .direnv/

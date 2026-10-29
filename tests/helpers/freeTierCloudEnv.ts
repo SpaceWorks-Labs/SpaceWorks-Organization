@@ -24,7 +24,7 @@ export function freeTierCloudEnv(): Record<string, string> {
     SMTP_SECURE: "false",
     SMTP_USER: "123abc001@smtp-brevo.com",
     SMTP_PASSWORD: "xsmtpsib-fake-key",
-    S3_BUCKET: "spaceworks-events",
+    S3_BUCKET: "spaceworks-organization",
     S3_REGION: "auto",
     S3_ENDPOINT: "https://0123456789abcdef0123456789abcdef.r2.cloudflarestorage.com",
     S3_ACCESS_KEY_ID: "fake-r2-access-key-id",

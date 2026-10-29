@@ -6,7 +6,7 @@
 import type { FinanceTaxDocument, TaxDocumentKind } from "./types";
 import type { Window } from "./revenue";
 
-export type SeriesCheck = {
+type SeriesCheck = {
   series: string;
   financialYear: string;
   kinds: TaxDocumentKind[];
@@ -59,7 +59,7 @@ export function documentsIn(documents: FinanceTaxDocument[], window: Window): Fi
 }
 
 /** GSTR-1 Table 13 "nature of document" for each kind we issue. */
-export const TABLE13_NATURE: Record<TaxDocumentKind, string> = {
+const TABLE13_NATURE: Record<TaxDocumentKind, string> = {
   TAX_INVOICE: "Invoices for outward supply",
   BILL_OF_SUPPLY: "Invoices for outward supply",
   RECEIPT: "Receipt voucher",

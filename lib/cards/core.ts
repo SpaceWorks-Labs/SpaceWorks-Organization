@@ -1,4 +1,5 @@
 import { formatCalendarDate, lastValidDay } from "@/lib/membership/periods";
+import { LIFETIME_VALIDITY } from "./types";
 
 /*
  * Member card rules shared by the server, the dashboard and tests: card numbers, verify tokens and
@@ -26,14 +27,10 @@ export function verifyPath(token: string) {
 
 /** The last valid day as printed ("31 Mar 2027"), or "Lifetime" for a term with no end. */
 export function formatValidUntil(endsAt: Date | null | undefined, timeZone: string) {
-  return endsAt ? formatCalendarDate(lastValidDay(endsAt, timeZone)) : "Lifetime";
+  return endsAt ? formatCalendarDate(lastValidDay(endsAt, timeZone)) : LIFETIME_VALIDITY;
 }
 
-/** Why a card stopped being valid. REISSUED cards were replaced by a newer card for the same plan. */
-export const CARD_REVOKE_REASONS = ["REISSUED", "REVOKED", "MEMBERSHIP_ENDED"] as const;
-export type CardRevokeReason = (typeof CARD_REVOKE_REASONS)[number];
-
-export type CardState = "live" | "replaced" | "revoked";
+type CardState = "live" | "replaced" | "revoked";
 
 export function cardState(card: { revokedAt: Date | null; revokedReason: string | null }): CardState {
   if (!card.revokedAt) return "live";

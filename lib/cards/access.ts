@@ -3,12 +3,14 @@ import "server-only";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { can, organisationAllows } from "@/lib/permissionRoles";
+import { getMembership, hasAuthenticator } from "@/lib/permissions";
 import { teamScope, unitInScope } from "@/lib/membership/scope";
 
 /*
- * Who may download a card: a team member of the card's organisation who can see members and whose
- * unit scope includes the member, or the member themself (their linked account, or an account whose
- * verified email is the member's email). Everyone else gets the same 404.
+ * Who may download a card: a team member of the card's organisation who manages cards (as bulk downloads require)
+ * or sees members' contact details, uses an authenticator (as every staff route requires) and whose unit scope
+ * includes the member, or the member themself (their linked account, or an account whose verified email is the
+ * member's email). Everyone else gets the same 404.
  */
 
 export type CardViewer = { userId: string; as: "team" | "member" };
@@ -34,8 +36,8 @@ export async function authorizeCardAccess(cardId: string): Promise<CardViewer | 
   });
   if (!card || card.member.anonymisedAt) return null;
 
-  const membership = await prisma.teamMember.findUnique({ where: { userId_organisationId: { userId, organisationId: card.organisationId } } });
-  if (membership && organisationAllows(card.organisation.status, "members.view") && can(membership.role, "members.contact")) {
+  const membership = await getMembership(userId, card.organisationId);
+  if (membership && organisationAllows(card.organisation.status, "members.view") && (can(membership, "cards.manage") || can(membership, "members.contact")) && (await hasAuthenticator(userId))) {
     const scope = await teamScope(card.organisationId, membership.unitId);
     if (unitInScope(scope, card.member.unit?.path ?? null)) return { userId, as: "team" };
   }

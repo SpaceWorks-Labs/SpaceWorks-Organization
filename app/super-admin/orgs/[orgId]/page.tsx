@@ -12,7 +12,6 @@ import { OrganisationDecisionPanel } from "@/components/super-admin/Organisation
 import { OrganisationLimitsForm } from "@/components/super-admin/OrganisationLimitsForm";
 import { OwnerInviteResend } from "@/components/super-admin/OwnerInviteResend";
 import { OrganisationVisibilityToggle } from "@/components/super-admin/OrganisationVisibilityToggle";
-import { ROLE_LABELS } from "@/lib/permissionRoles";
 import { Chip, OrgLogo, StatTile } from "@/components/ui/display";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 
@@ -24,8 +23,8 @@ export default async function SuperAdminOrgDetailPage({ params }: Props) {
   await requireSuperAdmin();
   const { org, reviews, members, invites, assetStats, auditEvents, now } = await loadSuperAdminOrgDetailView({ params });
   const address = [org.addressLine, org.city, indianStateName(org.stateCode), org.postalCode].filter(Boolean).join(", ");
-  const hasOwner = members.some((m) => m.role === "OWNER");
-  const ownerInviteEmail = invites.find((invite) => invite.role === "OWNER" && invite.email)?.email ?? "";
+  const hasOwner = members.some((m) => m.orgRole.isOwner);
+  const ownerInviteEmail = invites.find((invite) => invite.orgRole.isOwner && invite.email)?.email ?? "";
   return (
     <div className="flex flex-col gap-6">
       <header className="flex flex-col gap-4">
@@ -48,9 +47,12 @@ export default async function SuperAdminOrgDetailPage({ params }: Props) {
           <Chip tone="outline">{`${org._count.teamMembers} on the team`}</Chip>
           {org.visibility === "PUBLIC" ? <Chip tone="outline">Listed publicly</Chip> : null}
         </div>
-        {org.status === "ACTIVE" ? (
-          <LinkRow links={[{ href: `/o/${org.slug}`, label: "Public page" }, { href: `/dashboard/${org.slug}`, label: "Organisation dashboard" }]} />
-        ) : null}
+        {/* Platform access: a super admin opens any organisation's dashboard as its owner (audited). */}
+        <LinkRow links={[
+          ...(org.status === "ACTIVE" ? [{ href: `/o/${org.slug}`, label: "Public page" }] : []),
+          { href: `/dashboard/${org.slug}`, label: "Organisation dashboard" },
+          { href: `/super-admin/orgs/${org.id}/analytics`, label: "Analytics" },
+        ]} />
       </header>
 
       <OrganisationDecisionPanel organisationId={org.id} status={org.status} />
@@ -101,7 +103,7 @@ export default async function SuperAdminOrgDetailPage({ params }: Props) {
               members.map((m) => (
                 <TR key={m.id}>
                   <TD><NameCell href={`/super-admin/users/${m.user.id}`} name={m.user.name ?? m.user.email ?? "—"} sub={m.user.email ?? undefined} /></TD>
-                  <TD><Chip size="sm" tone={m.role === "OWNER" ? "ink" : "neutral"}>{ROLE_LABELS[m.role]}</Chip></TD>
+                  <TD><Chip size="sm" tone={m.orgRole.isOwner ? "ink" : "neutral"}>{m.orgRole.name}</Chip></TD>
                   <TD className="whitespace-nowrap text-ink-secondary">{m.createdAt.toLocaleDateString("en-GB")}</TD>
                 </TR>
               ))
@@ -126,7 +128,7 @@ export default async function SuperAdminOrgDetailPage({ params }: Props) {
             ) : (
               invites.map((invite) => (
                 <TR key={invite.id}>
-                  <TD>{ROLE_LABELS[invite.role]}</TD>
+                  <TD>{invite.orgRole.name}</TD>
                   <TD className="text-sm">{invite.email ?? "Anyone with the link"}</TD>
                   <TD>{invite.usedAt ? `Used by ${invite.usedBy?.email ?? "someone"}` : invite.expiresAt && invite.expiresAt <= now ? "Expired" : "Open"}</TD>
                   <TD className="whitespace-nowrap text-ink-secondary">{invite.createdAt.toLocaleDateString("en-GB")}</TD>

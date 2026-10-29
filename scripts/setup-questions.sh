@@ -120,10 +120,10 @@ setup_summary() {
     "$SETUP_SOCIAL_PROVIDERS" "$([[ -n "$GOOGLE_CLIENT_ID" ]] && echo configured || echo later)" "$([[ -n "$GITHUB_CLIENT_ID" ]] && echo configured || echo later)"
   printf '  GitHub repository: %s; install GitHub Actions runner: %s\n' "$SWO_REPOSITORY" "$INSTALL_RUNNER"
   echo "  migrate builds the database tables. It runs once and stops. It's required."
-  echo "  scheduler sends email, runs the membership sweep and clears expired data, once a minute."
+  echo "  worker sends email and runs background jobs; beat schedules them (membership sweep and outbox every minute)."
   local services='PostgreSQL 16 (TLS), Redis 7 (TLS)'
   [[ "$STORAGE" != 1 ]] || services+=', Silo storage (TLS, bucket initializer)'
-  services+=', app, scheduler'
+  services+=', app, worker, beat'
   [[ "$HTTPS_MODE" == 3 ]] || services+=', Caddy web edge'
   echo "  Will run: $services; one-shot migrations."
   case "$HTTPS_MODE" in

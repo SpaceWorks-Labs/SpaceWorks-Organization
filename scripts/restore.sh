@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Restore the database from a dump in backups/ (and, with --with-storage, the files
-# from backups/storage). This replaces live data: the backend, scheduler and web
+# from backups/storage). This replaces live data: the backend, worker, beat and web
 # edge stop until it finishes, and a fresh database backup is taken first.
 #   bash scripts/restore.sh backups/<name>.sql.gz [--with-storage] [--yes]
 # Migrations then bring an older dump up to the running release.

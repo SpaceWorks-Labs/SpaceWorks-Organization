@@ -12,6 +12,7 @@ import { requireSuperAdmin } from "@/lib/permissions";
 import { isReviewDecision, REVIEW_DECISIONS } from "@/lib/organisationLifecycle";
 import { applicationSnapshot, notifyOwners, organisationApplicationSchema, releaseHeldSlug } from "@/lib/organisations";
 import { enqueueOutbox } from "@/lib/outbox";
+import { createStarterRoles, ownerRole } from "@/lib/team/roles";
 import type { ActionResult } from "./org";
 import { flattenZodErrors } from "./utils";
 
@@ -126,9 +127,10 @@ export async function createOrganisationForOwner(input: unknown): Promise<Action
       await tx.organisationReview.create({
         data: { organisationId: created.id, action: "CREATED", actorUserId: session.user.id, applicationSnapshot: applicationSnapshot(application) },
       });
+      const roles = await createStarterRoles(tx, created.id);
       const expiresAt = new Date(Date.now() + OWNER_INVITE_DAYS * 24 * 60 * 60_000);
       const invite = await tx.teamInvite.create({
-        data: { organisationId: created.id, token: crypto.randomBytes(24).toString("base64url"), role: "OWNER", email: ownerEmail, createdByUserId: session.user.id, expiresAt },
+        data: { organisationId: created.id, token: crypto.randomBytes(24).toString("base64url"), role: "OWNER", roleId: roles.OWNER.id, email: ownerEmail, createdByUserId: session.user.id, expiresAt },
         select: { id: true, token: true },
       });
       await enqueueOutbox(tx, "owner-invite", { to: ownerEmail, organisationId: created.id, token: invite.token, expiresAt: expiresAt.toISOString() });
@@ -153,16 +155,17 @@ export async function resendOwnerInvite(input: unknown): Promise<ActionResult> {
   const parsed = z.object({ organisationId: z.string().trim().min(1).max(64), ownerEmail: z.string().trim().toLowerCase().email("Enter the owner's email address").max(320) }).safeParse(input);
   if (!parsed.success) return { ok: false, error: "Check the highlighted fields.", fieldErrors: flattenZodErrors(parsed.error) };
   const { organisationId, ownerEmail } = parsed.data;
-  const organisation = await prisma.organisation.findUnique({ where: { id: organisationId }, select: { id: true, _count: { select: { teamMembers: { where: { role: "OWNER" } } } } } });
+  const organisation = await prisma.organisation.findUnique({ where: { id: organisationId }, select: { id: true, _count: { select: { teamMembers: { where: { orgRole: { is: { isOwner: true } } } } } } } });
   if (!organisation) return { ok: false, error: "Organisation not found." };
   if (organisation._count.teamMembers > 0) return { ok: false, error: "This organisation already has an owner. They can invite others from the Team page." };
 
   const expiresAt = new Date(Date.now() + OWNER_INVITE_DAYS * 24 * 60 * 60_000);
   await prisma.$transaction(async (tx) => {
     // Only one owner invite stays usable.
-    await tx.teamInvite.deleteMany({ where: { organisationId, role: "OWNER", usedAt: null } });
+    await tx.teamInvite.deleteMany({ where: { organisationId, orgRole: { is: { isOwner: true } }, usedAt: null } });
+    const owner = await ownerRole(tx, organisationId);
     const invite = await tx.teamInvite.create({
-      data: { organisationId, token: crypto.randomBytes(24).toString("base64url"), role: "OWNER", email: ownerEmail, createdByUserId: session.user.id, expiresAt },
+      data: { organisationId, token: crypto.randomBytes(24).toString("base64url"), role: "OWNER", roleId: owner.id, email: ownerEmail, createdByUserId: session.user.id, expiresAt },
       select: { id: true, token: true },
     });
     await enqueueOutbox(tx, "owner-invite", { to: ownerEmail, organisationId, token: invite.token, expiresAt: expiresAt.toISOString() });

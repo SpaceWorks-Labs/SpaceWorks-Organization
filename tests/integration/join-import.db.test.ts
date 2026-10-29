@@ -7,8 +7,9 @@ vi.mock("@/lib/actionRateLimit", () => ({ isActionRateLimited: async () => false
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { prisma } from "@/lib/db";
+import { addStaff } from "../helpers/staff";
 import { createMemberInvite, submitJoin } from "@/app/actions/join";
-import { commitMemberImport } from "@/app/actions/member-import";
+import { commitMemberImport, previewMemberImport } from "@/app/actions/member-import";
 
 const suffix = randomUUID().replace(/-/g, "").slice(0, 10);
 const people: Record<string, { id: string; email: string }> = {};
@@ -30,14 +31,14 @@ beforeAll(async () => {
   }
   const org = await prisma.organisation.create({ data: { name: "Kunj-Company", slug, status: "ACTIVE", unitLevels: ["Chapter"] } });
   orgId = org.id;
-  const kochi = await prisma.orgUnit.create({ data: { organisationId: orgId, name: "Kochi", slug: "kochi", path: "x" } });
+  const kochi = await prisma.orgUnit.create({ data: { organisationId: orgId, name: "Kochi", slug: "kochi", code: "KOCHI", path: "x" } });
   await prisma.orgUnit.update({ where: { id: kochi.id }, data: { path: kochi.id } });
-  const blr = await prisma.orgUnit.create({ data: { organisationId: orgId, name: "Bengaluru", slug: "bengaluru", path: "x" } });
+  const blr = await prisma.orgUnit.create({ data: { organisationId: orgId, name: "Bengaluru", slug: "bengaluru", code: "BLR", path: "x" } });
   await prisma.orgUnit.update({ where: { id: blr.id }, data: { path: blr.id } });
   unitKochi = kochi.id;
   unitBangalore = blr.id;
-  await prisma.teamMember.create({ data: { organisationId: orgId, userId: people.owner.id, role: "OWNER" } });
-  await prisma.teamMember.create({ data: { organisationId: orgId, userId: people.regional.id, role: "ADMIN", unitId: kochi.id } });
+  await addStaff(orgId, people.owner.id, "OWNER");
+  await addStaff(orgId, people.regional.id, "ADMIN", kochi.id);
   await prisma.membershipPlan.createMany({
     data: [
       { organisationId: orgId, name: "Open", slug: "open", joinMode: "OPEN" },
@@ -63,6 +64,25 @@ describe.sequential("joining", () => {
     const member = await prisma.member.findFirstOrThrow({ where: { organisationId: orgId, userId: people.shaan.id }, include: { consents: true } });
     expect(member.email).toBe(people.shaan.email);
     expect(member.consents).toHaveLength(1);
+  });
+
+  it("sends a paid joiner to their account's pay page, or to a signed pay link without member accounts", async () => {
+    await prisma.membershipPlan.create({ data: { organisationId: orgId, name: "Paid", slug: "paid", joinMode: "OPEN", priceNewMinor: 50_000 } });
+    signIn("stranger");
+    const withAccounts = await submitJoin({ organisationSlug: slug, planSlug: "paid", consent: true, profile: profile("Stranger One") });
+    expect(withAccounts).toMatchObject({ ok: true, data: { status: "PENDING_PAYMENT", accountUrl: "/account" } });
+    if (withAccounts.ok) expect(withAccounts.data!.payUrl).toBe(`/account/pay/${withAccounts.data!.termId}`);
+    await prisma.organisation.update({ where: { id: orgId }, data: { memberPortal: false } });
+    vi.stubEnv("AUTH_SECRET", "a".repeat(48));
+    try {
+      signIn("owner");
+      const without = await submitJoin({ organisationSlug: slug, planSlug: "paid", consent: true, profile: profile("Owner Member") });
+      expect(without).toMatchObject({ ok: true, data: { status: "PENDING_PAYMENT", accountUrl: `/o/${slug}` } });
+      if (without.ok) expect(without.data!.payUrl).toMatch(/^\/pay\/[A-Za-z0-9_.-]+$/);
+    } finally {
+      vi.unstubAllEnvs();
+      await prisma.organisation.update({ where: { id: orgId }, data: { memberPortal: true } });
+    }
   });
 
   it("needs a unit when the organisation uses units, and consent", async () => {
@@ -118,5 +138,21 @@ describe.sequential("importing", () => {
     expect(result).toMatchObject({ ok: true, data: { created: 1 } });
     if (result.ok) expect(result.data!.skipped).toEqual([{ row: 3, reason: "Outside your unit" }]);
     expect(unitBangalore).toBeTruthy();
+  });
+
+  it("never takes over a member filed outside a region manager's unit, in the preview or any import mode", async () => {
+    signIn("regional");
+    // Filed in Bengaluru by the owner's import above; the row would move them into Kochi.
+    const email = `ajzal-${suffix}@example.test`;
+    const request = { organisationSlug: slug, mapping: ["name", "email", "unit", "skip"], source: { kind: "csv", text: csv([`Taken Over,${email},Kochi,`]) } };
+    expect(await previewMemberImport(request)).toMatchObject({ ok: true, data: { ready: 0, problems: [{ row: 2, reason: "Outside your unit" }] } });
+    const plan = await prisma.membershipPlan.findFirstOrThrow({ where: { organisationId: orgId, slug: "open" } });
+    for (const membership of ["none", "start", "verify"] as const) {
+      const result = await commitMemberImport({ ...request, planId: plan.id, membership });
+      expect(result).toMatchObject({ ok: true, data: { created: 0, updated: 0, waiting: 0, skipped: [{ row: 2, reason: "Outside your unit" }] } });
+    }
+    const member = await prisma.member.findFirstOrThrow({ where: { organisationId: orgId, email }, include: { terms: true } });
+    expect(member).toMatchObject({ name: "Ajzal P", unitId: unitBangalore });
+    expect(member.terms).toHaveLength(0);
   });
 });

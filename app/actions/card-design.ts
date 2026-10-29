@@ -22,10 +22,11 @@ const revalidatePath = trackedRevalidation(nextRevalidatePath);
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 /**
- * Card designs are organisation settings: owners and managers with organisation-wide access draft them;
- * only the owner (`cards.approve`) puts a design on members' cards.
+ * Card designs are organisation settings: staff with `cards.design` (org-wide to change, so `orgActionAccess`
+ * refuses unit staff) draft them; only the owner (`cards.approve`) puts a design on members' cards. Approval isn't
+ * org-wide to change by itself, so a grant limited to one unit is still refused here.
  */
-async function access(slug: unknown, capability: Capability = "org.settings") {
+async function access(slug: unknown, capability: Capability = "cards.design") {
   const result = await orgActionAccess(slug, capability);
   if (!result.ok) return result;
   if (result.membership.unitId) return { ok: false as const, error: "Only organisation-wide managers can change card designs." };

@@ -54,7 +54,15 @@ await check("app readiness (/api/health/db)", async () => {
   await response.body?.cancel();
   assert(response.ok);
 });
-await check("scheduler endpoint refuses requests without the secret", async () => {
+// The BullMQ worker and beat answer /health only while their Redis heartbeat is fresh.
+for (const role of ["worker", "beat"]) {
+  await check(`${role} is healthy (/health)`, async () => {
+    const response = await fetch(`http://${role}:${process.env.JOBS_HEALTH_PORT || 3460}/health`, { signal: AbortSignal.timeout(10_000) });
+    await response.body?.cancel();
+    assert(response.ok);
+  });
+}
+await check("internal job endpoint refuses requests without the secret", async () => {
   const response = await fetch("http://backend:3000/api/internal/outbox", { method: "POST", signal: AbortSignal.timeout(10_000) });
   await response.body?.cancel();
   assert(response.status === 404);

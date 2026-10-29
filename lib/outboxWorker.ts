@@ -11,7 +11,8 @@ import { runMembershipSweep } from "@/lib/membership/sweep";
 import { reconcileGatewayPayments } from "@/lib/payments/reconcile";
 import { reconcileGatewayRefunds } from "@/lib/payments/reconcileRefunds";
 import { queueMonthlyDigests } from "@/lib/reports/digest";
-import { kickCardExportJobs, runCardExportJobs } from "@/lib/cards/exportJobs";
+import { runExpiredBackfill } from "@/lib/reports/rollupBackfill";
+import { runStorageCleanup } from "@/lib/storage/cleanup";
 
 const OUTBOX_WORKER_INTERVAL_MS = 60_000;
 
@@ -26,11 +27,11 @@ function workerState() {
 }
 
 /**
- * Runs one complete delivery/retention pass and records its operational state. `awaitExports` is for the
- * cron endpoint: on a serverless host the process may stop once the request returns, so the card export
- * pass is waited for instead of left running in the background.
+ * One pass of every periodic job without Redis. Production runs the BullMQ `worker` and `beat` roles instead
+ * (lib/queue, where the same jobs are registered); this exists only for local development
+ * (JOBS_INPROCESS=true with no REDIS_URL).
  */
-export async function runOutboxScheduler(options: { awaitExports?: boolean } = {}) {
+export async function runOutboxScheduler() {
   // Heartbeat persistence is observability, not part of the delivery commit.
   // A heartbeat-table issue must not stop otherwise healthy queue processing.
   await recordOutboxSchedulerStarted().catch(() => undefined);
@@ -41,9 +42,9 @@ export async function runOutboxScheduler(options: { awaitExports?: boolean } = {
     await reconcileGatewayRefunds().catch(() => console.error("[refunds reconcile] run failed"));
     await queueMonthlyDigests().catch(() => console.error("[report digest] run failed"));
     const result = await deliverOutboxBatch();
-    // Bulk card exports (background PDF/ZIP builds) run on their own, so a long render never holds this pass up.
-    if (options.awaitExports) await runCardExportJobs().catch(() => console.error("[card exports] run failed"));
-    else kickCardExportJobs();
+    await runExpiredBackfill().catch(() => console.error("[report rollup] expired backfill failed"));
+    // One-off 0.7 clean-ups in small chunks: stored card exports deleted, member photos moved per member.
+    await runStorageCleanup().catch(() => console.error("[storage cleanup] run failed"));
     const purged = await purgeExpiredOperationalData();
     await recordOutboxSchedulerSuccess(result).catch(() => undefined);
     return { ...result, purged };
@@ -53,10 +54,7 @@ export async function runOutboxScheduler(options: { awaitExports?: boolean } = {
   }
 }
 
-/**
- * Start one polling worker per Node.js process. Queue row claims make this safe
- * across replicas; the singleton guard avoids duplicate timers during dev HMR.
- */
+/** A one-minute timer in this process. Queue row claims make several processes safe; the guard stops HMR duplicates. */
 export function startOutboxWorker() {
   const runtime = workerState();
   if (runtime.__sweOutboxWorker?.started) return;
@@ -71,7 +69,7 @@ export function startOutboxWorker() {
       await runOutboxScheduler();
     } catch {
       // Failure metadata is persisted separately without exception text.
-      console.error("[outbox worker] scheduler run failed");
+      console.error("[outbox worker] in-process run failed");
     } finally {
       state.running = false;
     }

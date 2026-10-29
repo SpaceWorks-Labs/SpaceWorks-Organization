@@ -8,7 +8,7 @@ type Props = {
 export async function loadSuperAdminUserDetailView({ params }: Props) {
 
   // Layout checks don't re-run on client navigation, so every page checks too.
-  const session = await requireSuperAdmin();
+  await requireSuperAdmin();
   const { userId } = await params;
   const now = new Date();
 
@@ -39,7 +39,7 @@ export async function loadSuperAdminUserDetailView({ params }: Props) {
       where: { userId: user.id },
       orderBy: { createdAt: "desc" },
       take: 100,
-      select: { id: true, role: true, createdAt: true, organisation: { select: { id: true, name: true, slug: true } } },
+      select: { id: true, orgRole: { select: { name: true, isOwner: true } }, createdAt: true, organisation: { select: { id: true, name: true, slug: true } } },
     }),
     prisma.auditEvent.findMany({ where: { actorUserId: user.id }, orderBy: { createdAt: "desc" }, take: 20, select: auditRowSelect }),
   ]);
@@ -47,5 +47,5 @@ export async function loadSuperAdminUserDetailView({ params }: Props) {
   const displayName = user.name ?? user.email ?? "Unnamed user";
 
 
-  return { user, hasPassword, accounts, activeSessions, memberships, auditEvents, displayName, now, viewerId: session.user.id };
+  return { user, hasPassword, accounts, activeSessions, memberships, auditEvents, displayName, now };
 }

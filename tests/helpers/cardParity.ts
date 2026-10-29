@@ -23,7 +23,7 @@ async function pixels(image: Uint8Array | Buffer, height: number) {
 /** Compare the PDF of `scene` with the PNG of `pngScene` (the same scene unless a test wants them to differ). */
 export async function comparePdfToPng(scene: CardScene, pngScene: CardScene = scene) {
   const png = await renderCardPng(pngScene);
-  const pdf = await renderCardsPdf([scene], { layout: "card", title: "Parity" });
+  const pdf = await renderCardsPdf([[scene]], { layout: "card", title: "Parity" });
   const document = mupdf.Document.openDocument(pdf, "application/pdf");
   const page = document.loadPage(0);
   const raster = page.toPixmap(mupdf.Matrix.scale(300 / 72, 300 / 72), mupdf.ColorSpace.DeviceRGB, false, true).asPNG();

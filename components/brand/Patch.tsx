@@ -1,6 +1,6 @@
 import { cn } from "@/lib/cn";
 
-export type PatchPose = "idle" | "sneeze" | "walk";
+type PatchPose = "idle" | "sneeze" | "walk";
 
 /** Native frame sizes of the artwork in public/brand/patch/ (never shown larger than this). */
 export const PATCH_FRAME = { pose: 272, walk: { width: 256, height: 176 } } as const;

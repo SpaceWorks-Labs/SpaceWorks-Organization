@@ -13,7 +13,7 @@ import type { FinancePayment, FinancePaymentLine, FinanceRefund } from "./types"
  * the identity above holds to the paisa.
  */
 
-export type TermPeriod = { termId: string; startsAt: Date | null; endsAt: Date | null };
+type TermPeriod = { termId: string; startsAt: Date | null; endsAt: Date | null };
 
 export type SubscriptionIncome = {
   currency: string;

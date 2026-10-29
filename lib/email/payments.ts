@@ -8,8 +8,8 @@ import { documentAmount, renderDocumentPdf } from "@/lib/payments/pdf";
 import { absoluteUrl, sendBrandedEmail } from "./message";
 import { payLinkToken } from "@/lib/payments/payLink";
 
-export const PAYMENT_NOTICES = ["paid", "claim-received", "claim-rejected", "refunded"] as const;
-export type PaymentNotice = (typeof PAYMENT_NOTICES)[number];
+const PAYMENT_NOTICES = ["paid", "claim-received", "claim-rejected", "refunded"] as const;
+type PaymentNotice = (typeof PAYMENT_NOTICES)[number];
 type Payload = { organisationId: string; paymentId: string; notice: PaymentNotice };
 
 const isId = (value: unknown): value is string => typeof value === "string" && value.length > 0 && value.length <= 64;

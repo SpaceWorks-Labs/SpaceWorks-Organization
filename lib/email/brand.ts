@@ -16,7 +16,7 @@ export const EMAIL_COLORS = {
   line: "#E6DCCF",
 } as const;
 
-export const EMAIL_FONT = "Gilroy, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+const EMAIL_FONT = "Gilroy, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
 /** Inline style for a primary email button: teal fill, cream label, pill shape (as in the app). */
 export const EMAIL_BUTTON_STYLE = `background-color: ${EMAIL_COLORS.teal}; color: ${EMAIL_COLORS.cream}; padding: 14px 28px; border-radius: 9999px; text-decoration: none; font-weight: 700; font-size: 16px; display: inline-block;`;
@@ -30,7 +30,7 @@ function baseUrl(): string | null {
  * every side. Without a public address the hosted image cannot load, so the
  * header falls back to the "Space Works" wordmark text instead of a localhost link.
  */
-export function emailBrandHeader(): string {
+function emailBrandHeader(): string {
   const base = baseUrl();
   const mark = base
     ? `<img src="${base}/brand/logo/lockup-horizontal.png" width="180" height="29" alt="Space Works" style="display: inline-block; width: 180px; height: 29px; border: 0; outline: none; text-decoration: none;">`
@@ -38,7 +38,7 @@ export function emailBrandHeader(): string {
   return `<div style="background-color: ${EMAIL_COLORS.cream}; padding: 24px; text-align: center; border-bottom: 1px solid ${EMAIL_COLORS.line};">${mark}</div>`;
 }
 
-export function emailBrandFooter(): string {
+function emailBrandFooter(): string {
   return `<div style="background-color: ${EMAIL_COLORS.cream}; padding: 16px; text-align: center; font-size: 12px; line-height: 1.6; color: ${EMAIL_COLORS.inkMuted}; border-top: 1px solid ${EMAIL_COLORS.line};">
             This email was sent by Space Works Organization.<br>
             &copy; ${new Date().getFullYear()} Space Works

@@ -11,6 +11,9 @@ HOST_BUNDLE_FILES=(
   scripts/restore.sh scripts/runner-release.py scripts/setup-first-run.sh scripts/setup-question-input.sh
   scripts/setup-questions.sh scripts/setup-write-environment.sh scripts/spaceworks-compose.sh
   scripts/spaceworks-repository.sh scripts/update-lock.sh scripts/update-rollback.sh scripts/update.sh
+  scripts/vps-lib.sh scripts/vps-offsite-lib.sh scripts/vps-status.sh scripts/vps-backup-settings.sh
+  scripts/vps-offsite-backup.sh scripts/vps-reconfigure.sh scripts/vps-harden.sh scripts/vps-recover.sh
+  scripts/vps-support.sh scripts/vps-uninstall.sh scripts/vps-renew-certs.sh
 )
 
 install_staged_host_bundle() {

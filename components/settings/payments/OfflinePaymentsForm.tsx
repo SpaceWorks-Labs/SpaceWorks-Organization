@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/display";
 import { Field, Input, Textarea } from "@/components/ui/field";
 
-export type OfflineValues = { upiVpa: string; upiPayeeName: string; offlineInstructions: string };
+type OfflineValues = { upiVpa: string; upiPayeeName: string; offlineInstructions: string };
 
 /** What members see when they pay directly: a UPI QR and free-form bank or cash instructions. */
 export function OfflinePaymentsForm({ slug, initial, canEdit }: { slug: string; initial: OfflineValues; canEdit: boolean }) {

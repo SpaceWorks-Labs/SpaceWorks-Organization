@@ -3,6 +3,7 @@ import { TERM_STATUS_LABELS, type TermStatus } from "@/lib/membership/lifecycle"
 /** Plain words for why a membership changed, as the member reads it in their history. Client-safe. */
 const CAUSES: Record<string, string> = {
   applied: "You applied",
+  "sent-to-verify": "Added by the organisation, waiting to be verified",
   "renewal-started": "Renewal started",
   approved: "Approved",
   paid: "Payment received",

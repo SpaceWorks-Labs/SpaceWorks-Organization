@@ -1,5 +1,5 @@
 import { deriveStatus, statusAt, type TermLike, type TermStatus } from "@/lib/membership/lifecycle";
-import { canRenewNow, lastValidDay, type CalendarDate } from "@/lib/membership/periods";
+import { canRenewNow, lastValidDay, renewalStartDay, termWindow, type CalendarDate } from "@/lib/membership/periods";
 
 /**
  * What the member wallet shows for one membership (a member's terms on one plan) and which actions it
@@ -15,6 +15,9 @@ export type WalletPlan = {
   renewalWindowDays: number;
   joinMode: "OPEN" | "APPROVAL" | "INVITE_ONLY" | "CLOSED";
   archivedAt: Date | null;
+  /** Without these (not selected), a fixed-end plan's end date is not checked here; startRenewal still is. */
+  fixedEndDate: Date | null;
+  lateRenewalBackdate: boolean;
 };
 
 export type WalletState = {
@@ -61,7 +64,11 @@ export function walletState(chain: WalletTerm[], plan: WalletPlan, args: { now: 
   const blocked = Boolean(derived.pending || derived.upcoming);
   const renewable = live && plan.durationType !== "LIFETIME" && Boolean(current?.endsAt);
   const windowOpen = renewable && canRenewNow(current!.endsAt, current!.graceUntil, plan.renewalWindowDays, now);
-  const opensAt = renewable && !windowOpen && current!.endsAt ? new Date(current!.endsAt.getTime() - plan.renewalWindowDays * DAY_MS) : null;
+  // A fixed-end plan can't renew once the next term would start after its last day.
+  const backdate = { lateRenewalBackdate: plan.lateRenewalBackdate };
+  const pastFixedEnd = renewable && plan.durationType === "FIXED_END"
+    && !termWindow({ ...backdate, durationType: "FIXED_END", fixedEndDate: plan.fixedEndDate, graceDays: 0, renewalWindowDays: 0 }, renewalStartDay(current!, backdate, now, timeZone), timeZone, 1);
+  const opensAt = renewable && !pastFixedEnd && !windowOpen && current!.endsAt ? new Date(current!.endsAt.getTime() - plan.renewalWindowDays * DAY_MS) : null;
 
   const withdrawable = derived.pending ?? derived.upcoming;
   const withdrawKind = withdrawable ? (withdrawable.kind === "RENEWAL" ? "renewal" : "application") : null;
@@ -74,7 +81,7 @@ export function walletState(chain: WalletTerm[], plan: WalletPlan, args: { now: 
     daysLeft,
     renewalOpensAt: opensAt && opensAt > now ? opensAt : null,
     actions: {
-      renew: offered && windowOpen && !blocked,
+      renew: offered && windowOpen && !blocked && !pastFixedEnd,
       rejoin: offered && !blocked && REJOINABLE.has(derived.status) && (plan.joinMode === "OPEN" || plan.joinMode === "APPROVAL"),
       payTermId: pendingStatus === "PENDING_PAYMENT" ? derived.pending!.id : current && args.unpaidLive?.has(current.id) ? current.id : null,
       withdrawTermId: withdrawable?.id ?? null,

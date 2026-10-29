@@ -2,81 +2,62 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { TeamRole } from "@prisma/client";
 import { updateTeamRole, removeTeamMember } from "@/app/actions/team";
 import { useToast } from "@/components/feedback/ToastProvider";
 import { ConfirmationDialog } from "@/components/feedback/ConfirmationDialog";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/ui/display";
 import { Dropdown } from "@/components/ui/field";
-import { ROLE_LABELS } from "@/components/team/memberSummary";
-import { canManageTeamMember } from "@/lib/permissionRoles";
+import { grantLabel, type TeamMemberRow, type TeamRoleOption } from "@/components/team/memberSummary";
 
-const ROLE_TONES = { OWNER: "ink", ADMIN: "warning", TREASURER: "info", VIEWER: "neutral" } as const satisfies Record<TeamRole, string>;
-
-/** Roles an actor may hand out: owners any non-owner role, admins treasurer and viewer. */
-const ASSIGNABLE: Array<"ADMIN" | "TREASURER" | "VIEWER"> = ["ADMIN", "TREASURER", "VIEWER"];
-
-export function MemberRoleActions(props: {
+/** A staff member's role: a picker of the roles the viewer may give at this person's reach, and removal. */
+export function MemberRoleActions({ organisationSlug, row, roleOptions }: {
   organisationSlug: string;
-  targetUserId: string;
-  role: TeamRole;
-  actorRole: TeamRole;
-  /** Used to label the role select and removal dialog for this row. */
-  memberName?: string;
+  row: TeamMemberRow;
+  roleOptions: TeamRoleOption[];
 }) {
-  const { organisationSlug, targetUserId, role, actorRole, memberName } = props;
   const router = useRouter();
   const { showToast } = useToast();
   const [pending, startTransition] = useTransition();
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const memberName = row.name ?? row.email ?? undefined;
 
-  const canEditRoles = role !== "OWNER" && canManageTeamMember(actorRole, role);
-  const canRemove = role !== "OWNER" && canManageTeamMember(actorRole, role);
-  const options = ASSIGNABLE.filter((option) => canManageTeamMember(actorRole, option));
-
-  if (!canEditRoles && !canRemove) {
-    return <Chip size="sm" tone={ROLE_TONES[role]}>{ROLE_LABELS[role]}</Chip>;
+  if (!row.manageable) {
+    return <Chip size="sm" tone={row.isOwner ? "ink" : "neutral"}>{grantLabel(row.roleName, row.unitName)}</Chip>;
   }
+
+  const options = roleOptions.filter((option) => (row.unitId ? option.scoped : option.orgWide));
+  const current = options.some((option) => option.id === row.roleId) ? null : { id: row.roleId, name: row.roleName };
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {canEditRoles ? (
-        <Dropdown
-          aria-label={memberName ? `Role for ${memberName}` : "Role"}
-          value={role}
-          disabled={pending}
-          className="w-auto min-w-[120px] py-2 text-sm"
-          onChange={(e) => {
-            const next = e.target.value as "ADMIN" | "TREASURER" | "VIEWER";
-            startTransition(async () => {
-              const res = await updateTeamRole({
-                organisationSlug,
-                targetUserId,
-                role: next,
-              });
-              if (!res.ok) {
-                showToast(res.error, "error");
-                return;
-              }
-              showToast("Role updated", "success");
-              router.refresh();
-            });
-          }}
-        >
-          {options.map((option) => (
-            <option key={option} value={option}>{ROLE_LABELS[option]}</option>
-          ))}
-        </Dropdown>
-      ) : (
-        <Chip size="sm" tone={ROLE_TONES[role]}>{ROLE_LABELS[role]}</Chip>
-      )}
-      {canRemove ? (
-        <Button size="sm" variant="dangerQuiet" disabled={pending} onClick={() => setConfirmRemove(true)}>
-          Remove
-          {memberName ? <span className="sr-only"> {memberName}</span> : null}
-        </Button>
-      ) : null}
+      <Dropdown
+        aria-label={memberName ? `Role for ${memberName}` : "Role"}
+        value={row.roleId}
+        disabled={pending}
+        className="w-auto min-w-[120px] max-w-[200px] py-2 text-sm"
+        onChange={(e) => {
+          const roleId = e.target.value;
+          startTransition(async () => {
+            const res = await updateTeamRole({ organisationSlug, targetUserId: row.userId, roleId });
+            if (!res.ok) {
+              showToast(res.error, "error");
+              return;
+            }
+            showToast("Role updated", "success");
+            router.refresh();
+          });
+        }}
+      >
+        {current ? <option value={current.id} disabled>{current.name}</option> : null}
+        {options.map((option) => (
+          <option key={option.id} value={option.id}>{option.name}</option>
+        ))}
+      </Dropdown>
+      <Button size="sm" variant="dangerQuiet" disabled={pending} onClick={() => setConfirmRemove(true)}>
+        Remove
+        {memberName ? <span className="sr-only"> {memberName}</span> : null}
+      </Button>
       <ConfirmationDialog
         open={confirmRemove}
         title={memberName ? `Remove ${memberName} from the team?` : "Remove from the team?"}
@@ -86,10 +67,7 @@ export function MemberRoleActions(props: {
         onCancel={() => setConfirmRemove(false)}
         onConfirm={() => {
           startTransition(async () => {
-            const res = await removeTeamMember({
-              organisationSlug,
-              targetUserId,
-            });
+            const res = await removeTeamMember({ organisationSlug, targetUserId: row.userId });
             if (!res.ok) {
               showToast(res.error, "error");
               return;

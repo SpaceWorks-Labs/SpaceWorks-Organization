@@ -53,7 +53,8 @@ export default async function OrgMembersDirectoryPage({ params, searchParams }: 
                 Export
               </a>
             ) : null}
-            {view.canManageCards ? (
+            {/* A report drill-down narrows the list in ways the card download can't follow, so it waits for a plain filter. */}
+            {view.canManageCards && !view.drill ? (
               <CardExportButton
                 slug={org.slug}
                 filter={{ status: filter, planId: view.selected.plan || null, unitId: view.selected.unit || null, roleId: view.selected.role || null, q: view.q }}
@@ -102,8 +103,8 @@ export default async function OrgMembersDirectoryPage({ params, searchParams }: 
       <MemberFilters plans={view.plans} units={view.units} roles={view.roles} initial={{ q: view.q, ...view.selected }} />
 
       {counts.approval > 0 && filter !== "approval" && view.canManage ? (
-        <Callout tone="info" action={<Link href={query({ status: "approval", page: "" })} className={buttonClasses({ variant: "secondary", size: "sm" })}>Review</Link>}>
-          {counts.approval} {counts.approval === 1 ? "application is" : "applications are"} waiting for a decision.
+        <Callout tone="info" action={<Link href={query({ status: "approval", page: "" })} className={buttonClasses({ variant: "secondary", size: "sm" })}>Verify</Link>}>
+          {counts.approval} {counts.approval === 1 ? "person is" : "people are"} waiting for approval. Check their details, then verify or decline.
         </Callout>
       ) : null}
 

@@ -2,7 +2,6 @@ import { loadJoinOrganisationView } from "@/lib/views/app__join__org__token__pag
 import { AcceptInviteButton } from "@/components/invites/AcceptInviteButton";
 import { Chip, OrgLogo } from "@/components/ui/display";
 import type { Metadata } from "next";
-import { ROLE_LABELS } from "@/lib/permissionRoles";
 
 export const metadata: Metadata = { title: "Join organisation", robots: { index: false, follow: false }, referrer: "no-referrer" };
 
@@ -23,7 +22,7 @@ export default async function JoinOrganisationPage({ params }: { params: Promise
         <p className="text-sm text-ink-muted">You’ve been invited to join</p>
         <h1 className="text-h1 break-words text-ink">{invite.organisation.name}</h1>
       </div>
-      <Chip size="sm">as {invite.role === "ADMIN" || invite.role === "OWNER" ? "an" : "a"} {ROLE_LABELS[invite.role].toLowerCase()}</Chip>
+      <Chip size="sm">{invite.unit ? `${invite.orgRole.name} · ${invite.unit.name}` : invite.orgRole.name}</Chip>
       <p className="text-body-ui text-ink-secondary">Accept this single-use invitation to join the team.</p>
       <div className="w-full [&>div]:items-stretch [&_button]:w-full">
         <AcceptInviteButton token={token} />

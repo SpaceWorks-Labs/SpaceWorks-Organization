@@ -3,8 +3,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { statusAt } from "@/lib/membership/lifecycle";
 import { refreshGatewayPayment } from "@/lib/payments/checkout";
-import { gatewayTakes } from "@/lib/payments/config";
-import { paymentSecretsConfigured } from "@/lib/payments/secrets";
+import { loadPaymentGuidance } from "@/lib/payments/payGuidance";
 import { chargeLines, placeOfSupply, resolveTaxSnapshot, sumSplits } from "@/lib/payments/tax";
 import { currencyExponent, isCurrencyCode } from "@/lib/money/currencies";
 
@@ -24,7 +23,7 @@ export async function buildPayView(termId: string, organisationId: string, searc
     where: { id: termId },
     include: {
       plan: { select: { name: true, paymentTiming: true } },
-      member: { select: { name: true, email: true, stateCode: true, memberNumber: true } },
+      member: { select: { name: true, email: true, stateCode: true, memberNumber: true, unit: { select: { path: true } } } },
       organisation: { select: { id: true, name: true, slug: true, logoUrl: true, status: true, locale: true } },
       payments: { orderBy: { createdAt: "desc" }, take: 10, select: { id: true, status: true, provider: true, utr: true, note: true, paidAt: true, documents: { where: { kind: { not: "CREDIT_NOTE" } }, select: { id: true, number: true } } } },
     },
@@ -33,6 +32,7 @@ export async function buildPayView(termId: string, organisationId: string, searc
     prisma.orgTaxSettings.findUnique({ where: { organisationId: term.organisationId } }),
     prisma.orgPaymentSettings.findUnique({ where: { organisationId: term.organisationId } }),
   ]);
+  const guidance = await loadPaymentGuidance(term.organisationId, term.member.unit?.path, term.currency, settings);
   const snapshot = resolveTaxSnapshot(tax, term.currency);
   const lines = chargeLines({ renewal: term.kind === "RENEWAL", rejoining: false, priceMinor: term.priceMinor, joiningFeeMinor: term.joiningFeeMinor, planName: term.plan.name }, snapshot, placeOfSupply(term.member.stateCode, snapshot));
   const total = sumSplits(lines);
@@ -42,7 +42,7 @@ export async function buildPayView(termId: string, organisationId: string, searc
   const rejected = !checking ? term.payments.find((payment) => payment.provider === "OFFLINE" && payment.status === "FAILED" && payment.utr) ?? null : null;
   const payable = !paid && total.amountMinor > 0 && term.organisation.status === "ACTIVE"
     && (PAYABLE.has(status) || (term.plan.paymentTiming === "ACTIVATE_THEN_CHARGE" && ["UPCOMING", "ACTIVE", "GRACE"].includes(status)));
-  const online = Boolean(payable && settings && settings.provider !== "NONE" && settings.secretEncrypted && paymentSecretsConfigured() && gatewayTakes(settings.provider, term.currency));
+  const online = payable && !guidance.offlineOnly;
 
   let upiUri: string | null = null;
   if (payable && settings?.upiVpa && term.currency === "INR" && isCurrencyCode(term.currency)) {
@@ -59,7 +59,13 @@ export async function buildPayView(termId: string, organisationId: string, searc
     taxName: snapshot.taxName,
     payable,
     online: online && settings ? { provider: settings.provider as "RAZORPAY" | "STRIPE", testMode: settings.testMode } : null,
-    offline: payable && settings ? { upiVpa: term.currency === "INR" ? settings.upiVpa : null, upiUri, instructions: settings.offlineInstructions } : null,
+    // Offline ways to pay: the organisation's UPI QR, then the nearest unit's instructions (or the organisation's). When
+    // a unit has its own instructions the member pays the unit, so the organisation's QR isn't offered beside them.
+    offline: payable
+      ? guidance.fromUnit
+        ? { upiVpa: null, upiUri: null, instructions: guidance.instructions, unitName: guidance.unitName, offlineOnly: guidance.offlineOnly }
+        : { upiVpa: term.currency === "INR" ? settings?.upiVpa ?? null : null, upiUri, instructions: guidance.instructions, unitName: guidance.unitName, offlineOnly: guidance.offlineOnly }
+      : null,
     paid: paid ? { status: paid.status, document: paid.documents[0] ?? null } : null,
     checking: checking ? { utr: checking.utr } : null,
     rejected: rejected ? { utr: rejected.utr, note: rejected.note } : null,

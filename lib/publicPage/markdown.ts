@@ -15,13 +15,13 @@ export type MarkdownInline =
   | { type: "link"; href: string; children: MarkdownInline[] }
   | { type: "break" };
 
-export type MarkdownBlock =
+type MarkdownBlock =
   | { type: "heading"; level: 3 | 4; children: MarkdownInline[] }
   | { type: "paragraph"; children: MarkdownInline[] }
   | { type: "list"; ordered: boolean; items: MarkdownInline[][] }
   | { type: "quote"; children: MarkdownInline[] };
 
-export const MARKDOWN_MAX_LENGTH = 6000;
+const MARKDOWN_MAX_LENGTH = 6000;
 
 const TOKEN = /`([^`\n]+)`|\[([^\]\n]+)\]\(((?:[^()\s]|\([^()\s]*\))+)\)|\*\*([^*\n]+?)\*\*|\*([^*\n]+?)\*|(?<![A-Za-z0-9])_([^_\n]+?)_(?![A-Za-z0-9])|\n/g;
 
