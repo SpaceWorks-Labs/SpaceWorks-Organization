@@ -14,7 +14,7 @@ import { asRefundPayload, deliverRefundNotice } from "@/lib/email/refunds";
 import { asChatPayload, deliverChatNotice } from "@/lib/chat/notify";
 import { asLoginAlertPayload, asLoginCodePayload, deliverLoginAlert, deliverLoginCode } from "@/lib/email/loginSecurity";
 import { asOwnershipPayload, deliverOwnershipNotice } from "@/lib/team/ownershipEmail";
-import { asPhotoPurgePayload, purgeErasedMemberPhotos } from "@/lib/storage/memberPhotos";
+import { asLegacyPhotoPurgePayload, asPhotoPurgePayload, deleteFilesWithHistory, purgeErasedMemberPhotos } from "@/lib/storage/memberPhotos";
 
 /** What a handler reports after a delivery attempt. Throw to retry; throw PermanentOutboxError to give up. */
 export type DeliveryOutcome = "sent" | "dropped";
@@ -249,7 +249,18 @@ const memberPhotoPurge: OutboxKindHandler = {
   },
 };
 
-/** Every email the platform can send, plus the photo purge an erasure leaves behind. Add a kind here when a feature needs a new message. */
+const legacyPhotoPurge: OutboxKindHandler = {
+  // Not an email: a photo's file from before 0.7, deleted once the move to the member's own prefix commits.
+  capability: false,
+  async deliver(value) {
+    const payload = asLegacyPhotoPurgePayload(value);
+    if (!payload) throw new PermanentOutboxError();
+    await deleteFilesWithHistory(payload.keys);
+    return "sent";
+  },
+};
+
+/** Every email the platform can send, plus the photo purges an erasure or the photo move leaves behind. Add a kind here when a feature needs a new message. */
 export const OUTBOX_KINDS = {
   "password-reset": passwordReset,
   "email-verification": emailVerification,
@@ -270,6 +281,7 @@ export const OUTBOX_KINDS = {
   "login-alert": loginAlert,
   "ownership-transfer": ownershipTransfer,
   "member-photo-purge": memberPhotoPurge,
+  "legacy-photo-purge": legacyPhotoPurge,
 } satisfies Record<string, OutboxKindHandler>;
 
 export type OutboxKind = keyof typeof OUTBOX_KINDS;

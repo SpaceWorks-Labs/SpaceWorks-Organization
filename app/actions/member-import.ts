@@ -49,13 +49,16 @@ const previewSchema = z.object({
   mapping: z.array(z.string().max(80)).max(200).optional(),
 });
 
-/** The units and roles rows may name, the importer's reach and, for a scoped importer, where the file's existing members sit. */
+/**
+ * The units and roles rows may name, the importer's reach and where the file's existing members sit (a row
+ * without a unit keeps the member's own, which decides the importer's reach and the roles it may give).
+ */
 async function importContext(organisationId: string, unitId: string | null, rows: string[][], mapping: ImportTarget[]) {
   const scope = await teamScope(organisationId, unitId);
-  const emails = scope.unitPath ? rows.flatMap((cells) => {
+  const emails = rows.flatMap((cells) => {
     const row = readRow(cells, mapping);
     return "error" in row ? [] : [row.email];
-  }) : [];
+  });
   const [units, roles, existing] = await Promise.all([
     prisma.orgUnit.findMany({ where: { organisationId, archivedAt: null }, select: { id: true, name: true, slug: true, code: true, path: true } }),
     prisma.memberRole.findMany({ where: { organisationId, archivedAt: null }, select: { id: true, name: true, unit: { select: { path: true } } } }),
@@ -166,11 +169,12 @@ export async function commitMemberImport(input: unknown): Promise<ActionResult<C
             opened = true;
           }
         }
-        return { created: !existing, opened };
+        // A row without a unit keeps the member's own, and its leads verify them.
+        return { created: !existing, opened, unitPath: unit?.path ?? existing?.unit?.path ?? null };
       });
       if (outcome.created) created += 1;
       else updated += 1;
-      if (outcome.opened && mode === "verify") waiting.push(unit?.path ?? null);
+      if (outcome.opened && mode === "verify") waiting.push(outcome.unitPath);
     } catch (error) {
       skipped.push({ row: rowNumber, reason: error instanceof MembershipError ? error.message : "Couldn't be saved" });
     }

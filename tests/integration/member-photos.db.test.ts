@@ -119,7 +119,15 @@ describe.sequential("member photos", () => {
     for (let pass = 0; pass < 10 && (await prisma.member.count({ where: { organisationId: org.id, photoUrl: { contains: "/member-id-photos/" } } })); pass += 1) await migrateMemberPhotos(50);
     expect(await keyOf(members.unverified!)).toBe(target);
     expect(Buffer.from((await prisma.asset.findUniqueOrThrow({ where: { key: target } })).fileData!)).toEqual(Buffer.from([1, 2, 3, 4]));
+    // The old file's deletion was queued with the new URL, so a pass that stops here still deletes it later.
+    const jobs = await prisma.outboxMessage.findMany({ where: { kind: "legacy-photo-purge", payload: { path: ["organisationId"], equals: org.id } } });
+    expect(jobs.map((job) => job.payload)).toContainEqual({ organisationId: org.id, keys: [old] });
+    expect(await prisma.asset.findUnique({ where: { key: old } })).not.toBeNull();
+    for (const job of jobs) expect(await OUTBOX_KINDS["legacy-photo-purge"].deliver(job.payload, "test")).toBe("sent");
     expect(await prisma.asset.findUnique({ where: { key: old } })).toBeNull();
+    // Only this organisation's old-layout photos can be named in the job.
+    await expect(OUTBOX_KINDS["legacy-photo-purge"].deliver({ organisationId: org.id, keys: [target] }, "test")).rejects.toThrow();
+    await prisma.outboxMessage.deleteMany({ where: { id: { in: jobs.map((job) => job.id) } } });
     expect((await prisma.member.findUniqueOrThrow({ where: { id: members.asha! } })).photoUrl).toBeNull();
 
     const before = await prisma.asset.findMany({ where: { organisationId: org.id }, orderBy: { key: "asc" }, select: { key: true } });

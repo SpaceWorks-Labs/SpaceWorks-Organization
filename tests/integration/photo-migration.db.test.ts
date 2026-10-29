@@ -12,6 +12,7 @@ import { copyStoredObject, memberPhotoKey } from "@/lib/storage/memberPhotos";
 import { getPublicUrl } from "@/lib/storage";
 import { migrateMemberPhotos } from "@/lib/storage/photoMigration";
 import { runStorageCleanup } from "@/lib/storage/cleanup";
+import { OUTBOX_KINDS } from "@/lib/outboxKinds";
 
 const suffix = randomUUID().replace(/-/g, "").slice(0, 10);
 const realCopy = vi.mocked(copyStoredObject).getMockImplementation()!;
@@ -28,6 +29,13 @@ async function memberWithLegacyPhoto(name: string) {
 
 const photoOf = async (memberId: string) => (await prisma.member.findUniqueOrThrow({ where: { id: memberId } })).photoUrl;
 const asset = (key: string) => prisma.asset.findUnique({ where: { key } });
+
+/** Run the old-file deletions the moves queued, as the worker would. */
+async function deliverQueuedPurges() {
+  const jobs = await prisma.outboxMessage.findMany({ where: { kind: "legacy-photo-purge", payload: { path: ["organisationId"], equals: orgId } } });
+  for (const job of jobs) await OUTBOX_KINDS["legacy-photo-purge"].deliver(job.payload, "test");
+  await prisma.outboxMessage.deleteMany({ where: { id: { in: jobs.map((job) => job.id) } } });
+}
 
 beforeAll(async () => {
   orgId = (await prisma.organisation.create({ data: { name: "Photo Move Club", slug: `photo-move-${suffix}`, status: "ACTIVE" } })).id;
@@ -62,6 +70,7 @@ describe.sequential("moving member photos", () => {
     const photo = await memberWithLegacyPhoto("missing");
     vi.mocked(copyStoredObject).mockRejectedValue(Object.assign(new Error("The specified key does not exist."), { name: "NoSuchKey" }));
     await migrateMemberPhotos(50);
+    await deliverQueuedPurges();
     expect(await photoOf(photo.id)).toBeNull();
     expect(await asset(photo.key)).toBeNull();
     expect(await asset(photo.target)).toBeNull();
@@ -85,6 +94,7 @@ describe.sequential("moving member photos", () => {
     vi.mocked(copyStoredObject).mockImplementation(realCopy);
     for (let pass = 0; pass < 20 && (await photoOf(stuck.id)) !== getPublicUrl(stuck.target); pass += 1) await runStorageCleanup();
     expect(await photoOf(stuck.id)).toBe(getPublicUrl(stuck.target));
+    await deliverQueuedPurges();
     expect(await asset(stuck.key)).toBeNull();
   });
 

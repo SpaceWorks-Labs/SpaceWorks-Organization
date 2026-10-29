@@ -1,6 +1,7 @@
 import "server-only";
 
 import { prisma } from "@/lib/db";
+import { enqueueOutbox } from "@/lib/outbox";
 import { uploadKeyFromUrl } from "@/lib/uploadUrl";
 import { getPublicUrl } from "./index";
 import { copyStoredObject, deleteFilesWithHistory, memberPhotoKey } from "./memberPhotos";
@@ -9,7 +10,8 @@ import { copyStoredObject, deleteFilesWithHistory, memberPhotoKey } from "./memb
  * One-off move of member photos from organisations/<org>/member-id-photos/<uuid>.webp to the per-member
  * layout organisations/<org>/members/<member>/photo-<uuid>.webp, a few members per scheduler pass. The new
  * key keeps the old uuid, so a pass cut off half way repeats the same copy; Member.photoUrl changes only
- * while it still points at the old file, and the old object and Asset row go last. Safe to run any number
+ * while it still points at the old file, in the transaction that queues the old object's deletion (a
+ * `legacy-photo-purge` outbox job, retried until storage agrees). Safe to run any number
  * of times: once no photo is left in the old layout it finds nothing. Passes walk the members by id from
  * `after` (the caller keeps the cursor), so a photo that keeps failing is passed over until the next full pass.
  */
@@ -56,7 +58,12 @@ async function moveOne(member: { id: string; organisationId: string; photoUrl: s
       })
     : false;
   const newUrl = copied ? getPublicUrl(newKey!) : null;
-  const { count } = await prisma.member.updateMany({ where: { id: member.id, photoUrl: oldUrl }, data: { photoUrl: newUrl } });
+  // The old file's deletion is queued with the new URL, so it is retried until storage agrees even if this pass stops.
+  const count = await prisma.$transaction(async (tx) => {
+    const { count } = await tx.member.updateMany({ where: { id: member.id, photoUrl: oldUrl }, data: { photoUrl: newUrl } });
+    if (count > 0 && usable) await enqueueOutbox(tx, "legacy-photo-purge", { organisationId: member.organisationId, keys: [oldKey!] });
+    return count;
+  });
   if (count === 0) {
     // Changed while we copied. Another instance may have moved the same photo to the same key, so the copy goes
     // only if it isn't the member's photo now.
@@ -64,6 +71,5 @@ async function moveOne(member: { id: string; organisationId: string; photoUrl: s
     if (copied && current?.photoUrl !== newUrl) await deleteFilesWithHistory([newKey!]);
     return false;
   }
-  if (usable) await deleteFilesWithHistory([oldKey!]);
   return copied;
 }

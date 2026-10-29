@@ -78,3 +78,14 @@ export async function purgeErasedMemberPhotos(payload: PhotoPurgePayload) {
   await deleteMemberPhotos(payload.organisationId, payload.memberId);
   await deleteFilesWithHistory(payload.keys);
 }
+
+/** The outbox job the photo move queues with the new URL: the old file goes, retried until storage agrees. */
+export type LegacyPhotoPurgePayload = { organisationId: string; keys: string[] };
+
+export function asLegacyPhotoPurgePayload(value: unknown): LegacyPhotoPurgePayload | null {
+  const p = value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  if (!p || typeof p.organisationId !== "string" || !ID.test(p.organisationId) || !Array.isArray(p.keys) || p.keys.length === 0 || p.keys.length > 20) return null;
+  const prefix = `organisations/${p.organisationId}/member-id-photos/`;
+  if (!p.keys.every((key) => typeof key === "string" && key.startsWith(prefix) && key.length <= 1024)) return null;
+  return { organisationId: p.organisationId, keys: p.keys as string[] };
+}

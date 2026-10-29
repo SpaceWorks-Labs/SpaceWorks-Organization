@@ -114,6 +114,13 @@ describe.sequential("joining a plan limited to an area", () => {
     expect(verified.standing).not.toBeNull();
     expect(verified).toMatchObject({ presetUnitId: units.varkala.id, unitNotOffered: null });
     expect(await view("north-only")).toMatchObject({ presetUnitId: null, unitNotOffered: "varkala" });
+    // A member keeps an archived unit: a plan open to every unit is still offered to them.
+    await prisma.orgUnit.update({ where: { id: units.varkala.id }, data: { archivedAt: new Date() } });
+    try {
+      expect(await view("open")).toMatchObject({ unitNotOffered: null });
+    } finally {
+      await prisma.orgUnit.update({ where: { id: units.varkala.id }, data: { archivedAt: null } });
+    }
   });
 });
 

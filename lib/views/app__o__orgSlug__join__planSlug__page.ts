@@ -28,10 +28,10 @@ export async function loadJoinView({ params, searchParams }: { params: Promise<{
   const inviteState = !inviteToken ? "none" : !invite || invite.revokedAt || invite.uses >= invite.maxUses || (invite.expiresAt && invite.expiresAt <= now) ? "unusable" : invite.email && user?.email && invite.email !== user.email.toLowerCase() ? "other-email" : "ok";
 
   let standing: string | null = null;
-  let memberUnit: { id: string; name: string } | null = null;
+  let memberUnit: { id: string; name: string; path: string } | null = null;
   // Member records are found only by a verified email.
   if (user?.email && user.emailVerified) {
-    const member = await prisma.member.findUnique({ where: { organisationId_email: { organisationId: org.id, email: user.email.toLowerCase() } }, select: { unit: { select: { id: true, name: true } }, terms: { where: { planId: plan.id } } } });
+    const member = await prisma.member.findUnique({ where: { organisationId_email: { organisationId: org.id, email: user.email.toLowerCase() } }, select: { unit: { select: { id: true, name: true, path: true } }, terms: { where: { planId: plan.id } } } });
     if (member?.terms.length) standing = deriveStatus(member.terms, now).status;
     memberUnit = member?.unit ?? null;
   }
@@ -59,8 +59,9 @@ export async function loadJoinView({ params, searchParams }: { params: Promise<{
     inviteToken: inviteState === "ok" ? inviteToken! : null,
     inviteState,
     presetUnitId,
-    // Joining never moves a member, so a plan not offered in their unit can't be joined here.
-    unitNotOffered: memberUnit && !offered(memberUnit.id) ? memberUnit.name : null,
+    // Joining never moves a member, so a plan not offered in their unit can't be joined here. Judged from the unit's
+    // path, not the picker: a member of an archived unit keeps it and may still join a plan that reaches it.
+    unitNotOffered: memberUnit && !planOffersUnit(plan, planUnitPaths, memberUnit.path) ? memberUnit.name : null,
     open: org.status === "ACTIVE" && (plan.joinMode === "OPEN" || plan.joinMode === "APPROVAL" || inviteState === "ok"),
   };
 }

@@ -168,4 +168,16 @@ describe.sequential("organisation email templates", () => {
     expect(await prisma.orgEmailTemplate.count({ where: { organisationId: orgId } })).toBe(0);
     expect(await prisma.auditEvent.count({ where: { organisationId: orgId, action: "ORG_EMAIL_TEMPLATE_RESET" } })).toBe(1);
   });
+
+  it("keeps an existing member's unit for a row without one: its roles apply and its leads verify", async () => {
+    await prisma.outboxMessage.deleteMany({ where: { kind: "verification-alert", payload: { path: ["organisationId"], equals: orgId } } });
+    signIn("owner");
+    const life = await prisma.membershipPlan.create({ data: { organisationId: orgId, name: "Life", slug: "life", joinMode: "OPEN" } });
+    const role = await prisma.memberRole.create({ data: { organisationId: orgId, name: "North volunteer", unitId: unitIds.North } });
+    const text = ["Name,Email,Role", `Asha Menon,${email("asha")},North volunteer`].join("\n");
+    const result = await commitMemberImport({ organisationSlug: slug, planId: life.id, mapping: ["name", "email", "role"], membership: "verify", source: { kind: "csv", text } });
+    expect(result).toMatchObject({ ok: true, data: { created: 0, updated: 1, waiting: 1, skipped: [] } });
+    expect(await prisma.memberRoleAssignment.count({ where: { roleId: role.id } })).toBe(1);
+    expect(await alertCounts()).toEqual({ manager: 1, northLead: 1, north1Lead: 1 });
+  });
 });
