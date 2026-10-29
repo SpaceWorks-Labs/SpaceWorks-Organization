@@ -1,5 +1,7 @@
 import "server-only";
 
+import { OutboxStatus, type Prisma } from "@prisma/client";
+import { prisma } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { effectiveMinor, type JoinFields } from "./joinFields";
 import { replaceMemberPhoto, type PreparedMemberPhoto } from "./photo";
@@ -86,3 +88,25 @@ export async function attachJoinPhoto(args: {
       : `You've joined, but we couldn't save your photo. Contact ${org.name} to add it.`;
   }
 }
+
+/** How long a join's card email waits for its photo; it goes out sooner once the photo attempt ends. */
+const CARD_EMAIL_HOLD_MS = 10 * 60_000;
+
+/**
+ * Hold the member's queued card emails (queued when the join activated the membership) until the photo attempt
+ * ends, so the card isn't sent without the photo. Run inside the join transaction; returns the held rows.
+ */
+export async function holdCardEmails(tx: Prisma.TransactionClient, organisationId: string, memberId: string) {
+  const cards = await tx.memberCard.findMany({ where: { organisationId, memberId, revokedAt: null }, select: { id: true } });
+  if (!cards.length) return [];
+  const where = { kind: "member-card", status: OutboxStatus.PENDING, OR: cards.map((card) => ({ payload: { path: ["cardId"], equals: card.id } })) };
+  const held = await tx.outboxMessage.findMany({ where, select: { id: true } });
+  await tx.outboxMessage.updateMany({ where: { id: { in: held.map((row) => row.id) } }, data: { availableAt: new Date(Date.now() + CARD_EMAIL_HOLD_MS) } });
+  return held.map((row) => row.id);
+}
+
+/** Let held card emails go now that the photo attempt is over, whatever its outcome. */
+export async function releaseCardEmails(ids: string[]) {
+  if (ids.length) await prisma.outboxMessage.updateMany({ where: { id: { in: ids }, status: OutboxStatus.PENDING }, data: { availableAt: new Date() } });
+}
+

@@ -123,4 +123,22 @@ describe.sequential("a photo on the join form", () => {
     expect(member.photoUrl).toBeNull();
     expect(member.terms).toHaveLength(1);
   });
+
+  it("holds the new card's email while the photo uploads, then lets it go", async () => {
+    const email = await signInNew();
+    const cardEmailDue = async () => {
+      const member = await prisma.member.findUniqueOrThrow({ where: { organisationId_email: { organisationId: orgId, email } } });
+      const card = await prisma.memberCard.findFirstOrThrow({ where: { memberId: member.id, revokedAt: null } });
+      return (await prisma.outboxMessage.findFirstOrThrow({ where: { kind: "member-card", payload: { path: ["cardId"], equals: card.id } } })).availableAt;
+    };
+    let heldUntil: Date | null = null;
+    const actual = vi.mocked(uploadFile).getMockImplementation()!;
+    vi.mocked(uploadFile).mockImplementationOnce(async (...args) => {
+      heldUntil = await cardEmailDue();
+      return actual(...args);
+    });
+    expect(await join("optional", image)).toMatchObject({ ok: true, data: { status: "ACTIVE" } });
+    expect(heldUntil!.getTime()).toBeGreaterThan(Date.now() + 60_000);
+    expect((await cardEmailDue()).getTime()).toBeLessThanOrEqual(Date.now());
+  });
 });

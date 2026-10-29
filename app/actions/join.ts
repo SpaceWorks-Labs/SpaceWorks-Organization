@@ -15,7 +15,7 @@ import { MembershipError, openTerm, upsertMember } from "@/lib/membership/servic
 import { lockMemberByEmail } from "@/lib/membership/memberLock";
 import { MEMBERSHIP_NOTICE_VERSION, memberProfileSchema } from "@/lib/membership/validators";
 import { DEFAULT_JOIN_FIELDS, joinFieldsSchema } from "@/lib/membership/joinFields";
-import { attachJoinPhoto, joinProfile, joinSettingErrors, readJoinInput, type JoinPhotoMode } from "@/lib/membership/joinSubmission";
+import { attachJoinPhoto, holdCardEmails, joinProfile, joinSettingErrors, readJoinInput, releaseCardEmails, type JoinPhotoMode } from "@/lib/membership/joinSubmission";
 import { replacePlanAnswers, validatePlanAnswers } from "@/lib/membership/planAnswers";
 import { prepareMemberPhoto, type PreparedMemberPhoto } from "@/lib/membership/photo";
 import { teamScope, unitInScope } from "@/lib/membership/scope";
@@ -143,9 +143,15 @@ export async function submitJoin(input: FormData | unknown): Promise<ActionResul
         const claimed = await tx.memberInvite.updateMany({ where: { id: invite.id, uses: { lt: invite.maxUses } }, data: { uses: { increment: 1 } } });
         if (claimed.count !== 1) throw new MembershipError("This invite was just used up.");
       }
-      return opened;
+      // A free join's card email was just queued: it waits for the photo below.
+      return { ...opened, heldEmails: prepared ? await holdCardEmails(tx, org.id, member.id) : [] };
     });
-    const warning = prepared ? await attachJoinPhoto({ org, memberId: term.memberId, userId, prepared }) : null;
+    let warning: string | null = null;
+    try {
+      warning = prepared ? await attachJoinPhoto({ org, memberId: term.memberId, userId, prepared }) : null;
+    } finally {
+      await releaseCardEmails(term.heldEmails);
+    }
     revalidatePath(`/dashboard/${org.slug}/members`);
     // How to pay offline, from the member's unit up to the organisation, for the confirmation.
     const unitPath = term.status === "PENDING_PAYMENT" ? (await prisma.member.findUnique({ where: { id: term.memberId }, select: { unit: { select: { path: true } } } }))?.unit?.path : null;
