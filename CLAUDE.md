@@ -138,6 +138,12 @@ npx vitest run tests/unit/health.test.ts
     in must pass `assertPublicHost`.
   - An organisation's own wording for member emails is `OrgEmailTemplate` (`lib/email/templates.ts`): plain text
     with placeholders, escaped into paragraphs, never HTML. Without a row, the platform's wording is used.
+- **Join forms and answers** (`docs/plans/2026-10-29-custom-join-form.md`): questions are `PlanField`s; answers
+  live on `Member.fieldValues` by key. Validate and save them only through `lib/membership/planAnswers.ts`
+  (visibility from validated parents, multi-select stored as LONG_TEXT + `multiple` joined with "; ", sections never
+  answered, `answerableKeys` over every plan of the organisation, replace not merge), inside the member row lock
+  (`lib/membership/memberLock.ts`). A plan's `joinPhoto` and `joinFields` govern joining only; join photos go through
+  `prepareMemberPhoto` before the transaction and `replaceMemberPhoto(..., { onlyIfEmpty: true })` after it.
 - **Member accounts switch:** `Organisation.memberPortal`. Off, portal queries skip the organisation, member
   emails link to the public page or a signed pay link (`lib/payments/payLink.ts`, `/pay/<token>`), and `/verify`
   is unaffected.

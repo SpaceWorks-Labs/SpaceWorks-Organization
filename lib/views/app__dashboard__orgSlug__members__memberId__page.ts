@@ -5,6 +5,8 @@ import { deriveStatus, statusAt } from "@/lib/membership/lifecycle";
 import { memberWhere, teamScope, unitInScope } from "@/lib/membership/scope";
 import { pathWithin } from "@/lib/membership/planUnits";
 import { loadMemberCardPanel } from "@/lib/cards/panel";
+import { memberQuestionPlans, organisationQuestionPlans } from "@/lib/membership/questionPlans";
+import { answerablePlans } from "@/lib/membership/profileQuestions";
 
 /** One member: profile, roles, every membership with its history, and consent. */
 export async function loadMemberView({ params }: { params: Promise<{ orgSlug: string; memberId: string }> }) {
@@ -24,13 +26,14 @@ export async function loadMemberView({ params }: { params: Promise<{ orgSlug: st
   if (!member) notFound();
 
   const now = new Date();
-  const [org, plans, roles, units, fields] = await Promise.all([
+  const [org, plans, roles, units, questionPlans] = await Promise.all([
     prisma.organisation.findUniqueOrThrow({ where: { id: organisation.id }, select: { name: true, slug: true, logoUrl: true, timezone: true, locale: true, unitLevels: true } }),
     prisma.membershipPlan.findMany({ where: { organisationId: organisation.id, archivedAt: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
     prisma.memberRole.findMany({ where: { organisationId: organisation.id, archivedAt: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, color: true, unit: { select: { path: true } } } }),
     prisma.orgUnit.findMany({ where: { organisationId: organisation.id, archivedAt: null }, orderBy: { path: "asc" }, select: { id: true, name: true, level: true, path: true } }),
-    prisma.planField.findMany({ where: { organisationId: organisation.id }, distinct: ["key"], orderBy: { sortOrder: "asc" }, select: { key: true, label: true, type: true, options: true, required: false, helpText: true } }),
+    organisationQuestionPlans(organisation.id),
   ]);
+  const held = await memberQuestionPlans(questionPlans, organisation.id, member.id);
 
   const byPlan = new Map<string, typeof member.terms>();
   for (const term of member.terms) byPlan.set(term.planId, [...(byPlan.get(term.planId) ?? []), term]);
@@ -66,7 +69,8 @@ export async function loadMemberView({ params }: { params: Promise<{ orgSlug: st
       .filter((role) => !role.unit || (member.unit && pathWithin(member.unit.path, role.unit.path)) || member.roles.some((held) => held.roleId === role.id))
       .map(({ id, name, color }) => ({ id, name, color })),
     units: units.filter((unit) => unitInScope(scope, unit.path)).map(({ id, name, level }) => ({ id, name, level })),
-    fields,
+    /** The questions of every plan the member has held, for staff (admin-only ones included). */
+    questions: answerablePlans(questionPlans, held, true),
     canManage: can(membership, "members.manage"),
     // Erasure requests are decided with their own permission, as the action checks.
     canDecideErasure: can(membership, "erasure.decide", { write: true }),

@@ -74,10 +74,12 @@ export function readRow(cells: string[], mapping: ImportTarget[]): ImportRow | {
   };
 }
 
-export function mappingIsUsable(mapping: ImportTarget[]): string | null {
+/** `questionKeys`: the keys of the questions columns may fill (every plan's, never sections). */
+export function mappingIsUsable(mapping: ImportTarget[], questionKeys?: ReadonlySet<string>): string | null {
   if (!mapping.includes("email")) return "Choose which column holds the email address.";
   if (!mapping.includes("name")) return "Choose which column holds the name.";
   const chosen = mapping.filter((target) => target !== "skip");
   if (new Set(chosen).size !== chosen.length) return "Each detail can come from only one column.";
+  if (questionKeys && chosen.some((target) => target.startsWith("field:") && !questionKeys.has(target.slice(6)))) return "Match columns only to questions a plan asks.";
   return null;
 }

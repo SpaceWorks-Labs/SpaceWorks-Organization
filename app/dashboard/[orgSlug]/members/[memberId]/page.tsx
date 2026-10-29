@@ -10,6 +10,7 @@ import { formatCalendarDate, localDate } from "@/lib/membership/periods";
 import { MembershipPanel } from "@/components/members/MembershipPanel";
 import { membershipViews } from "@/components/members/membershipViews";
 import { MemberProfileForm } from "@/components/members/MemberProfileForm";
+import { answersFor } from "@/lib/membership/profileQuestions";
 import { MemberRolesPicker } from "@/components/members/MemberRolesPicker";
 import { MemberCardPanel } from "@/components/cards/MemberCardPanel";
 import { TermStatusChip } from "@/components/members/TermStatusChip";
@@ -25,7 +26,6 @@ export default async function MemberPage({ params }: { params: Promise<{ orgSlug
   const tz = org.timezone;
   const day = (date: Date) => formatCalendarDate(localDate(date, tz));
   const memberships = membershipViews(view.memberships, org);
-  const values = (member.fieldValues ?? {}) as Record<string, string | boolean>;
   const primary = member.roles.find((assignment) => assignment.isPrimary)?.roleId ?? null;
 
   return (
@@ -58,13 +58,13 @@ export default async function MemberPage({ params }: { params: Promise<{ orgSlug
               memberId={member.id}
               units={view.units}
               unitLabel={org.unitLevels.at(-1) ?? "Unit"}
-              fields={view.fields}
+              questions={view.questions}
               disabled={!view.canManage || !view.showContact}
               initial={{
                 name: member.name, email: view.showContact ? member.email : "hidden", phone: view.showContact ? member.phone ?? "" : "",
                 stateCode: member.stateCode ?? "", unitId: member.unitId ?? "", isMinor: member.isMinor,
                 guardianName: member.guardianName ?? "", guardianEmail: member.guardianEmail ?? "", guardianPhone: member.guardianPhone ?? "",
-                fieldValues: values,
+                fieldValues: answersFor(view.questions, member.fieldValues),
               }}
             />
           </Card>

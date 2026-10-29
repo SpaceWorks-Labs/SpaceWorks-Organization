@@ -11,7 +11,10 @@ import { orgActionAccess, type OrgActionAccess } from "@/lib/permissions";
 import { teamScope, unitInScope, type TeamScope } from "@/lib/membership/scope";
 import { pathWithin, planOffersUnit } from "@/lib/membership/planUnits";
 import { decideTerm, extendTerm, MembershipError, openTerm, startRenewal, upsertMember } from "@/lib/membership/service";
-import { memberProfileSchema, validateFieldValues } from "@/lib/membership/validators";
+import { memberProfileSchema } from "@/lib/membership/validators";
+import { replaceUnionAnswers, resolvePlanAnswers } from "@/lib/membership/planAnswers";
+import { memberQuestionPlans, organisationQuestionPlans } from "@/lib/membership/questionPlans";
+import { lockMember, lockMemberByEmail } from "@/lib/membership/memberLock";
 import { reissueCardsForRoleChange } from "@/lib/cards/issue";
 import { addDays, startOfLocalDay } from "@/lib/membership/periods";
 import type { Capability } from "@/lib/permissionRoles";
@@ -83,7 +86,10 @@ export async function addMember(input: unknown): Promise<ActionResult<{ memberId
   const plan = parsed.data.planId ? await prisma.membershipPlan.findFirst({ where: { id: parsed.data.planId, organisationId: ctx.org.id, archivedAt: null }, include: { fields: true, units: planUnitsInclude } }) : null;
   if (parsed.data.planId && !plan) return { ok: false, error: "That plan is no longer offered." };
   if (plan && !planOffersUnit(plan, plan.units.map((entry) => entry.unit.path), path)) return { ok: false, error: "This plan isn't offered in that unit.", fieldErrors: { unitId: ["Not offered here"] } };
-  const answers = plan ? validateFieldValues(plan.fields, profile.data.fieldValues, true) : { values: {}, errors: {} };
+  // Answers to the chosen plan's questions replace that plan's keys; other answers are kept.
+  const organisationPlans = plan ? await organisationQuestionPlans(ctx.org.id) : [];
+  const questions = organisationPlans.filter((entry) => entry.id === plan?.id);
+  const answers = resolvePlanAnswers(questions, profile.data.fieldValues, true, { organisationPlans });
   if (Object.keys(answers.errors).length) return { ok: false, error: "Answer the plan's questions.", fieldErrors: answers.errors };
 
   const limit = await prisma.organisation.findUniqueOrThrow({ where: { id: ctx.org.id }, select: { memberLimit: true, _count: { select: { members: true } } } });
@@ -91,10 +97,12 @@ export async function addMember(input: unknown): Promise<ActionResult<{ memberId
 
   try {
     const member = await prisma.$transaction(async (tx) => {
+      const locked = await lockMemberByEmail(tx, ctx.org.id, profile.data.email);
       // An existing member filed outside a scoped manager's unit is never taken over.
-      const existing = await tx.member.findUnique({ where: { organisationId_email: { organisationId: ctx.org.id, email: profile.data.email } }, select: { unit: { select: { path: true } } } });
+      const existing = locked && (await tx.member.findUnique({ where: { id: locked.id }, select: { unit: { select: { path: true } } } }));
       if (existing && !unitInScope(ctx.scope, existing.unit?.path ?? null)) throw new MembershipError("Someone with this email is a member outside your unit.");
-      const saved = await upsertMember(tx, ctx.org.id, { ...profile.data, fieldValues: answers.values, source: "MANUAL" });
+      const fieldValues = plan ? replaceUnionAnswers((locked?.fieldValues ?? {}) as Record<string, unknown>, questions, profile.data.fieldValues, true, { organisationPlans }) : undefined;
+      const saved = await upsertMember(tx, ctx.org.id, { ...profile.data, fieldValues, fieldValuesMode: "replace", source: "MANUAL" });
       if (plan) await openTerm(tx, { org: ctx.org, plan, memberId: saved.id, byManager: true, actorUserId: ctx.access.userId });
       await recordAuditEvent({ action: "MEMBER_ADDED", actorUserId: ctx.access.userId, organisationId: ctx.org.id, targetType: "Member", targetId: saved.id, client: tx });
       return saved;
@@ -124,27 +132,38 @@ export async function updateMember(input: unknown): Promise<ActionResult> {
     const taken = await prisma.member.count({ where: { organisationId: ctx.org.id, email: profile.data.email, id: { not: member.id } } });
     if (taken) return { ok: false, error: "Another member already uses that email.", fieldErrors: { email: ["Already a member"] } };
   }
-  await prisma.$transaction(async (tx) => {
-    await tx.member.update({
-      where: { id: member.id },
-      data: {
-        name: profile.data.name,
-        email: profile.data.email,
-        phone: profile.data.phone,
-        stateCode: profile.data.stateCode,
-        unitId: profile.data.unitId,
-        isMinor: profile.data.isMinor,
-        guardianName: profile.data.guardianName,
-        guardianEmail: profile.data.guardianEmail,
-        guardianPhone: profile.data.guardianPhone,
-        fieldValues: { ...(member.fieldValues as Record<string, unknown>), ...profile.data.fieldValues } as Prisma.InputJsonValue,
-        // A changed email unlinks the account; the new owner links again by signing in.
-        ...(profile.data.email !== member.email ? { userId: null } : {}),
-        ...(parsed.data.notes !== undefined ? { notes: parsed.data.notes } : {}),
-      },
+  // The questions of every plan the member has held, answered once per key.
+  const organisationPlans = await organisationQuestionPlans(ctx.org.id);
+  const questions = await memberQuestionPlans(organisationPlans, ctx.org.id, member.id);
+  const answers = resolvePlanAnswers(questions, profile.data.fieldValues, true, { organisationPlans });
+  if (Object.keys(answers.errors).length) return { ok: false, error: "Answer the plan's questions.", fieldErrors: answers.errors };
+  try {
+    await prisma.$transaction(async (tx) => {
+      const locked = await lockMember(tx, ctx.org.id, member.id);
+      if (!locked || locked.anonymisedAt) throw new MembershipError("This member's details were erased.");
+      await tx.member.update({
+        where: { id: member.id },
+        data: {
+          name: profile.data.name,
+          email: profile.data.email,
+          phone: profile.data.phone,
+          stateCode: profile.data.stateCode,
+          unitId: profile.data.unitId,
+          isMinor: profile.data.isMinor,
+          guardianName: profile.data.guardianName,
+          guardianEmail: profile.data.guardianEmail,
+          guardianPhone: profile.data.guardianPhone,
+          fieldValues: replaceUnionAnswers(locked.fieldValues as Record<string, unknown>, questions, profile.data.fieldValues, true, { organisationPlans }) as Prisma.InputJsonValue,
+          // A changed email unlinks the account; the new owner links again by signing in.
+          ...(profile.data.email !== member.email ? { userId: null } : {}),
+          ...(parsed.data.notes !== undefined ? { notes: parsed.data.notes } : {}),
+        },
+      });
+      await recordAuditEvent({ action: "MEMBER_UPDATED", actorUserId: ctx.access.userId, organisationId: ctx.org.id, targetType: "Member", targetId: member.id, client: tx });
     });
-    await recordAuditEvent({ action: "MEMBER_UPDATED", actorUserId: ctx.access.userId, organisationId: ctx.org.id, targetType: "Member", targetId: member.id, client: tx });
-  });
+  } catch (error) {
+    return failure(error);
+  }
   refresh(ctx.org.slug, member.id);
   return { ok: true };
 }

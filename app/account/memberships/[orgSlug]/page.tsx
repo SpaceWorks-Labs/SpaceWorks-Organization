@@ -18,7 +18,7 @@ import { Card, CardHeader, OrgLogo } from "@/components/ui/display";
 export const metadata: Metadata = { title: "Membership", robots: { index: false, follow: false } };
 
 export default async function MembershipDetailPage({ params }: { params: Promise<{ orgSlug: string }> }) {
-  const { org, member, roles, fields, memberships, receipts } = await loadMembershipDetailView({ params });
+  const { org, member, roles, questions, memberships, receipts } = await loadMembershipDetailView({ params });
   const since = formatCalendarDate(localDate(member.createdAt, org.timezone));
 
   return (
@@ -95,7 +95,7 @@ export default async function MembershipDetailPage({ params }: { params: Promise
             organisationSlug={org.slug}
             organisationName={org.name}
             unitLabel={org.unitLabel}
-            fields={fields}
+            questions={questions}
             initial={{
               name: member.name, email: member.email, phone: member.phone, stateCode: member.stateCode,
               isMinor: member.isMinor, guardianName: member.guardianName, guardianEmail: member.guardianEmail, guardianPhone: member.guardianPhone,

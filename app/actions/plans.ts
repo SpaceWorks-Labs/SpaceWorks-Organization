@@ -9,6 +9,8 @@ import { recordAuditEvent } from "@/lib/audit";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { orgActionAccess } from "@/lib/permissions";
 import { planFieldsSchema, planSchema } from "@/lib/membership/validators";
+import { validatePlanFieldDefinitions } from "@/lib/membership/planAnswers";
+import { lockOrganisationStructure } from "@/lib/structure/access";
 import { z } from "zod";
 import type { ActionResult } from "./org";
 import { flattenZodErrors } from "./utils";
@@ -36,6 +38,8 @@ function planData(input: z.infer<typeof planSchema>) {
     reminderDaysAfter: input.reminderDaysAfter,
     lateRenewalBackdate: input.lateRenewalBackdate,
     joinMode: input.joinMode,
+    joinPhoto: input.joinPhoto,
+    joinFields: input.joinFields,
     paymentTiming: input.paymentTiming,
     allUnits: input.allUnits,
   };
@@ -132,23 +136,43 @@ export async function setPlanArchived(input: unknown): Promise<ActionResult> {
   return { ok: true };
 }
 
-/** Replace a plan's join-form questions. Answers already given stay on members under their keys. */
+class QuestionsRefused extends Error {
+  constructor(readonly issues: ReturnType<typeof validatePlanFieldDefinitions>) {
+    super("Questions refused");
+  }
+}
+
+/**
+ * Replace a plan's join-form questions. Answers already given stay on members under their keys. Keys live on the
+ * member, so the check against the organisation's other plans (archived ones too) and the write run under the
+ * organisation lock: two saves can't both pass a check the other would fail.
+ */
 export async function savePlanFields(input: unknown): Promise<ActionResult> {
   const parsed = planFieldsSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Check the questions.", fieldErrors: flattenZodErrors(parsed.error) };
   const access = await orgActionAccess(parsed.data.organisationSlug, "plans.manage");
   if (!access.ok) return access;
-  const plan = await prisma.membershipPlan.findFirst({ where: { id: parsed.data.planId, organisationId: access.organisation.id }, select: { id: true } });
+  const organisationId = access.organisation.id;
+  const plan = await prisma.membershipPlan.findFirst({ where: { id: parsed.data.planId, organisationId }, select: { id: true } });
   if (!plan) return { ok: false, error: "Plan not found." };
-  await prisma.$transaction(async (tx) => {
-    await tx.planField.deleteMany({ where: { planId: plan.id } });
-    if (parsed.data.fields.length) {
-      await tx.planField.createMany({
-        data: parsed.data.fields.map((field, index) => ({ ...field, options: field.type === "SELECT" ? field.options : [], organisationId: access.organisation.id, planId: plan.id, sortOrder: index })),
-      });
-    }
-    await recordAuditEvent({ action: "PLAN_FORM_UPDATED", actorUserId: access.userId, organisationId: access.organisation.id, targetType: "MembershipPlan", targetId: plan.id, metadata: { questions: parsed.data.fields.length }, client: tx });
-  });
+  const fields = parsed.data.fields.map((field, index) => ({ ...field, options: field.type === "SELECT" || field.multiple ? field.options : [], sortOrder: index }));
+  try {
+    await prisma.$transaction(async (tx) => {
+      await lockOrganisationStructure(tx, organisationId);
+      const others = await tx.membershipPlan.findMany({ where: { organisationId, id: { not: plan.id } }, select: { fields: true } });
+      const issues = validatePlanFieldDefinitions(fields, others);
+      if (issues.length) throw new QuestionsRefused(issues);
+      await tx.planField.deleteMany({ where: { planId: plan.id } });
+      if (fields.length) await tx.planField.createMany({ data: fields.map((field) => ({ ...field, organisationId, planId: plan.id })) });
+      await recordAuditEvent({ action: "PLAN_FORM_UPDATED", actorUserId: access.userId, organisationId, targetType: "MembershipPlan", targetId: plan.id, metadata: { questions: fields.length }, client: tx });
+    });
+  } catch (error) {
+    if (!(error instanceof QuestionsRefused)) throw error;
+    const fieldErrors: Record<string, string[]> = {};
+    for (const issue of error.issues) (fieldErrors[`fields.${issue.path.join(".")}`] ??= []).push(issue.message);
+    const collision = error.issues.find((issue) => issue.message === "Another plan uses this key differently");
+    return { ok: false, error: collision ? `Another plan uses the key "${fields[collision.path[0]].key}" differently. Match it or use another key.` : "Check the questions.", fieldErrors };
+  }
   revalidatePath(`/dashboard/${access.organisation.slug}/plans/${plan.id}`);
   return { ok: true };
 }

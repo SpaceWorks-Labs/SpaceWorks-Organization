@@ -580,6 +580,8 @@ model MembershipPlan {
   /// A late renewal starts at the old end date (true) or on the day it is paid (false).
   lateRenewalBackdate Boolean          @default(true)
   joinMode            JoinMode         @default(APPROVAL)
+  joinPhoto           String           @default("OFF")
+  joinFields          Json             @default("{}")
   paymentTiming       PaymentTiming    @default(PAY_THEN_ACTIVATE)
   /// When false, only members of the units in PlanUnit may join.
   allUnits            Boolean          @default(true)
@@ -623,6 +625,10 @@ model PlanField {
   type           PlanFieldType @default(TEXT)
   required       Boolean       @default(false)
   options        String[]      @default([])
+  multiple       Boolean       @default(false)
+  section        Boolean       @default(false)
+  showIfKey      String?
+  showIfValue    String?
   /// Only managers see and fill it; never on the public form.
   adminOnly      Boolean       @default(false)
   sortOrder      Int           @default(0)

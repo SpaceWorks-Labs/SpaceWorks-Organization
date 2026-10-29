@@ -15,6 +15,8 @@ import { uploadKeyFromUrl } from "@/lib/uploadUrl";
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 type Member = { id: string; organisationId: string; photoUrl: string | null };
+export type PreparedMemberPhoto = { body: Buffer };
+type PhotoResult = { url: string | null; kept?: true } | { error: string };
 
 /** The uploaded file, or the message to show when it can't be used. */
 export function photoFile(value: FormDataEntryValue | null): File | { error: string } {
@@ -23,13 +25,29 @@ export function photoFile(value: FormDataEntryValue | null): File | { error: str
   return value;
 }
 
-/** Save `file` as the member's photo (null removes it). Returns the new URL, or an error to show. */
-export async function replaceMemberPhoto(member: Member, file: File | null): Promise<{ url: string | null } | { error: string }> {
+/** Validate and fully decode before any writes; re-encoding strips metadata and produces a 600 x 600 WebP. */
+export async function prepareMemberPhoto(file: File): Promise<PreparedMemberPhoto | { error: string }> {
+  const checked = photoFile(file);
+  if ("error" in checked) return checked;
+  return createSafeWebpDerivative(checked, { width: 600, height: 600, fit: "cover" });
+}
+
+async function discardPhoto(key: string) {
+  await deleteFilesWithHistory([key]).catch(() => console.error("[media] member photo not deleted"));
+}
+
+/** Save a file or an already prepared join photo (null removes it). Callers keep their existing audit events. */
+export async function replaceMemberPhoto(
+  member: Member,
+  file: File | PreparedMemberPhoto | null,
+  options: { onlyIfEmpty?: boolean } = {},
+): Promise<PhotoResult> {
   let url: string | null = null;
+  let key: string | null = null;
   if (file) {
-    const derivative = await createSafeWebpDerivative(file, { width: 600, height: 600, fit: "cover" });
-    if ("error" in derivative) return { error: String(derivative.error) };
-    const key = memberPhotoKey(member.organisationId, member.id);
+    const derivative = file instanceof File ? await prepareMemberPhoto(file) : file;
+    if ("error" in derivative) return derivative;
+    key = memberPhotoKey(member.organisationId, member.id);
     try {
       await uploadFile({ key, body: derivative.body, contentType: "image/webp", organisationId: member.organisationId });
     } catch {
@@ -38,8 +56,22 @@ export async function replaceMemberPhoto(member: Member, file: File | null): Pro
     }
     url = getPublicUrl(key);
   }
-  await prisma.member.update({ where: { id: member.id, organisationId: member.organisationId }, data: { photoUrl: url } });
-  const oldKey = member.photoUrl ? uploadKeyFromUrl(member.photoUrl) : null;
-  if (oldKey) await deleteFilesWithHistory([oldKey]).catch(() => console.error("[media] old member photo not deleted"));
-  return { url };
+  let saved: { result: PhotoResult; oldKey?: string | null };
+  try {
+    saved = await prisma.$transaction(async (tx) => {
+      const [current] = await tx.$queryRaw<Array<{ photoUrl: string | null; anonymisedAt: Date | null }>>`
+        SELECT "photoUrl", "anonymisedAt" FROM "Member"
+        WHERE "id" = ${member.id} AND "organisationId" = ${member.organisationId} FOR UPDATE`;
+      if (!current || current.anonymisedAt) return { result: { error: "Member not found." } };
+      if (options.onlyIfEmpty && current.photoUrl) return { result: { url: current.photoUrl, kept: true as const } };
+      await tx.member.update({ where: { id: member.id, organisationId: member.organisationId }, data: { photoUrl: url } });
+      return { result: { url }, oldKey: current.photoUrl ? uploadKeyFromUrl(current.photoUrl) : null };
+    });
+  } catch (error) {
+    if (key) await discardPhoto(key);
+    throw error;
+  }
+  if (key && ("error" in saved.result || saved.result.kept)) await discardPhoto(key);
+  if (saved.oldKey) await discardPhoto(saved.oldKey);
+  return saved.result;
 }

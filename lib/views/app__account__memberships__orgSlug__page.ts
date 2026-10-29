@@ -6,6 +6,8 @@ import { findOwnMember } from "@/lib/portal/member";
 import { unpaidLiveTerms, walletState } from "@/lib/portal/walletStatus";
 import { termTotalMinor } from "@/lib/payments/tax";
 import { memberRefundState } from "@/lib/payments/refundRequests";
+import { organisationQuestionPlans } from "@/lib/membership/questionPlans";
+import { answerablePlans, answersFor } from "@/lib/membership/profileQuestions";
 
 /**
  * One organisation's membership, seen by the member: each plan's standing and history (terms and their
@@ -41,11 +43,9 @@ export async function loadMembershipDetailView({ params }: { params: Promise<{ o
     prisma.orgTaxSettings.findUnique({ where: { organisationId: org.id } }),
   ]);
   const planIds = [...new Set(terms.map((term) => term.planId))];
-  const fields = (await prisma.planField.findMany({
-    where: { organisationId: org.id, planId: { in: planIds }, adminOnly: false },
-    orderBy: { sortOrder: "asc" },
-    select: { key: true, label: true, helpText: true, type: true, required: true, options: true },
-  })).filter((field, index, all) => all.findIndex((other) => other.key === field.key) === index);
+  // Only questions the member may answer: never one admin-only, or shaped differently, on any plan.
+  const organisationPlans = await organisationQuestionPlans(org.id);
+  const questions = answerablePlans(organisationPlans, organisationPlans.filter((plan) => planIds.includes(plan.id)), false);
 
   const refunds = new Map(await Promise.all(planIds.map(async (planId) => [planId, await memberRefundState(prisma, org.id, member.id, terms.filter((term) => term.planId === planId), now)] as const)));
   const memberships = planIds.map((planId) => {
@@ -67,17 +67,16 @@ export async function loadMembershipDetailView({ params }: { params: Promise<{ o
     };
   });
 
-  const values = (member.fieldValues ?? {}) as Record<string, string | boolean | number>;
   return {
     org: { id: org.id, slug: org.slug, name: org.name, logoUrl: org.logoUrl, status: org.status, timezone: org.timezone, locale: org.locale, unitLabel: org.unitLevels.at(-1) ?? "Unit", photoUpload: org.memberPhotoUpload && org.status === "ACTIVE" },
     member: {
       id: member.id, memberNumber: member.memberNumber, name: member.name, email: member.email, phone: member.phone ?? "", stateCode: member.stateCode ?? "",
       isMinor: member.isMinor, guardianName: member.guardianName ?? "", guardianEmail: member.guardianEmail ?? "", guardianPhone: member.guardianPhone ?? "",
       unitName: unit?.name ?? null, hasUnits: units > 0, createdAt: member.createdAt, photoUrl: member.photoUrl,
-      fieldValues: Object.fromEntries(fields.map((field) => [field.key, values[field.key] ?? (field.type === "CHECKBOX" ? false : "")])),
+      fieldValues: answersFor(questions, member.fieldValues),
     },
     roles: roles.map((assignment) => ({ ...assignment.role, isPrimary: assignment.isPrimary })),
-    fields,
+    questions,
     memberships,
     receipts: payments.map((payment) => ({ id: payment.id, status: payment.status, provider: payment.provider, method: payment.method, currency: payment.currency, amountMinor: payment.amountMinor, when: payment.paidAt ?? payment.createdAt, planName: payment.term?.plan.name ?? null, documents: payment.documents })),
   };

@@ -37,7 +37,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ org
   // Email and phone stay blank for staff who may not see members' contact details.
   const showContact = can(membership, "members.contact");
   const plans = await prisma.membershipPlan.findMany({ where: { organisationId: org.id }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } });
-  const fields = await prisma.planField.findMany({ where: { organisationId: org.id }, distinct: ["key"], select: { key: true, label: true } });
+  const fields = await prisma.planField.findMany({ where: { organisationId: org.id, section: false }, distinct: ["key"], select: { key: true, label: true } });
   const now = new Date();
   await recordAuditEvent({ action: "MEMBERS_EXPORTED", actorUserId: userId, organisationId: org.id, targetType: "Organisation", targetId: org.id, metadata: { scoped: Boolean(scope.unitId) } });
 

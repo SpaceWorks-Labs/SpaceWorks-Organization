@@ -4,6 +4,26 @@ Releases are published from `main` and titled **`Space Works Organization <versi
 file selects the series; each build is tagged `v<series>-main.<run>.<sha>`, which is what a deployment pins
 to. Pushes to `dev` publish staging images tagged `dev` without a release.
 
+## 0.8.1 (2026-10-29)
+
+Join forms each organisation shapes for itself.
+
+- **Photo on the join form:** per plan, off, optional or required. A photo is checked before anything is saved, kept
+  in the member's own folder, and never replaces a photo the member already has. A daily sweep removes photo files
+  that nothing uses any more.
+- **Built-in fields per plan:** phone and state can be hidden, optional or required, and the under-18 option can be
+  turned off. Hidden fields keep what a member already gave; a member already recorded as under 18 still needs
+  their guardian's consent.
+- **Questions:** "Choose several" answers, section headings, and questions shown only when an earlier answer
+  matches ("Show only when"). Hidden questions are never required and their answers aren't kept.
+- **One answer per key across plans:** staff and member profile editing show the questions of every plan the member
+  holds, each answer saved once; a question key two plans use differently is refused, and an existing clash is never
+  written from public forms.
+- **Imports and phone/state:** an import without a phone or state column now keeps the member's existing value
+  instead of clearing it.
+- **Upgrade notes:** run migration 0021 (the update does this). Rolling back to 0.8.0 keeps working: it shows
+  "Choose several" answers as text and section headings as optional questions.
+
 ## 0.8.0 (2026-10-29)
 
 Each organisation's own hierarchy and staff roles, offline fee collection through units, analytics, and ID cards

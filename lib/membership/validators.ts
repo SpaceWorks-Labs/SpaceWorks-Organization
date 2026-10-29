@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { DEFAULT_JOIN_FIELDS, joinFieldsSchema } from "./joinFields";
+import { validatePlanAnswers, validatePlanFieldDefinitions, type AnswerContext, type FieldDef } from "./planAnswers";
 import { isIndianStateCode } from "@/lib/indianStates";
 import { isCurrencyCode, parseAmount, type CurrencyCode } from "@/lib/money/currencies";
 import { isReservedPlanSlug } from "@/lib/slug";
@@ -44,6 +46,8 @@ export const planSchema = z
     reminderDaysAfter: dayList.default([7]),
     lateRenewalBackdate: z.boolean().default(true),
     joinMode: z.enum(["OPEN", "APPROVAL", "INVITE_ONLY", "CLOSED"]),
+    joinPhoto: z.enum(["OFF", "OPTIONAL", "REQUIRED"]).default("OFF"),
+    joinFields: joinFieldsSchema.default(DEFAULT_JOIN_FIELDS),
     paymentTiming: z.enum(["PAY_THEN_ACTIVATE", "ACTIVATE_THEN_CHARGE"]).default("PAY_THEN_ACTIVATE"),
     allUnits: z.boolean().default(true),
     unitIds: z.array(id).max(500).default([]),
@@ -73,7 +77,7 @@ export const planSchema = z
     };
   });
 
-const planFieldSchema = z.object({
+export const planFieldSchema = z.object({
   key: z.string().trim().regex(/^[a-z][a-z0-9_]{0,39}$/, "Keys are lowercase letters, numbers and underscores"),
   label: z.string().trim().min(1, "Label the question").max(120),
   helpText: z.string().trim().max(300).optional().default(""),
@@ -81,6 +85,10 @@ const planFieldSchema = z.object({
   required: z.boolean().default(false),
   options: z.array(z.string().trim().min(1).max(80)).max(50).default([]),
   adminOnly: z.boolean().default(false),
+  multiple: z.boolean().default(false),
+  section: z.boolean().default(false),
+  showIfKey: z.string().trim().min(1).max(40).nullable().optional().default(null),
+  showIfValue: z.string().trim().min(1).max(80).nullable().optional().default(null),
 });
 
 export const planFieldsSchema = z.object({
@@ -90,12 +98,7 @@ export const planFieldsSchema = z.object({
     .array(planFieldSchema)
     .max(40)
     .superRefine((fields, ctx) => {
-      const keys = new Set<string>();
-      fields.forEach((field, index) => {
-        if (keys.has(field.key)) ctx.addIssue({ code: "custom", path: [index, "key"], message: "Each question needs its own key" });
-        keys.add(field.key);
-        if (field.type === "SELECT" && field.options.length < 2) ctx.addIssue({ code: "custom", path: [index, "options"], message: "Give at least two choices" });
-      });
+      for (const issue of validatePlanFieldDefinitions(fields)) ctx.addIssue({ code: "custom", ...issue });
     }),
 });
 
@@ -141,49 +144,7 @@ export const memberProfileSchema = z
     if (value.isMinor && !value.guardianEmail) ctx.addIssue({ code: "custom", path: ["guardianEmail"], message: "The guardian's email is needed" });
   });
 
-type FieldDef = { key: string; label: string; type: string; required: boolean; options: string[]; adminOnly: boolean };
-
-/**
- * Check answers to a plan's custom questions. Unknown keys are dropped; admin-only questions are kept
- * only when a manager fills the form.
- */
-export function validateFieldValues(fields: FieldDef[], values: Record<string, unknown>, byManager: boolean) {
-  const clean: Record<string, string | boolean | number> = {};
-  const errors: Record<string, string[]> = {};
-  for (const field of fields) {
-    if (field.adminOnly && !byManager) continue;
-    const raw = values[field.key];
-    const empty = raw === undefined || raw === null || raw === "" || raw === false;
-    if (empty) {
-      if (field.required && !(field.adminOnly && !byManager)) errors[`fieldValues.${field.key}`] = [`${field.label} is required`];
-      continue;
-    }
-    const text = typeof raw === "string" ? raw.trim() : raw;
-    switch (field.type) {
-      case "CHECKBOX":
-        clean[field.key] = raw === true || raw === "true" || raw === "on";
-        break;
-      case "NUMBER": {
-        const number = typeof text === "number" ? text : Number(text);
-        if (!Number.isFinite(number)) errors[`fieldValues.${field.key}`] = ["Enter a number"];
-        else clean[field.key] = number;
-        break;
-      }
-      case "SELECT":
-        if (typeof text !== "string" || !field.options.includes(text)) errors[`fieldValues.${field.key}`] = ["Choose one of the options"];
-        else clean[field.key] = text;
-        break;
-      case "DATE":
-        if (typeof text !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(text)) errors[`fieldValues.${field.key}`] = ["Enter a date"];
-        else clean[field.key] = text;
-        break;
-      case "EMAIL":
-        if (typeof text !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)) errors[`fieldValues.${field.key}`] = ["Enter a valid email address"];
-        else clean[field.key] = text.toLowerCase();
-        break;
-      default:
-        clean[field.key] = String(text).slice(0, field.type === "LONG_TEXT" ? 2000 : 300);
-    }
-  }
-  return { values: clean, errors };
+/** Check answers using only validated, visible parents. */
+export function validateFieldValues(fields: FieldDef[], values: Record<string, unknown>, byManager: boolean, context?: AnswerContext) {
+  return validatePlanAnswers(fields, values, byManager, context);
 }

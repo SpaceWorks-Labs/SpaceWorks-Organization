@@ -13,6 +13,7 @@ import { reconcileGatewayRefunds } from "@/lib/payments/reconcileRefunds";
 import { queueMonthlyDigests } from "@/lib/reports/digest";
 import { runExpiredBackfill } from "@/lib/reports/rollupBackfill";
 import { runStorageCleanup } from "@/lib/storage/cleanup";
+import { runMemberPhotoSweep } from "@/lib/storage/photoSweep";
 
 const OUTBOX_WORKER_INTERVAL_MS = 60_000;
 
@@ -45,6 +46,7 @@ export async function runOutboxScheduler() {
     await runExpiredBackfill().catch(() => console.error("[report rollup] expired backfill failed"));
     // One-off 0.7 clean-ups in small chunks: stored card exports deleted, member photos moved per member.
     await runStorageCleanup().catch(() => console.error("[storage cleanup] run failed"));
+    await runMemberPhotoSweep().catch(() => console.error("[member photo sweep] run failed"));
     const purged = await purgeExpiredOperationalData();
     await recordOutboxSchedulerSuccess(result).catch(() => undefined);
     return { ...result, purged };

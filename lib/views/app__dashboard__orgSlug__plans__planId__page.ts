@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { can, requireOrgCapability } from "@/lib/permissions";
 import { memberWhere, teamScope, unitInScope } from "@/lib/membership/scope";
+import { conflictingKeys } from "@/lib/membership/planAnswers";
 
 async function orgUnits(organisationId: string) {
   return prisma.orgUnit.findMany({ where: { organisationId, archivedAt: null }, orderBy: { path: "asc" }, select: { id: true, name: true, level: true, path: true } });
@@ -30,7 +31,7 @@ export async function loadPlanView({ params }: { params: Promise<{ orgSlug: stri
   const reach = scope.unitPath
     ? (await prisma.orgUnit.findMany({ where: { organisationId: organisation.id, OR: [{ path: scope.unitPath }, { path: { startsWith: `${scope.unitPath}/` } }] }, select: { id: true } })).map((unit) => unit.id)
     : null;
-  const [org, units, invites, scopedTerms] = await Promise.all([
+  const [org, units, invites, scopedTerms, planFields] = await Promise.all([
     prisma.organisation.findUniqueOrThrow({ where: { id: organisation.id }, select: { name: true, slug: true, logoUrl: true, status: true } }),
     orgUnits(organisation.id),
     prisma.memberInvite.findMany({
@@ -41,12 +42,15 @@ export async function loadPlanView({ params }: { params: Promise<{ orgSlug: stri
     }),
     // A scoped viewer counts only the memberships of people in their units.
     scope.unitPath ? prisma.membershipTerm.count({ where: { organisationId: organisation.id, planId: plan.id, member: { is: memberWhere(scope) } } }) : null,
+    prisma.membershipPlan.findMany({ where: { organisationId: organisation.id }, select: { fields: true } }),
   ]);
   return {
     org,
     plan: scopedTerms === null ? plan : { ...plan, _count: { terms: scopedTerms } },
     units: units.filter((unit) => unitInScope(scope, unit.path)).map(({ id, name, level }) => ({ id, name, level })),
     invites: invites.filter((invite) => invite.uses < invite.maxUses),
+    // Keys the plans define differently are kept off public forms until they match; the question editor lists them.
+    conflictingKeys: conflictingKeys(planFields),
     canManagePlan: can(membership, "plans.manage", { write: true }),
     canInvite: can(membership, "members.manage"),
   };

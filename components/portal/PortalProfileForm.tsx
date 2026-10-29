@@ -5,24 +5,24 @@ import { useRouter } from "next/navigation";
 import { updateMemberProfile } from "@/app/actions/portal";
 import { INDIAN_STATES } from "@/lib/indianStates";
 import { Button } from "@/components/ui/button";
-import { CheckboxField } from "@/components/ui/choice";
 import { Callout } from "@/components/ui/display";
-import { Dropdown, Field, Input, ReadOnlyValue, Textarea } from "@/components/ui/field";
+import { Dropdown, Field, Input, ReadOnlyValue } from "@/components/ui/field";
+import { PlanAnswerFields, type AnswerState } from "@/components/members/PlanAnswerFields";
+import type { ProfilePlan } from "@/lib/membership/profileQuestions";
 
-type PortalField = { key: string; label: string; helpText: string; type: string; required: boolean; options: string[] };
 type PortalProfile = {
   name: string; email: string; phone: string; stateCode: string;
   isMinor: boolean; guardianName: string; guardianEmail: string; guardianPhone: string;
   unitName: string | null; hasUnits: boolean;
-  fieldValues: Record<string, string | boolean | number>;
+  fieldValues: AnswerState;
 };
 
 /**
  * The member's own details in one organisation. Email links the record to the account and the unit is the
  * organisation's to change, so both are read-only here; managers' own questions never show.
  */
-export function PortalProfileForm({ organisationSlug, organisationName, unitLabel, initial, fields }: {
-  organisationSlug: string; organisationName: string; unitLabel: string; initial: PortalProfile; fields: PortalField[];
+export function PortalProfileForm({ organisationSlug, organisationName, unitLabel, initial, questions }: {
+  organisationSlug: string; organisationName: string; unitLabel: string; initial: PortalProfile; questions: ProfilePlan[];
 }) {
   const router = useRouter();
   const [values, setValues] = useState(initial);
@@ -58,27 +58,7 @@ export function PortalProfileForm({ organisationSlug, organisationName, unitLabe
           <Field label={unitLabel} helperText={`Ask ${organisationName} to move you.`}><ReadOnlyValue value={values.unitName ?? "None"} /></Field>
         ) : null}
       </div>
-      {fields.length ? (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          {fields.map((field) => {
-            const value = values.fieldValues[field.key];
-            const error = errors[`fieldValues.${field.key}`]?.[0];
-            const hint = field.helpText || undefined;
-            if (field.type === "CHECKBOX") return <CheckboxField key={field.key} checked={value === true} onCheckedChange={(checked) => answer(field.key, checked === true)} label={field.label} description={hint} />;
-            if (field.type === "SELECT") return (
-              <Field key={field.key} label={field.label} required={field.required} optional={!field.required} helperText={hint} error={error}>
-                <Dropdown value={String(value ?? "")} onChange={(e) => answer(field.key, e.target.value)}>
-                  <option value="">Not answered</option>
-                  {field.options.map((option) => <option key={option} value={option}>{option}</option>)}
-                </Dropdown>
-              </Field>
-            );
-            if (field.type === "LONG_TEXT") return <Field key={field.key} label={field.label} required={field.required} optional={!field.required} helperText={hint} error={error} className="sm:col-span-2"><Textarea value={String(value ?? "")} rows={3} maxLength={2000} onChange={(e) => answer(field.key, e.target.value)} /></Field>;
-            const type = field.type === "DATE" ? "date" : field.type === "NUMBER" ? "number" : field.type === "EMAIL" ? "email" : field.type === "PHONE" ? "tel" : "text";
-            return <Field key={field.key} label={field.label} required={field.required} optional={!field.required} helperText={hint} error={error}><Input type={type} value={String(value ?? "")} onChange={(e) => answer(field.key, e.target.value)} /></Field>;
-          })}
-        </div>
-      ) : null}
+      <PlanAnswerFields plans={questions} values={values.fieldValues} errors={errors} byManager={false} onAnswer={answer} />
       {values.isMinor ? (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
           <Field label="Guardian's name" required error={errors.guardianName?.[0]}><Input value={values.guardianName} onChange={(e) => set("guardianName", e.target.value)} /></Field>

@@ -4,6 +4,8 @@ import { prisma } from "@/lib/db";
 import { loadPublicOrganisation } from "@/lib/publicOrganisation";
 import { deriveStatus } from "@/lib/membership/lifecycle";
 import { planOffersUnit } from "@/lib/membership/planUnits";
+import { DEFAULT_JOIN_FIELDS, joinFieldsSchema } from "@/lib/membership/joinFields";
+import { answerablePlans } from "@/lib/membership/profileQuestions";
 
 type Search = { invite?: string; unit?: string };
 
@@ -17,7 +19,7 @@ export async function loadJoinView({ params, searchParams }: { params: Promise<{
   const org = await loadPublicOrganisation(orgSlug);
   const plan = await prisma.membershipPlan.findFirst({
     where: { organisationId: org.id, slug: planSlug, archivedAt: null },
-    include: { fields: { where: { adminOnly: false }, orderBy: { sortOrder: "asc" } }, units: { select: { unit: { select: { path: true } } } } },
+    include: { units: { select: { unit: { select: { path: true } } } } },
   });
   if (!plan) notFound();
 
@@ -29,12 +31,22 @@ export async function loadJoinView({ params, searchParams }: { params: Promise<{
 
   let standing: string | null = null;
   let memberUnit: { id: string; name: string; path: string } | null = null;
+  // Only the signed-in person's own record: whether they are recorded as under 18 and already have a photo.
+  let ownMember: { isMinor: boolean; hasPhoto: boolean } | null = null;
   // Member records are found only by a verified email.
   if (user?.email && user.emailVerified) {
-    const member = await prisma.member.findUnique({ where: { organisationId_email: { organisationId: org.id, email: user.email.toLowerCase() } }, select: { unit: { select: { id: true, name: true, path: true } }, terms: { where: { planId: plan.id } } } });
+    const member = await prisma.member.findUnique({ where: { organisationId_email: { organisationId: org.id, email: user.email.toLowerCase() } }, select: { isMinor: true, photoUrl: true, unit: { select: { id: true, name: true, path: true } }, terms: { where: { planId: plan.id } } } });
     if (member?.terms.length) standing = deriveStatus(member.terms, now).status;
     memberUnit = member?.unit ?? null;
+    ownMember = member ? { isMinor: member.isMinor, hasPhoto: Boolean(member.photoUrl) } : null;
   }
+
+  // Public questions only, without keys that are admin-only or shaped differently on any plan (archived ones too).
+  const organisationPlans = await prisma.membershipPlan.findMany({ where: { organisationId: org.id }, select: { id: true, fields: { orderBy: { sortOrder: "asc" } } } });
+  const own = organisationPlans.find((entry) => entry.id === plan.id)!;
+  const questions = answerablePlans(organisationPlans, [own], false)[0].fields.map(({ key, label, helpText, type, required, options, adminOnly, multiple, section, showIfKey, showIfValue, sortOrder }) => (
+    { key, label, helpText, type, required, options, adminOnly, multiple, section, showIfKey, showIfValue, sortOrder }
+  ));
 
   // A plan limited to units is offered to everything under them too.
   const planUnitPaths = plan.units.map((entry) => entry.unit.path);
@@ -51,6 +63,10 @@ export async function loadJoinView({ params, searchParams }: { params: Promise<{
   return {
     org,
     plan,
+    questions,
+    joinPhoto: (plan.joinPhoto === "OPTIONAL" || plan.joinPhoto === "REQUIRED" ? plan.joinPhoto : "OFF") as "OFF" | "OPTIONAL" | "REQUIRED",
+    joinFields: joinFieldsSchema.safeParse(plan.joinFields).data ?? DEFAULT_JOIN_FIELDS,
+    ownMember,
     units: units.map(({ id, name, level }) => ({ id, name, level })),
     unitCode: linkUnitId ? code : null,
     unitLabel: org.unitLevels.at(-1) ?? "Unit",

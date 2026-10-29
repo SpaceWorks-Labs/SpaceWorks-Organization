@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Callout, Card, CardHeader } from "@/components/ui/display";
 import { Field, Input, Textarea } from "@/components/ui/field";
 import { JoiningSection, LengthSection, PriceSection, RenewalSection, UnitsSection } from "./PlanFormSections";
+import { JoinFormSection } from "./PlanJoinFormSection";
 import { valuesToPayload, type PlanFormValues } from "./planFormState";
 
 function Section({ title, description, children }: { title: string; description?: string; children: ReactNode }) {
@@ -113,6 +114,9 @@ export function PlanForm({
       </Section>
       <Section title="How people join">
         <JoiningSection {...sectionProps} />
+      </Section>
+      <Section title="Join form" description="Name and email always come from the person's account.">
+        <JoinFormSection {...sectionProps} />
       </Section>
       <Section title="Renewals" description="Members are reminded by email, once at each point.">
         <RenewalSection {...sectionProps} />

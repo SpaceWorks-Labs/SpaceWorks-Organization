@@ -3,7 +3,7 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { deriveStatus } from "@/lib/membership/lifecycle";
-import { formatValidUntil, memberDetails, verifyPath } from "./core";
+import { formatValidUntil, memberDetails, verifyPath, type DetailField } from "./core";
 import { normalizeCardDesign, withOwnArtwork, type CardDesign } from "./design/presets";
 import { managedImageUrl, memberPhotoUrl } from "./imageUrl";
 import type { CardInput } from "./render";
@@ -37,7 +37,7 @@ type CardRecord = Prisma.MemberCardGetPayload<{ include: typeof CARD_INCLUDE }>;
 export type CardOrgContext = {
   organisation: { id: string; name: string; slug: string; logoUrl: string | null; accentColor: string | null; timezone: string; status: string; unitLevels: string[] };
   designs: Array<{ planId: string | null; roleId: string | null; design: unknown; watermarkUrl: string | null; numberPrefix: string; numberFormat: string }>;
-  fields: Map<string, Array<{ key: string; label: string; type: string }>>;
+  fields: Map<string, DetailField[]>;
   /** Ancestor units loaded so far by `loadCardUnits`, by id. */
   units: Map<string, CardUnitRow>;
 };
@@ -57,9 +57,9 @@ export async function loadCardOrgContext(organisationId: string): Promise<CardOr
   const [designs, fields] = await Promise.all([
     // Only approved designs reach cards; drafts wait for the owner (lib/cards/approval.ts).
     prisma.cardDesign.findMany({ where: { organisationId, design: { not: Prisma.DbNull } }, select: { planId: true, roleId: true, design: true, watermarkUrl: true, numberPrefix: true, numberFormat: true } }),
-    prisma.planField.findMany({ where: { organisationId, adminOnly: false }, orderBy: { sortOrder: "asc" }, select: { planId: true, key: true, label: true, type: true } }),
+    prisma.planField.findMany({ where: { organisationId, adminOnly: false }, orderBy: { sortOrder: "asc" }, select: { planId: true, key: true, label: true, type: true, options: true, multiple: true, section: true } }),
   ]);
-  const byPlan = new Map<string, Array<{ key: string; label: string; type: string }>>();
+  const byPlan = new Map<string, DetailField[]>();
   for (const field of fields) byPlan.set(field.planId, [...(byPlan.get(field.planId) ?? []), field]);
   return { organisation, designs, fields: byPlan, units: new Map() };
 }

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   deliver: vi.fn(),
   purge: vi.fn(),
+  photoSweep: vi.fn(),
   started: vi.fn(),
   success: vi.fn(),
   failure: vi.fn(),
@@ -15,12 +16,15 @@ vi.mock("@/lib/operationalHeartbeat", () => ({
   recordOutboxSchedulerFailure: mocks.failure,
 }));
 
+vi.mock("@/lib/storage/photoSweep", () => ({ runMemberPhotoSweep: mocks.photoSweep }));
+
 import { runOutboxScheduler } from "@/lib/outboxWorker";
 
 describe("outbox scheduler", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.started.mockResolvedValue(undefined);
+    mocks.photoSweep.mockResolvedValue(true);
     mocks.success.mockResolvedValue(undefined);
     mocks.failure.mockResolvedValue(undefined);
     mocks.deliver.mockResolvedValue({ sent: 2, failed: 0 });
@@ -33,6 +37,7 @@ describe("outbox scheduler", () => {
     await expect(runOutboxScheduler()).resolves.toMatchObject({ sent: 2, failed: 0 });
     expect(mocks.deliver).toHaveBeenCalled();
     expect(mocks.purge).toHaveBeenCalled();
+    expect(mocks.photoSweep).toHaveBeenCalled();
   });
 
   it("records a metadata-only scheduler failure and rethrows for the protected route", async () => {

@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   alive: vi.fn(),
   reconcile: vi.fn(),
   digest: vi.fn(),
+  photoSweep: vi.fn(),
   getQueues: vi.fn(),
 }));
 vi.mock("@/lib/queue/client", () => ({ getQueues: mocks.getQueues, queueConnection: vi.fn() }));
@@ -30,6 +31,8 @@ vi.mock("@/lib/operationalHeartbeat", () => ({
   OUTBOX_SCHEDULER_HEARTBEAT_KEY: "outbox-scheduler",
   WORKER_HEARTBEAT_KEY: "worker",
 }));
+
+vi.mock("@/lib/storage/photoSweep", () => ({ runMemberPhotoSweep: mocks.photoSweep }));
 
 import { jobId, queueConcurrency, scheduleDefinitions, type JobDefinition, type QueueJob } from "@/lib/queue/definitions";
 import type { Queues } from "@/lib/queue/client";
@@ -67,6 +70,7 @@ describe("job queue definitions", () => {
     }
     expect(find("payment-reconcile")).toMatchObject({ schedule: { every: 300_000 } });
     expect(find("refund-reconcile")).toMatchObject({ schedule: { every: 300_000 } });
+    expect(find("member-photo-sweep")).toMatchObject({ schedule: { every: 3_600_000 } });
     expect(find("monthly-digest")).toMatchObject({ schedule: { every: 3_600_000 } });
   });
 
@@ -76,6 +80,8 @@ describe("job queue definitions", () => {
     await SCHEDULED_JOBS.find((entry) => entry.area === "monthly-digest")!.run(now);
     expect(mocks.reconcile).toHaveBeenCalledWith(now, true);
     expect(mocks.digest).toHaveBeenCalledWith(now, true);
+    await SCHEDULED_JOBS.find((entry) => entry.area === "member-photo-sweep")!.run(now);
+    expect(mocks.photoSweep).toHaveBeenCalledWith(now);
   });
 
   it("refuses duplicate areas and intervals under a second", () => {

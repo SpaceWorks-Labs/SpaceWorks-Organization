@@ -1,4 +1,5 @@
 import { isCurrencyCode, toInputValue } from "@/lib/money/currencies";
+import { DEFAULT_JOIN_FIELDS, joinFieldsSchema, type JoinFields } from "@/lib/membership/joinFields";
 
 /** The plan editor's values, all as the person types them. */
 export type PlanFormValues = {
@@ -20,6 +21,8 @@ export type PlanFormValues = {
   reminderDaysAfter: string;
   lateRenewalBackdate: boolean;
   joinMode: "OPEN" | "APPROVAL" | "INVITE_ONLY" | "CLOSED";
+  joinPhoto: "OFF" | "OPTIONAL" | "REQUIRED";
+  joinFields: JoinFields;
   paymentTiming: "PAY_THEN_ACTIVATE" | "ACTIVATE_THEN_CHARGE";
   allUnits: boolean;
   unitIds: string[];
@@ -45,13 +48,15 @@ export function emptyPlan(currency: string): PlanFormValues {
     reminderDaysAfter: "7",
     lateRenewalBackdate: true,
     joinMode: "APPROVAL",
+    joinPhoto: "OFF",
+    joinFields: DEFAULT_JOIN_FIELDS,
     paymentTiming: "PAY_THEN_ACTIVATE",
     allUnits: true,
     unitIds: [],
   };
 }
 
-type StoredPlan = Omit<PlanFormValues, "durationMonths" | "fixedEndDate" | "priceNew" | "priceRenewal" | "joiningFee" | "rejoinAfterDays" | "graceDays" | "renewalWindowDays" | "reminderDaysBefore" | "reminderDaysAfter" | "unitIds"> & {
+type StoredPlan = Omit<PlanFormValues, "joinPhoto" | "joinFields" | "durationMonths" | "fixedEndDate" | "priceNew" | "priceRenewal" | "joiningFee" | "rejoinAfterDays" | "graceDays" | "renewalWindowDays" | "reminderDaysBefore" | "reminderDaysAfter" | "unitIds"> & {
   durationMonths: number | null;
   fixedEndDate: Date | null;
   priceNewMinor: number;
@@ -63,6 +68,8 @@ type StoredPlan = Omit<PlanFormValues, "durationMonths" | "fixedEndDate" | "pric
   reminderDaysBefore: number[];
   reminderDaysAfter: number[];
   units: Array<{ unitId: string }>;
+  joinPhoto: string;
+  joinFields: unknown;
 };
 
 /** A saved plan back into editable values. */
@@ -87,6 +94,8 @@ export function planToValues(plan: StoredPlan): PlanFormValues {
     reminderDaysAfter: plan.reminderDaysAfter.join(", "),
     lateRenewalBackdate: plan.lateRenewalBackdate,
     joinMode: plan.joinMode,
+    joinPhoto: plan.joinPhoto === "OPTIONAL" || plan.joinPhoto === "REQUIRED" ? plan.joinPhoto : "OFF",
+    joinFields: joinFieldsSchema.safeParse(plan.joinFields).data ?? DEFAULT_JOIN_FIELDS,
     paymentTiming: plan.paymentTiming,
     allUnits: plan.allUnits,
     unitIds: plan.units.map((unit) => unit.unitId),
