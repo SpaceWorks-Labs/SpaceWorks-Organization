@@ -75,6 +75,6 @@ export function levelLeague(data: Dataset, units: LevelUnit[], rootPath: string 
   const rows = childUnits(units, rootPath).map((unit) => build(unit.id, unit.name, unit.path, (path) => inSubtree(path, unit.path)));
   // Members on the root unit itself, or with no unit at all (organisation-wide only).
   const direct = build(null, rootPath ? "This unit directly" : "No unit", rootPath, (path) => (rootPath ? path === rootPath : path === null));
-  if (direct.active + direct.active90 + direct.decided > 0 || direct.collected?.length || direct.outstanding?.length) rows.push(direct);
+  if (direct.active + direct.active30 + direct.active90 + direct.decided > 0 || direct.collected?.length || direct.outstanding?.length) rows.push(direct);
   return rows.sort((a, b) => b.active - a.active || a.name.localeCompare(b.name));
 }

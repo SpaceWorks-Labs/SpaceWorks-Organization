@@ -33,6 +33,8 @@ beforeAll(async () => {
   memberId = (await prisma.$transaction((tx) => upsertMember(tx, orgId, { email: `member-${suffix}@example.test`, name: "Asha Menon", source: "MANUAL" }))).id;
   await staffWith("directory", ["members.view"]);
   await staffWith("cards", ["cards.manage"]);
+  await staffWith("roles", ["roles.manage"]);
+  await staffWith("finance", ["reports.finance"]);
   await staffWith("erasure", ["members.view", "erasure.decide"]);
   await staffWith("manager", ["org.view", "members.view", "members.manage"]);
 });
@@ -47,6 +49,13 @@ describe.sequential("custom roles on dashboard pages", () => {
   it("sends a role without the overview to a page it can open, never back to the overview", async () => {
     mocks.userId = users.directory!;
     await expect(requireOrgCapability(slug, "org.view")).rejects.toThrow(`redirect:/dashboard/${slug}/members`);
+  });
+
+  it("lands a role that only manages staff roles or reads finance on its own page", async () => {
+    mocks.userId = users.roles!;
+    await expect(requireOrgCapability(slug, "org.view")).rejects.toThrow(`redirect:/dashboard/${slug}/settings/roles`);
+    mocks.userId = users.finance!;
+    await expect(requireOrgCapability(slug, "org.view")).rejects.toThrow(`redirect:/dashboard/${slug}/reports/money`);
   });
 
   it("ends in not found when the role opens none of the landing pages", async () => {

@@ -101,6 +101,16 @@ describe("level league", () => {
     expect(rows.map((row) => row.name)).toEqual(["North 1", "North 2", "This unit directly"]);
     expect(rows.every((row) => row.collected === null)).toBe(true);
   });
+
+  it("keeps a unit's direct row while it has 30-day growth to show, even with nobody active now", () => {
+    const recent = build(
+      [member("m5", { unitId: "s", unitPath: "s" })],
+      [term({ id: "e", member: "m5", status: "REVOKED", starts: "2026-09-01", ends: "2027-09-01", grace: null })],
+      [event("e", "PENDING_PAYMENT", "ACTIVE", ist("2026-09-01")), event("e", "ACTIVE", "REVOKED", ist("2026-10-05"))],
+    );
+    const rows = levelLeague(recent, units, "s", window, now, null);
+    expect(rows).toEqual([expect.objectContaining({ name: "This unit directly", active: 0, active30: 1, active90: 0 })]);
+  });
 });
 
 describe("analytics shapers", () => {

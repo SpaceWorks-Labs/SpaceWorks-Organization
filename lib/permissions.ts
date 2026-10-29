@@ -114,7 +114,11 @@ export async function requireOrgCapability(orgSlug: string, capability: Capabili
 }
 
 /** Where a denied page sends its viewer: the first of these their role opens. */
-const LANDINGS: ReadonlyArray<[Capability, string]> = [["org.view", ""], ["members.view", "/members"], ["payments.view", "/payments"], ["reports.membership", "/reports"], ["org.settings", "/settings"]];
+const LANDINGS: ReadonlyArray<[Capability, string]> = [
+  ["org.view", ""], ["members.view", "/members"], ["payments.view", "/payments"], ["reports.membership", "/reports"],
+  ["reports.finance", "/reports/money"], ["audit.view", "/reports/activity"], ["org.settings", "/settings"],
+  ["structure.manage", "/settings/structure"], ["roles.manage", "/settings/roles"], ["cards.design", "/settings/cards"],
+];
 
 export type OrgActionAccess =
   | { ok: true; organisation: OrgAccessContext["organisation"]; membership: StaffMembership; userId: string }
