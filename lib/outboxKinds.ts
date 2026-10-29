@@ -24,6 +24,8 @@ export type OutboxKindHandler = {
   capability: boolean;
   /** One-hour links: retry within their lifetime. */
   shortLived?: boolean;
+  /** Storage work an erasure or move depends on: never given up after a number of failures, retried hourly. */
+  durable?: boolean;
   deliver(payload: Prisma.JsonValue, messageId: string): Promise<DeliveryOutcome>;
 };
 
@@ -241,6 +243,7 @@ const ownershipTransfer: OutboxKindHandler = {
 const memberPhotoPurge: OutboxKindHandler = {
   // Not an email: an erased member's photos, deleted after the erasure commits and retried until storage agrees.
   capability: false,
+  durable: true,
   async deliver(value) {
     const payload = asPhotoPurgePayload(value);
     if (!payload) throw new PermanentOutboxError();
@@ -252,6 +255,7 @@ const memberPhotoPurge: OutboxKindHandler = {
 const legacyPhotoPurge: OutboxKindHandler = {
   // Not an email: a photo's file from before 0.7, deleted once the move to the member's own prefix commits.
   capability: false,
+  durable: true,
   async deliver(value) {
     const payload = asLegacyPhotoPurgePayload(value);
     if (!payload) throw new PermanentOutboxError();

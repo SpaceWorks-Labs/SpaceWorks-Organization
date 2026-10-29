@@ -66,6 +66,25 @@ describe.sequential("joining", () => {
     expect(member.consents).toHaveLength(1);
   });
 
+  it("sends a paid joiner to their account's pay page, or to a signed pay link without member accounts", async () => {
+    await prisma.membershipPlan.create({ data: { organisationId: orgId, name: "Paid", slug: "paid", joinMode: "OPEN", priceNewMinor: 50_000 } });
+    signIn("stranger");
+    const withAccounts = await submitJoin({ organisationSlug: slug, planSlug: "paid", consent: true, profile: profile("Stranger One") });
+    expect(withAccounts).toMatchObject({ ok: true, data: { status: "PENDING_PAYMENT", accountUrl: "/account" } });
+    if (withAccounts.ok) expect(withAccounts.data!.payUrl).toBe(`/account/pay/${withAccounts.data!.termId}`);
+    await prisma.organisation.update({ where: { id: orgId }, data: { memberPortal: false } });
+    vi.stubEnv("AUTH_SECRET", "a".repeat(48));
+    try {
+      signIn("owner");
+      const without = await submitJoin({ organisationSlug: slug, planSlug: "paid", consent: true, profile: profile("Owner Member") });
+      expect(without).toMatchObject({ ok: true, data: { status: "PENDING_PAYMENT", accountUrl: `/o/${slug}` } });
+      if (without.ok) expect(without.data!.payUrl).toMatch(/^\/pay\/[A-Za-z0-9_.-]+$/);
+    } finally {
+      vi.unstubAllEnvs();
+      await prisma.organisation.update({ where: { id: orgId }, data: { memberPortal: true } });
+    }
+  });
+
   it("needs a unit when the organisation uses units, and consent", async () => {
     signIn("abhiram");
     expect(await submitJoin({ organisationSlug: slug, planSlug: "open", consent: true, profile: { name: "Abhiram NJ" } })).toMatchObject({ ok: false, fieldErrors: { unitId: expect.anything() } });

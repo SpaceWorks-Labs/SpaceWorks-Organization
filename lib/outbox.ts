@@ -87,7 +87,8 @@ export async function deliverOutboxBatch(limit = 20, options: { ids?: string[] }
       sent += 1;
     } catch (error) {
       const attempts = message.attempts + 1;
-      const terminal = error instanceof PermanentOutboxError || attempts >= 8;
+      // Durable storage work keeps retrying however often storage fails; only a malformed job is given up.
+      const terminal = error instanceof PermanentOutboxError || (!handler?.durable && attempts >= 8);
       if (handler?.capability && terminal) {
         await prisma.outboxMessage.deleteMany({ where: claimed });
       } else {

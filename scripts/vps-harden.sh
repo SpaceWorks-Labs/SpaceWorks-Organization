@@ -74,11 +74,16 @@ if want 'Ban addresses that keep failing SSH logins (fail2ban)?'; then
   if install_packages fail2ban >/dev/null 2>&1; then
     backend=auto
     [[ -f /var/log/auth.log || -f /var/log/secure ]] || backend=systemd
+    # Ban on the ports sshd really listens on; fail2ban's default is 22 alone.
+    mapfile -t jail_ports < <(ssh_ports)
+    port_line=''
+    [[ ${#jail_ports[@]} == 0 ]] || port_line="port = $(IFS=,; printf '%s' "${jail_ports[*]}")"
     mkdir -p /etc/fail2ban/jail.d
     cat > /etc/fail2ban/jail.d/spaceworks-organization.local <<EOF
 [sshd]
 enabled = true
 backend = $backend
+$port_line
 maxretry = 5
 bantime = 1h
 EOF

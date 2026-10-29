@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { BadgeCheck, CircleAlert, Clock, ShieldX } from "lucide-react";
 import { loadVerifyView } from "@/lib/views/app__verify__token__page";
 import { VERDICT_LABELS, type VerifyVerdict, type VerifyView } from "@/lib/cards/verify";
-import { Avatar, OrgLogo } from "@/components/ui/display";
+import { Avatar, Callout, OrgLogo } from "@/components/ui/display";
+import { StaffScanPanel } from "@/components/cards/StaffScanPanel";
+import { STAFF_AUTHENTICATOR_MESSAGE, STAFF_AUTHENTICATOR_SETUP } from "@/lib/permissionRoles";
 import { cn } from "@/lib/cn";
 
 export const dynamic = "force-dynamic";
@@ -33,8 +36,9 @@ function Plain({ title, children, tone = "neutral" }: { title: string; children:
 }
 
 type MemberView = Extract<VerifyView, { state: "member" }>;
+type CardImages = { front: string; back: string | null } | null;
 
-function MemberVerdict({ view }: { view: MemberView }) {
+function MemberVerdict({ view, images }: { view: MemberView; images: CardImages }) {
   const tone = TONES[view.verdict];
   return (
     <>
@@ -68,23 +72,37 @@ function MemberVerdict({ view }: { view: MemberView }) {
           </div>
         </dl>
       </section>
+      {images ? (
+        <section aria-label="Membership card" className="flex flex-col gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element -- drawn on demand for this check, never cached */}
+          <img src={images.front} alt={`Front of ${view.name}'s membership card`} className="h-auto w-full rounded-xl shadow-md" />
+          {/* eslint-disable-next-line @next/next/no-img-element -- drawn on demand for this check, never cached */}
+          {images.back ? <img src={images.back} alt={`Back of ${view.name}'s membership card`} className="h-auto w-full rounded-xl shadow-md" /> : null}
+        </section>
+      ) : null}
     </>
   );
 }
 
 export default async function VerifyCardPage({ params }: { params: Promise<{ token: string }> }) {
-  const { view, checkedAt } = await loadVerifyView({ params });
+  const { view, checkedAt, images, staff } = await loadVerifyView({ params });
   let body: React.ReactNode;
-  if (view.state === "member") body = <MemberVerdict view={view} />;
+  if (view.state === "member") body = <MemberVerdict view={view} images={images} />;
   else if (view.state === "not-found") body = <Plain title="Card not recognised">This QR code doesn&apos;t match a card we know. Ask the holder for another form of membership proof.</Plain>;
   else if (view.state === "card-revoked") body = <Plain title="Card revoked" tone="danger">{view.organisationName} has revoked this card. It is no longer proof of membership.</Plain>;
   else if (view.state === "card-replaced") body = <Plain title="Card replaced" tone="danger">{view.organisationName} issued a newer card to replace this one. Ask the holder for their current card.</Plain>;
   else body = <Plain title="Organisation suspended">{view.organisationName} is suspended on this platform, so its cards can&apos;t be checked right now.</Plain>;
   return (
-    <div className="mx-auto flex w-full max-w-[30rem] flex-col gap-5 px-4 py-8 sm:py-12">
+    <div className={cn("mx-auto flex w-full flex-col gap-5 px-4 py-8 sm:py-12", staff?.state === "panel" ? "max-w-3xl" : "max-w-[30rem]")}>
       {body}
+      {staff?.state === "authenticator" ? (
+        <Callout tone="warning" title="Set up an authenticator app to manage this member" action={<Link href={STAFF_AUTHENTICATOR_SETUP} className="font-semibold underline underline-offset-4">Set up an authenticator</Link>}>
+          {STAFF_AUTHENTICATOR_MESSAGE}
+        </Callout>
+      ) : null}
+      {staff?.state === "panel" ? <StaffScanPanel staff={staff} /> : null}
       <p className="text-center text-caption text-ink-muted">
-        Checked {checked(checkedAt, view.state === "member" ? view.timeZone : undefined)}. This page shows the membership as the organisation records it and never shows contact details.
+        Checked {checked(checkedAt, view.state === "member" ? view.timeZone : undefined)}. {staff?.state === "panel" ? "Only your organisation's record of this member is shown." : "This page shows the membership as the organisation records it and never shows contact details."}
       </p>
     </div>
   );

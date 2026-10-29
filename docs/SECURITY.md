@@ -63,6 +63,22 @@ public issue.
   your edge overwrites (`TRUSTED_PROXY_IP_HEADER`).
 - Money rows are never edited or deleted; reversals use credit notes, and receipt numbers are gapless.
 
+### Card scans (`/verify`)
+
+- **Public check.** Anyone who scans a card's QR sees its verdict (current, renewal due, not started, not current,
+  revoked) with the member's name, plan, card number and valid-until date, never contact details. While the card is
+  live (not revoked or replaced), the membership is current or in grace, the member is not erased and the
+  organisation is active, the page also shows the card itself, front and back. It is drawn on demand by
+  `/api/verify/<token>/card` (`lib/cards/publicCard.ts`), never stored, sent `private, no-store`, limited per address
+  (`verifyCardImage`), and any other token gets the same 404.
+- **Staff scans.** Signed-in staff of the card's organisation who read members, with an authenticator and the
+  member inside their unit scope, also see that organisation's record of the member: memberships, payments and
+  cards, with contact details only for roles holding `members.contact`. The buttons call the dashboard's own server
+  actions, which check the organisation, unit and permission again. Each scan writes `CARD_SCANNED` (throttled);
+  a super admin's also writes `SUPER_ADMIN_ORG_ENTERED`. Staff of another organisation, or limited to another unit,
+  see exactly the public check, so a scan never shows that someone is a member elsewhere. Staff without an
+  authenticator are asked to set one up instead.
+
 ### Sign-in
 
 - **Staff need an authenticator.** Anyone on an organisation's team (whatever their role) must

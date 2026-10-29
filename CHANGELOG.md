@@ -21,6 +21,9 @@ drawn on demand with photos stored per member.
 - **Cards:** the member's units print on cards (`{units}`, `{unit}`, `{level1}`…), unit codes go in card numbers
   (`{U1}`…`{U4}`, `{UNIT}`), two standard templates, and card designs for chosen roles. Cards are never stored:
   bulk downloads stream a ZIP or one PDF on demand.
+- **Card scans:** staff who scan a member's card QR see that member in their own organisation only, inside their
+  unit, and can verify, renew, record a payment, change the end date or revoke from there. Anyone else sees the
+  card itself beside the check while the membership is current.
 - **Member photos** are stored per member in Silo or Cloudflare R2; members can upload their own when the
   organisation allows it, and erasure deletes every stored version.
 - **Sheet onboarding:** an imported sheet is checked row by row before saving, the unit's lead can verify the new

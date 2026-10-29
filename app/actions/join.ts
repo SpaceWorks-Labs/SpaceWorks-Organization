@@ -16,6 +16,7 @@ import { MEMBERSHIP_NOTICE_VERSION, memberProfileSchema, validateFieldValues } f
 import { teamScope, unitInScope } from "@/lib/membership/scope";
 import { planOffersUnit } from "@/lib/membership/planUnits";
 import { loadPaymentGuidance } from "@/lib/payments/payGuidance";
+import { payLinkToken } from "@/lib/payments/payLink";
 import type { PaymentGuidance } from "@/lib/payments/unitInstructions";
 import type { ActionResult } from "./org";
 import { flattenZodErrors } from "./utils";
@@ -40,7 +41,7 @@ function inviteUsable(invite: { usedOut: boolean; revokedAt: Date | null; expire
  * Join an organisation on a plan. The account's verified email becomes the member's email, so one person
  * holds one member record per organisation and can see all of them from their account.
  */
-export async function submitJoin(input: unknown): Promise<ActionResult<{ status: string; termId: string; payment: PaymentGuidance | null }>> {
+export async function submitJoin(input: unknown): Promise<ActionResult<{ status: string; termId: string; payment: PaymentGuidance | null; payUrl: string | null; accountUrl: string }>> {
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) return { ok: false, error: "Sign in to join." };
@@ -50,7 +51,7 @@ export async function submitJoin(input: unknown): Promise<ActionResult<{ status:
   if (!user?.email || !user.emailVerified) return { ok: false, error: "Verify your email address before joining." };
   const email = user.email.toLowerCase();
 
-  const org = await prisma.organisation.findUnique({ where: { slug: parsed.data.organisationSlug }, select: { id: true, slug: true, status: true, timezone: true, financialYearStartMonth: true, memberLimit: true, unitLevels: true } });
+  const org = await prisma.organisation.findUnique({ where: { slug: parsed.data.organisationSlug }, select: { id: true, slug: true, status: true, timezone: true, financialYearStartMonth: true, memberLimit: true, unitLevels: true, memberPortal: true } });
   if (!org || org.status !== "ACTIVE") return { ok: false, error: "This organisation isn't taking members right now." };
   const plan = await prisma.membershipPlan.findFirst({ where: { organisationId: org.id, slug: parsed.data.planSlug, archivedAt: null }, include: { fields: true, units: { select: { unit: { select: { path: true } } } } } });
   if (!plan) return { ok: false, error: "That plan is no longer offered." };
@@ -100,7 +101,9 @@ export async function submitJoin(input: unknown): Promise<ActionResult<{ status:
     // How to pay offline, from the member's unit up to the organisation, for the confirmation.
     const unitPath = term.status === "PENDING_PAYMENT" ? (await prisma.member.findUnique({ where: { id: term.memberId }, select: { unit: { select: { path: true } } } }))?.unit?.path : null;
     const payment = term.status === "PENDING_PAYMENT" ? await loadPaymentGuidance(org.id, unitPath, term.currency) : null;
-    return { ok: true, data: { status: term.status, termId: term.id, payment } };
+    // Without member accounts there is no account to pay from: a signed pay link instead (lib/payments/payLink.ts).
+    const payUrl = term.status !== "PENDING_PAYMENT" ? null : org.memberPortal ? `/account/pay/${term.id}` : `/pay/${payLinkToken(term.id)}`;
+    return { ok: true, data: { status: term.status, termId: term.id, payment, payUrl, accountUrl: org.memberPortal ? "/account" : `/o/${org.slug}` } };
   } catch (error) {
     if (error instanceof MembershipError) return { ok: false, error: error.message };
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return { ok: false, error: "You already have an application or unpaid membership on this plan. See your account." };

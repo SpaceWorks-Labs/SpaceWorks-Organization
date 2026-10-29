@@ -30,7 +30,7 @@ export function JoinForm({ orgSlug, planSlug, inviteToken, user, units, unitLabe
   const [errors, setErrors] = useState<Record<string, string[] | undefined>>({});
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<string | null>(null);
-  const [termId, setTermId] = useState<string | null>(null);
+  const [links, setLinks] = useState<{ pay: string | null; account: string }>({ pay: null, account: "/account" });
   const [payment, setPayment] = useState<PaymentGuidance | null>(null);
   const [pending, startTransition] = useTransition();
   const set = (key: keyof typeof values, value: string | boolean) => setValues((current) => ({ ...current, [key]: value }));
@@ -49,10 +49,12 @@ export function JoinForm({ orgSlug, planSlug, inviteToken, user, units, unitLabe
           </div>
         ) : null}
         <div>
-          {outcome === "PENDING_PAYMENT" && termId ? (
-            <a href={`/account/pay/${termId}`} className={buttonClasses({ variant: "accent" })}>Pay now</a>
-          ) : (
+          {outcome === "PENDING_PAYMENT" && links.pay ? (
+            <a href={links.pay} className={buttonClasses({ variant: "accent" })}>Pay now</a>
+          ) : links.account === "/account" ? (
             <Link href="/account" className={buttonClasses({ variant: "accent" })}>Go to your account</Link>
+          ) : (
+            <Link href={links.account} className={buttonClasses({ variant: "accent" })}>Back to the organisation</Link>
           )}
         </div>
       </div>
@@ -69,7 +71,7 @@ export function JoinForm({ orgSlug, planSlug, inviteToken, user, units, unitLabe
           const result = await submitJoin({ organisationSlug: orgSlug, planSlug, inviteToken, consent, profile: { ...values, unitId: values.unitId || null, stateCode: values.stateCode || null, fieldValues: answers } });
           if (result.ok) {
             setOutcome(result.data?.status ?? "ACTIVE");
-            setTermId(result.data?.termId ?? null);
+            setLinks({ pay: result.data?.payUrl ?? null, account: result.data?.accountUrl ?? "/account" });
             setPayment(result.data?.payment ?? null);
           }
           else {

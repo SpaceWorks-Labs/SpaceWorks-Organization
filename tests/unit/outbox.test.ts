@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   notice: vi.fn(),
   adminAlert: vi.fn(),
   ownerInvite: vi.fn(),
+  photoPurge: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: { outboxMessage: {
@@ -17,6 +18,10 @@ vi.mock("@/lib/db", () => ({ prisma: { outboxMessage: {
   findMany: mocks.findMany,
   deleteMany: mocks.deleteMany,
 } } }));
+vi.mock("@/lib/storage/memberPhotos", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/storage/memberPhotos")>()),
+  purgeErasedMemberPhotos: mocks.photoPurge,
+}));
 vi.mock("@/lib/email/passwordReset", () => ({ sendPasswordResetEmail: mocks.passwordReset }));
 vi.mock("@/lib/email/emailVerification", () => ({ sendEmailVerificationEmail: mocks.verification }));
 vi.mock("@/lib/email/organisation", async (importOriginal) => ({
@@ -87,6 +92,14 @@ describe("outbox delivery", () => {
 
     await expect(deliverOutboxBatch()).resolves.toEqual({ sent: 0, failed: 1 });
     expect(mocks.deleteMany).toHaveBeenCalledWith({ where: expect.objectContaining({ id: "msg_1", status: OutboxStatus.PROCESSING }) });
+  });
+
+  it("keeps retrying an erased member's photo purge however often storage fails", async () => {
+    mocks.photoPurge.mockRejectedValue(Object.assign(new Error("storage down"), { code: "ECONNREFUSED" }));
+    mocks.findMany.mockResolvedValue([message({ kind: "member-photo-purge", attempts: 20, payload: { organisationId: "org_1", memberId: "mem_1", keys: [] } })]);
+
+    await expect(deliverOutboxBatch()).resolves.toEqual({ sent: 0, failed: 1 });
+    expect(mocks.updateMany).toHaveBeenLastCalledWith({ where: claimedWhere, data: expect.objectContaining({ status: OutboxStatus.PENDING }) });
   });
 
   it("stores only bounded failure metadata and releases the claim for a retry", async () => {

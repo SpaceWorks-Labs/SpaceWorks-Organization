@@ -65,6 +65,8 @@ Grouped the way an organisation's year actually goes.
 
 - One card per member and plan, issued when the membership starts, in your colours, with photo and role.
 - A **verify QR** on every card that opens a public check page: Valid, Expired, Revoked or Replaced, read live.
+- Scanned outside the app, the page also shows the card itself while the membership is current. Staff who scan it
+  see the member in their own organisation and can verify, renew, record a payment, extend or revoke there.
 - PDF and PNG downloads, and bulk exports for printing.
 
 ### Member portal
