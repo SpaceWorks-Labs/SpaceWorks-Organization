@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { can, requireOrgCapability } from "@/lib/permissions";
 import { canGrant, roleCapabilities, STARTER_ROLES } from "@/lib/permissionRoles";
@@ -51,10 +52,17 @@ export async function loadOrgMembersView({ params, searchParams }: Props) {
     skip: (memberPage - 1) * MEMBERS_PAGE_SIZE,
     take: MEMBERS_PAGE_SIZE,
   });
-  const openInviteWhere = {
+  // Only invites this viewer could give (inside their reach, roles they may grant), filtered before the limit so
+  // newer invites from other units never crowd theirs out; the count is of the same set.
+  const grantable = (scoped: boolean) => roles.filter((role) => canGrant(membership, role, scoped)).map((role) => role.id);
+  const reach = scope.unitPath ? { unit: { is: { OR: [{ path: scope.unitPath }, { path: { startsWith: `${scope.unitPath}/` } }] } } } : {};
+  const openInviteWhere: Prisma.TeamInviteWhereInput = {
     organisationId: organisation.id,
     usedAt: null,
-    OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+    AND: [
+      { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+      { OR: [...(membership.unitId ? [] : [{ unitId: null, roleId: { in: grantable(false) } }]), { unitId: { not: null }, roleId: { in: grantable(true) }, ...reach }] },
+    ],
   };
   const [invites, openInviteCount] = adminView
     ? await Promise.all([
@@ -112,9 +120,7 @@ export async function loadOrgMembersView({ params, searchParams }: Props) {
     isYou: m.userId === membership.userId,
     manageable: adminView && m.userId !== membership.userId && !m.orgRole.isOwner && mayGrant(membership, scope, { role: m.orgRole, unitId: m.unitId, unitPath: m.unit?.path ?? null }),
   }));
-  const visibleInvites = invites
-    .filter((invite) => mayGrant(membership, scope, { role: invite.orgRole, unitId: invite.unitId, unitPath: invite.unit?.path ?? null }))
-    .map((invite) => ({ id: invite.id, token: invite.token, createdAt: invite.createdAt, grantLabel: grantLabel(invite.orgRole.name, invite.unit?.name) }));
+  const visibleInvites = invites.map((invite) => ({ id: invite.id, token: invite.token, createdAt: invite.createdAt, grantLabel: grantLabel(invite.orgRole.name, invite.unit?.name) }));
   const transfer = can(membership, "ownership.transfer", { write: true })
     ? await ownershipChoices(organisation.id, membership.userId, roles, now)
     : null;

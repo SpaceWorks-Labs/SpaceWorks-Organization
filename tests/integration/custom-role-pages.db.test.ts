@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ userId: null as string | null }));
 vi.mock("@/lib/auth", () => ({ auth: async () => (mocks.userId ? { user: { id: mocks.userId } } : null) }));
+vi.mock("@/lib/publicUrl", async (original) => ({ ...(await original<typeof import("@/lib/publicUrl")>()), getRequestOrigin: async () => "http://localhost:3000" }));
 vi.mock("next/navigation", () => ({
   redirect: (to: string) => { throw new Error(`redirect:${to}`); },
   notFound: () => { throw new Error("not-found"); },
@@ -12,6 +13,7 @@ import { prisma } from "@/lib/db";
 import { upsertMember } from "@/lib/membership/service";
 import { requireOrgCapability } from "@/lib/permissions";
 import { loadMemberView } from "@/lib/views/app__dashboard__orgSlug__members__memberId__page";
+import { loadPaymentSettingsView } from "@/lib/views/app__dashboard__orgSlug__settings__payments__page";
 
 // Custom roles may leave out any permission: a denied page lands somewhere the role can open, and member page
 // controls follow the permission their action checks.
@@ -37,6 +39,7 @@ beforeAll(async () => {
   await staffWith("finance", ["reports.finance"]);
   await staffWith("erasure", ["members.view", "erasure.decide"]);
   await staffWith("manager", ["org.view", "members.view", "members.manage"]);
+  await staffWith("settings", ["org.view", "payments.settings"]);
 });
 
 afterAll(async () => {
@@ -61,6 +64,13 @@ describe.sequential("custom roles on dashboard pages", () => {
   it("ends in not found when the role opens none of the landing pages", async () => {
     mocks.userId = users.cards!;
     await expect(requireOrgCapability(slug, "org.view")).rejects.toThrow("not-found");
+  });
+
+  it("opens payment settings to a role that changes them without reading payment records", async () => {
+    mocks.userId = users.settings!;
+    expect(await loadPaymentSettingsView({ params: Promise.resolve({ orgSlug: slug }) })).toMatchObject({ canEdit: true });
+    mocks.userId = users.directory!;
+    await expect(loadPaymentSettingsView({ params: Promise.resolve({ orgSlug: slug }) })).rejects.toThrow(`redirect:/dashboard/${slug}/members`);
   });
 
   it("offers erasure decisions by the erasure permission, not member management", async () => {

@@ -1,3 +1,4 @@
+import { prisma } from "@/lib/db";
 import { ANALYTICS_TTL_SECONDS, analyticsCacheKey, cached } from "@/lib/cache";
 import { inSubtree, prepareDataset } from "@/lib/reports/dataset";
 import { drillHref } from "@/lib/reports/drillLinks";
@@ -20,6 +21,12 @@ export async function loadOrgReportsUnits({ params, searchParams }: Props) {
   const { now, period, scope, org, team } = ctx;
   const finance = ctx.can("reports.finance");
   const key = analyticsCacheKey(org.id, scope.unitId, "units", scope.planId ?? "all", `${period.from.getTime()}-${period.to.getTime()}`, finance ? "money" : "members");
+  // Every unit in the viewer's reach, archived ones too: their members and money still count in the league.
+  const reportingUnits = await prisma.orgUnit.findMany({
+    where: { organisationId: org.id, ...(team.unitPath ? { OR: [{ path: team.unitPath }, { path: { startsWith: `${team.unitPath}/` } }] } : {}) },
+    orderBy: { path: "asc" },
+    select: { id: true, name: true, path: true, archivedAt: true },
+  });
   const league = await cached(key, ANALYTICS_TTL_SECONDS, async () => {
     const [rows, collections, open] = await Promise.all([
       loadReportRows(scope),
@@ -27,12 +34,15 @@ export async function loadOrgReportsUnits({ params, searchParams }: Props) {
       finance ? loadOpenCharges(scope) : null,
     ]);
     const money = collections && open ? { paid: collections.payments, refunds: collections.refunds, open: open.payments, unpaid: open.unpaidTerms } : null;
-    return levelLeague(prepareDataset(rows), ctx.allUnits, scope.unitPath, period, now, money, org.currency);
+    const data = prepareDataset(rows);
+    // An archived unit shows while its subtree still holds members.
+    const units = reportingUnits.filter((unit) => !unit.archivedAt || data.members.some((member) => inSubtree(member.unitPath, unit.path)));
+    return levelLeague(data, units, scope.unitPath, period, now, money, org.currency);
   });
 
   const base = `/dashboard/${org.slug}/reports/units`;
   const at = (unitId: string | null) => `${base}${filterQuery({ ...ctx.filters, unit: unitId && unitId !== team.unitId ? unitId : "" })}`;
-  const unitById = new Map(ctx.allUnits.map((unit) => [unit.id, unit]));
+  const unitById = new Map(reportingUnits.map((unit) => [unit.id, unit]));
   // The way back up: the organisation (organisation-wide staff only), then each unit down to the current one.
   const trail = [
     ...(team.unitId ? [] : [{ key: "org", label: org.name, href: at(null) }]),

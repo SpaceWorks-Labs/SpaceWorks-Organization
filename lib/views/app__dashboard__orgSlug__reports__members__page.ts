@@ -8,7 +8,7 @@ import { closingInstant, firstActivation, standingAt } from "@/lib/reports/metri
 import { contactFor } from "@/lib/reports/mask";
 import { drillFilters, openReport, reportShell } from "@/lib/reports/shell";
 import { loadReportRows, scopedMemberWhere } from "@/lib/reports/source";
-import type { ReportSearch } from "@/lib/reports/context";
+import { reportingUnits, type ReportSearch } from "@/lib/reports/context";
 
 type Search = ReportSearch & { q?: string; standing?: string };
 type Props = { params: Promise<{ orgSlug: string }>; searchParams: Promise<Search> };
@@ -73,8 +73,10 @@ export async function loadOrgReportsMembers({ params, searchParams }: Props) {
     }];
   });
 
-  const unitById = new Map(ctx.allUnits.map((unit) => [unit.id, unit]));
-  const league = ctx.allUnits.length ? unitLeague(data, ctx.allUnits, scope.unitPath, period, now) : [];
+  // Archived units still holding members keep their row, so nobody drops out of the breakdown.
+  const leagueUnits = ctx.allUnits.length ? await reportingUnits(ctx, data.members) : [];
+  const unitById = new Map(leagueUnits.map((unit) => [unit.id, unit]));
+  const league = leagueUnits.length ? unitLeague(data, leagueUnits, scope.unitPath, period, now) : [];
   const tenureView = tenure(data, end);
   return {
     shell: reportShell(ctx, "members"),

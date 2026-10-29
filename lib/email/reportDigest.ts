@@ -23,7 +23,7 @@ export async function deliverReportDigest(payload: Payload, messageId: string): 
   const where = digest.unitName ? `${digest.organisation.name} (${digest.unitName})` : digest.organisation.name;
   const paragraphs = [
     `Hi ${digest.firstName}, here is ${digest.monthLabel} at ${where}.`,
-    `Members: ${m.activeEnd.toLocaleString("en-IN")} active at the end of the month (${m.netChange >= 0 ? "+" : ""}${m.netChange.toLocaleString("en-IN")}), ${m.joined} joined, ${m.renewed} renewed and ${m.lapsed} lapsed.`,
+    ...(m ? [`Members: ${m.activeEnd.toLocaleString("en-IN")} active at the end of the month (${m.netChange >= 0 ? "+" : ""}${m.netChange.toLocaleString("en-IN")}), ${m.joined} joined, ${m.renewed} renewed and ${m.lapsed} lapsed.`] : []),
     ...(digest.money ? [`Money: ${formatTotals(digest.money.net, digest.organisation.locale) || "nothing"} collected after refunds, from ${digest.money.payments} payments.`] : []),
     ...(digest.waitingForApproval ? [`${digest.waitingForApproval} ${digest.waitingForApproval === 1 ? "application is" : "applications are"} waiting for a decision.`] : []),
   ];

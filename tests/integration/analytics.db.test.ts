@@ -11,6 +11,7 @@ import { localDate } from "@/lib/membership/periods";
 import { dateColumn, recomputeOrgDays } from "@/lib/reports/rollup";
 import { EXPIRED_BACKFILL_KEY, runExpiredBackfill } from "@/lib/reports/rollupBackfill";
 import { loadOrgReportsUnits } from "@/lib/views/app__dashboard__orgSlug__reports__units__page";
+import { loadOrgReportsMembers } from "@/lib/views/app__dashboard__orgSlug__reports__members__page";
 import { loadSuperAdminAnalyticsView } from "@/lib/views/app__super-admin__analytics__page";
 import { loadSuperAdminOrgAnalyticsView } from "@/lib/views/app__super-admin__orgs__orgId__analytics__page";
 import { GET as exportComparison } from "@/app/api/exports/platform/analytics/route";
@@ -147,5 +148,27 @@ describe.sequential("super-admin analytics", () => {
   it("refuses the export to anyone but a platform super admin", async () => {
     mocks.userId = ids.owner;
     expect((await exportComparison(new Request("http://localhost/api/exports/platform/analytics"))).status).toBe(404);
+  });
+});
+
+describe.sequential("archived units in the league", () => {
+  it("keeps an archived unit's members and money in the league, inside the lead's reach only", async () => {
+    const north = await prisma.orgUnit.findUniqueOrThrow({ where: { id: ids.north } });
+    const north2 = await unit("North 2", "NORTH2", north);
+    const paid = await prisma.membershipPlan.findFirstOrThrow({ where: { organisationId: org.id, name: "Paid" } });
+    const member = await prisma.$transaction((tx) => upsertMember(tx, org.id, { email: `n2-${suffix}@example.test`, name: `Vic Eta ${suffix}`, source: "MANUAL", unitId: north2.id }));
+    await prisma.$transaction((tx) => openTerm(tx, { org, plan: paid, memberId: member.id, byManager: true, actorUserId: null, now }));
+    await prisma.orgUnit.update({ where: { id: north2.id }, data: { archivedAt: new Date() } });
+    mocks.userId = ids.northLead;
+    const result = await loadOrgReportsUnits({ params: Promise.resolve({ orgSlug: org.slug }), searchParams: Promise.resolve({}) });
+    expect(result.rows.map((row) => row.name).sort()).toEqual(["North 1", "North 2", "This unit directly"]);
+    expect(result.rows.find((row) => row.name === "North 2")?.outstanding).toEqual([{ currency: "INR", minor: 50_000 }]);
+    // The members report's unit breakdown keeps it too.
+    const members = await loadOrgReportsMembers({ params: Promise.resolve({ orgSlug: org.slug }), searchParams: Promise.resolve({}) });
+    expect(members.units.map((row) => row.name)).toContain("North 2");
+    // Drilled into from the organisation, the archived unit keeps its place in the trail.
+    mocks.userId = ids.owner;
+    const drilled = await loadOrgReportsUnits({ params: Promise.resolve({ orgSlug: org.slug }), searchParams: Promise.resolve({ unit: north2.id }) });
+    expect(drilled.trail.map((step) => step.label)).toEqual([`Example Network ${suffix}`, "North", "North 2"]);
   });
 });

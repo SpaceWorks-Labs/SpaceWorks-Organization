@@ -6,11 +6,13 @@ vi.mock("@/lib/auth", () => ({ auth: async () => (mocks.userId ? { user: { id: m
 vi.mock("@/lib/actionRateLimit", () => ({ isActionRateLimited: async () => false }));
 vi.mock("@/lib/reauth", () => ({ hasRecentAuthentication: async () => true }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/headers", () => ({ headers: async () => new Headers() }));
 
 import { prisma } from "@/lib/db";
 import { removeTeamMember, setTeamMemberUnit, updateTeamRole } from "@/app/actions/team";
 import { createOrgInvite } from "@/app/actions/org-invites";
 import { acceptOrganisationInviteToken } from "@/lib/inviteAcceptance";
+import { loadOrgMembersView } from "@/lib/views/app__dashboard__orgSlug__team__page";
 import { addStaff, starterRole } from "@/tests/helpers/staff";
 
 const suffix = randomUUID().replace(/-/g, "").slice(0, 10);
@@ -176,5 +178,18 @@ describe.sequential("team granting", () => {
     await prisma.teamInvite.create({ data: { organisationId: fresh.id, token, role: "OWNER", roleId: ownerRoleId, email: owner.email, createdByUserId: admin.id } });
     expect(await accept(token, owner)).toMatchObject({ ok: true });
     expect(await member(owner.id, fresh.id)).toMatchObject({ roleId: ownerRoleId, role: "OWNER" });
+  });
+
+  it("lists a scoped manager's own open invites however many newer ones other units have", async () => {
+    as(u.scoped);
+    const mine = await invite({ roleId: await role("VIEWER"), unitId: units.ward.id });
+    as(u.owner);
+    for (let i = 0; i < 9; i += 1) await invite({ roleId: await role("VIEWER"), unitId: units.south.id });
+    as(u.scoped);
+    const view = await loadOrgMembersView({ params: Promise.resolve({ orgSlug: org.slug }), searchParams: Promise.resolve({}) });
+    const reach = await prisma.teamInvite.findMany({ where: { organisationId: org.id, usedAt: null, unit: { path: { startsWith: units.north.path } } }, orderBy: { createdAt: "desc" }, select: { token: true } });
+    expect(view.invites.map((entry) => entry.token)).toEqual(reach.map((entry) => entry.token));
+    expect(view.invites[0]?.token).toBe(mine);
+    expect(view.openInviteCount).toBe(reach.length);
   });
 });

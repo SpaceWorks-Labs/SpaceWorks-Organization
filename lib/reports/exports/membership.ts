@@ -3,7 +3,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { deriveStatus, TERM_STATUS_LABELS } from "@/lib/membership/lifecycle";
 import { formatCalendarDate, lastValidDay, localDate } from "@/lib/membership/periods";
-import type { ReportContext } from "../context";
+import { reportingUnits, type ReportContext } from "../context";
 import { prepareDataset, type Dataset } from "../dataset";
 import { contactFor } from "../mask";
 import { applicationTimes } from "../metrics/approvals";
@@ -117,6 +117,7 @@ export async function cohortsExport(ctx: ReportContext): Promise<Built> {
 }
 
 export async function unitsExport(ctx: ReportContext): Promise<Built> {
-  const rows = unitLeague(await dataset(ctx), ctx.allUnits, ctx.scope.unitPath, ctx.period, ctx.now);
+  const data = await dataset(ctx);
+  const rows = unitLeague(data, await reportingUnits(ctx, data.members), ctx.scope.unitPath, ctx.period, ctx.now);
   return { header: ["Unit", "Active", "In grace", "Joined", "Lapsed", "Renewal rate", "Share of active"], rows: rows.map((row) => [row.name, row.active, row.grace, row.joined, row.lapsed, row.renewalRate === null ? "" : `${Math.round(row.renewalRate * 100)}%`, row.share === null ? "" : `${Math.round(row.share * 100)}%`]) };
 }

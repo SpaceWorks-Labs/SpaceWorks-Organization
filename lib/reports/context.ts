@@ -67,3 +67,9 @@ export function filterQuery(filters: ReportContext["filters"], extra: Record<str
   const text = params.toString();
   return text ? `?${text}` : "";
 }
+
+/** The units a breakdown groups members by: every unit, archived ones too while their subtree still holds one of them. */
+export async function reportingUnits(ctx: Pick<ReportContext, "org">, members: ReadonlyArray<{ unitPath: string | null }>) {
+  const units = await prisma.orgUnit.findMany({ where: { organisationId: ctx.org.id }, orderBy: { path: "asc" }, select: { id: true, name: true, path: true, level: true, parentId: true, archivedAt: true } });
+  return units.filter((unit) => !unit.archivedAt || members.some((member) => inSubtree(member.unitPath, unit.path)));
+}

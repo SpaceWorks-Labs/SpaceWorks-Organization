@@ -62,7 +62,8 @@ type Digest = {
   firstName: string;
   monthLabel: string;
   unitName: string | null;
-  membership: MembershipSummary;
+  /** Null without permission to read membership reports, like money without finance. */
+  membership: MembershipSummary | null;
   money: RevenueSummary | null;
   waitingForApproval: number;
 };
@@ -80,16 +81,17 @@ export async function buildDigest(payload: { organisationId: string; userId: str
   const first = { year, month, day: 1 };
   const window = { from: startOfLocalDay(first, org.timezone), to: startOfLocalDay(addMonths(first, 1), org.timezone) };
   const scope = await reportScope(await teamScope(payload.organisationId, member.unitId), {});
-  const data = prepareDataset(await loadReportRows(scope));
+  const members = can(member, "reports.membership");
+  const membership = members ? membershipSummary(prepareDataset(await loadReportRows(scope)), window, now) : null;
   const money = can(member, "reports.finance") ? revenueSummary(await loadFinanceRows(scope), window, org.currency) : null;
-  const waitingForApproval = await prisma.membershipTerm.count({ where: { organisationId: payload.organisationId, status: "PENDING_APPROVAL", member: { is: scope.unitPath ? { unit: { is: { OR: [{ path: scope.unitPath }, { path: { startsWith: `${scope.unitPath}/` } }] } } } : {} } } });
+  const waitingForApproval = !members ? 0 : await prisma.membershipTerm.count({ where: { organisationId: payload.organisationId, status: "PENDING_APPROVAL", member: { is: scope.unitPath ? { unit: { is: { OR: [{ path: scope.unitPath }, { path: { startsWith: `${scope.unitPath}/` } }] } } } : {} } } });
   return {
     organisation: { name: org.name, slug: org.slug, locale: org.locale, currency: org.currency },
     to: member.user.email,
     firstName: (member.user.name ?? "").split(/\s+/)[0] || "there",
     monthLabel: new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, 15))),
     unitName: member.unit?.name ?? null,
-    membership: membershipSummary(data, window, now),
+    membership,
     money,
     waitingForApproval,
   };
