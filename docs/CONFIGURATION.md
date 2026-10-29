@@ -117,6 +117,21 @@ integration tests at a disposable database; `TEST_QUEUE_REDIS_URL` at a disposab
 | `BACKUP_INTERVAL_HOURS` | `24` | Scheduled database dump and bucket mirror interval. |
 | `SILO_IMAGE_TAG` | pinned | Silo release. |
 
+## Backup settings (`backup.env`)
+
+Written by the installer menu's Backups option (`scripts/vps-backup-settings.sh`) into the owner-only
+`backup.env` beside `.env`, and read only by `scripts/vps-offsite-backup.sh`. They are host settings, not
+application environment, so they are in no `.env` or Compose file. See
+[DEPLOYMENT_VPS.md](DEPLOYMENT_VPS.md#encrypted-off-site-copies).
+
+| Variable | Description |
+|---|---|
+| `BACKUP_AGE_RECIPIENT` | age public key; off-site copies are encrypted to it. The private key stays off the server. |
+| `OFFSITE_ENDPOINT`, `OFFSITE_BUCKET`, `OFFSITE_PREFIX` | The off-site S3-compatible bucket and folder. |
+| `OFFSITE_ACCESS_KEY_ID`, `OFFSITE_SECRET_ACCESS_KEY` | A key limited to that bucket. |
+| `OFFSITE_KEEP_DAYS` | Days copies stay in the bucket (90). |
+| `OFFSITE_CA` | `offsite-ca.crt` when a private endpoint uses its own CA. |
+
 ## Scripts and images
 
 | Variable | Used by | Description |
@@ -129,7 +144,7 @@ integration tests at a disposable database; `TEST_QUEUE_REDIS_URL` at a disposab
 | `SWO_BUILD_KEY` | wrapper | Throwaway Server Actions key for local builds (generated per run). |
 | `SWO_COMPOSE_PROJECT` | wrapper | Compose project (`sworg`, `sworg-cloud`, `sworg-smoke`). |
 | `SWO_TLS_DIR`, `SWO_BACKUP_DIR` | compose | Certificate and backup directories (`./tls`, `./backups`). |
-| `SWO_RUNNER_DIR` | `install-runner.sh` | Runner directory (`/opt/spaceworks-organization-runner`). |
+| `SWO_RUNNER_DIR` | `install-runner.sh`, `vps-status.sh`, `vps-uninstall.sh` | Runner directory (`/opt/spaceworks-organization-runner`). |
 | `SWO_DEPLOY` | GitHub repository variable | `true` enables the release workflow's `deploy` job. |
 | `SWO_TOPOLOGY` | ops role | `bundled` or `cloud`; the runtime-role check runs only for bundled. |
 | `SWO_NEXT_DIR` | entrypoint | Where the web build is (`/app/.next`, frontend `/app/frontend/.next`). |

@@ -168,7 +168,9 @@ curl -fsSL https://raw.githubusercontent.com/SpaceWorks-Labs/SpaceWorks-Organiza
 ```
 
 It asks every question first, shows a summary, and changes nothing until you confirm. Run the same command
-again later to update, back up or roll back. Details, requirements and options follow below.
+again later to update, back up, roll back, check health, set up encrypted off-site backups, change settings,
+harden the server, recover super-admin access, collect a support bundle or uninstall: the whole product runs
+and is operated on one server. Details, requirements and options follow below.
 
 ### Full install guide
 
@@ -227,8 +229,22 @@ Run the same curl command later and an existing install shows a menu:
    migrations and restarts.
 2. **Back up now**: the database, the uploaded files and the settings, into `backups/`.
 3. **Roll back to the previous release**: the release that ran before the last update.
-4. **Cancel** (the default).
-5. **Install or re-register the GitHub Actions runner.**
+4. **Check status and health**: every service (backend, worker, beat, PostgreSQL, Redis, Silo, Caddy, backups),
+   disk, the newest backups, certificates, the public address and the operator checks.
+5. **Backups**: how often the database is backed up and how long dumps stay, an `age` encryption key kept off
+   the server, and nightly encrypted copies to an off-site S3-compatible bucket.
+6. **Change settings**: the web address, outgoing email or external bucket keys; the previous settings come back
+   automatically if the checks fail.
+7. **Server security**: a firewall allowing only SSH, HTTP and HTTPS, automatic security updates and fail2ban.
+8. **Automatic deploys**: install or remove the GitHub Actions runner.
+9. **Recover super-admin access**: remove a lost authenticator or set a new password, with
+   `scripts/admin.sh` on the server only (never a reset link).
+10. **Support bundle**: checks and logs with secrets redacted, in `support/`.
+11. **Uninstall**: keeps the data, secrets and backups unless you type `DELETE DATA`.
+
+**0** cancels and is the default. On Linux with systemd the installer also schedules a weekly check that renews the internal certificates two
+months before they expire. Each option is a script in `scripts/` (`vps-status.sh`, `vps-backup-settings.sh`…)
+you can also run as the install owner; see [docs/DEPLOYMENT_VPS.md](docs/DEPLOYMENT_VPS.md).
 
 **Desktop or local install.** From a checkout: `bash setup.sh` (Linux, macOS, Git Bash) or
 `powershell -ExecutionPolicy Bypass -File setup.ps1` (Windows with Docker Desktop). Add `--build` to build the

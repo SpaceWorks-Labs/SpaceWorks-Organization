@@ -64,6 +64,7 @@ scripts/spaceworks-compose.sh cloud up -d                # docker-compose.cloud.
 bash scripts/update.sh --force [--version V | --rollback]
 bash scripts/backup.sh && bash scripts/restore.sh backups/<dump>.sql.gz [--with-storage]
 bash scripts/admin.sh create|set-password|reset-mfa|revoke|list --email <address>   # super admins (server only)
+bash scripts/vps-status.sh       # installer menu tools: vps-{status,backup-settings,offsite-backup,reconfigure,harden,recover,support,uninstall,renew-certs}.sh
 SWO_COMPOSE_BUILD_LAYER=1 bash scripts/compose-smoke.sh  # bundled stack end to end (disposable)
 ```
 

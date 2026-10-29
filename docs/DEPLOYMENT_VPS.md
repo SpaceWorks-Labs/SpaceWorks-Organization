@@ -23,7 +23,31 @@ and runs `setup.sh`, which:
 4. starts the stack with `up --wait` and runs the operator checks (`--role ops`);
 5. installs the optional GitHub Actions runner.
 
-Options: `--repo owner/name` (or `SWO_REPOSITORY`), `SWO_DIR=/path` for another install directory, `--help`.
+On Linux with systemd the installer then schedules the weekly internal-certificate check (see
+[Certificates](#certificates)). Options: `--repo owner/name` (or `SWO_REPOSITORY`), `SWO_DIR=/path` for another
+install directory, `--help`.
+
+## The installer menu
+
+Run the same curl command on an installed server and it offers every operation. Each option runs a script of
+the installed release as the install owner (with `sudo` only for host changes), so you can also run it
+directly from the install directory:
+
+| Option | Script | What it does |
+|---|---|---|
+| 1 Update | `scripts/update.sh --force` | See [Updates and rollback](#updates-and-rollback). |
+| 2 Back up now | `scripts/backup.sh` | Dump, bucket mirror and settings archive into `backups/`. |
+| 3 Roll back | `scripts/update.sh --force --rollback` | The release before the last update. |
+| 4 Status and health | `scripts/vps-status.sh` | Release, disk, newest dumps, off-site status, timers, certificate expiry, every service's state and health (backend, worker, beat, db, redis, minio, caddy, backup), the public address, then the operator checks. Changes nothing. |
+| 5 Backups | `scripts/vps-backup-settings.sh` | Backup interval and retention, encryption key, off-site copies. |
+| 6 Change settings | `scripts/vps-reconfigure.sh` | Web address, outgoing email or external bucket keys, rolled back automatically if the checks fail. |
+| 7 Server security | `scripts/vps-harden.sh [--all]` | Firewall (SSH, HTTP, HTTPS only), automatic security updates, fail2ban. |
+| 8 Automatic deploys | `scripts/install-runner.sh [--remove]` | See [Updates and rollback](#updates-and-rollback). |
+| 9 Recover super-admin access | `scripts/vps-recover.sh` | Lost authenticator or password, through `scripts/admin.sh`. |
+| 10 Support bundle | `scripts/vps-support.sh` | Report and logs with secrets redacted, in `support/`. |
+| 11 Uninstall | `scripts/vps-uninstall.sh` | See [Uninstalling](#uninstalling). |
+
+A release older than an option says so; update first (option 1).
 
 ## What runs
 
@@ -69,7 +93,9 @@ scripts/spaceworks-compose.sh bundled run --rm ops      # TLS, roles, migrations
 | `/opt/spaceworks-organization/` | The installed release (compose files, `deploy/`, `scripts/`) |
 | `.env` | Every setting and secret (mode 600). Back it up encrypted, off the server. |
 | `tls/` | The private CA (`ca.key` never leaves this folder) and the service certificates |
-| `backups/` | Database dumps, the bucket mirror, settings archives, replaced host files |
+| `backups/` | Database dumps, the bucket mirror, settings archives, replaced host files, `offsite-status` |
+| `backup.env` | Backup encryption and off-site settings (mode 600; written by menu option 5) |
+| `support/` | Support bundles (menu option 10) |
 | `.spaceworks-version`, `.spaceworks-previous-version` | The running release and the one before it |
 
 ## Backups and restore
@@ -81,8 +107,38 @@ scripts/spaceworks-compose.sh bundled run --rm ops      # TLS, roles, migrations
   bucket mirror and archives `.env` and `tls/` to `backups/config-<time>.tar.gz`.
 - **Before every update:** `backups/pre-update-<time>.sql.gz`.
 
-Backups contain every secret. Copy them off the server, encrypted, for example
-`tar -czf - backups | gpg --symmetric > sworg-backups.tar.gz.gpg`.
+Backups contain every secret. Copy them off the server, encrypted: menu option 5 does it every night.
+
+The backup service's interval and retention are `BACKUP_INTERVAL_HOURS` and `BACKUP_RETENTION_DAYS` in `.env`;
+option 5 changes them and restarts the services that read them.
+
+### Encrypted off-site copies
+
+Option 5 first makes an [age](https://age-encryption.org) key: the public half is saved in `backup.env`, the
+private half is shown once and never stored on the server. Keep it in a password manager. Then it asks for an
+S3-compatible bucket at another provider (endpoint, optional private CA, bucket, folder, a key limited to that
+bucket, days to keep), checks the bucket is reachable and schedules `sworg-offsite-backup.timer` (every night at
+about 03:30 UTC). Each run of `scripts/vps-offsite-backup.sh` uploads a folder named after its UTC time:
+
+| File | Contents |
+|---|---|
+| `database.sql.gz.age` | A fresh dump, taken while the stack runs |
+| `settings.tar.gz.age` | `.env`, `tls/` and `backup.env` |
+| `storage.tar.age` | The bucket mirror (bundled Silo only; back up an external bucket with its provider) |
+
+Every file is encrypted on the way out; nothing unencrypted leaves the server. Local `backups/` stay as they are
+(owner-only). Copies older than the chosen days are removed from the bucket. Option 4 shows the last result.
+
+```bash
+bash scripts/vps-offsite-backup.sh --fetch 20261029T033012Z      # into backups/offsite/20261029T033012Z/
+cd backups/offsite/20261029T033012Z
+age -d -i key.txt database.sql.gz.age > ../../offsite-20261029T033012Z.sql.gz
+age -d -i key.txt settings.tar.gz.age | tar -xz -C /somewhere/private
+age -d -i key.txt storage.tar.age | tar -x -C /somewhere/private   # files for backups/storage
+```
+
+Then restore the dump with `bash scripts/restore.sh backups/offsite-20261029T033012Z.sql.gz`. Remove `key.txt`
+from the server afterwards.
 
 ```bash
 bash scripts/restore.sh backups/scheduled-20261020T020000Z.sql.gz                 # database only
@@ -93,8 +149,36 @@ Restore asks you to type `RESTORE`, takes a fresh `pre-restore` dump, stops the 
 replaces the schema in one transaction, optionally copies the files back, and starts everything again;
 migrations bring an older dump up to the running release.
 
-**New server:** install with the same answers, stop the stack, put the old `.env` and `tls/` back from the
-settings archive, start it, then restore the dump (and `backups/storage` with `--with-storage`).
+### Restore on a new server
+
+Install with the same answers, stop the stack, put the old `.env` and `tls/` back from the settings archive
+(or an off-site `settings.tar.gz.age`), start it, then restore the dump (and `backups/storage` with
+`--with-storage`).
+
+### Uninstalling
+
+Option 11 asks you to type `UNINSTALL`, then whether to erase everything (`DELETE DATA`). By default it takes a
+final backup, removes the runner registration, the timers, the containers, the images and the install
+directory, and keeps the data volumes (`sworg_*`) and `.env`, `tls/`, `backup.env`, `.spaceworks-version` and
+`backups/` in `/opt/spaceworks-organization.kept-<time>`. Docker and any server hardening stay.
+
+**Reinstall after uninstalling** with the kept data: download the kept release into the install directory, put
+the kept files back and start it.
+
+```bash
+kept=$(ls -d /opt/spaceworks-organization.kept-* | tail -n 1)
+version=$(cat "$kept/.spaceworks-version")
+sudo mkdir /opt/spaceworks-organization && sudo chown "$(id -u):$(id -g)" /opt/spaceworks-organization
+curl -fsSL "https://github.com/SpaceWorks-Labs/SpaceWorks-Organization/archive/refs/tags/v$version.tar.gz" \
+  | tar -xz --strip-components=1 -C /opt/spaceworks-organization
+sudo mv "$kept"/.env "$kept"/tls "$kept"/backups "$kept"/.spaceworks-version /opt/spaceworks-organization/
+cd /opt/spaceworks-organization && sudo chown -R "$(id -u):$(id -g)" .env tls .spaceworks-version
+scripts/spaceworks-compose.sh bundled up -d --wait && scripts/spaceworks-compose.sh bundled run --rm ops
+```
+
+For a clean start instead, remove the volumes
+(`docker volume rm $(docker volume ls -q --filter label=com.docker.compose.project=sworg)`) and follow
+[Restore on a new server](#restore-on-a-new-server).
 
 ## Super admins
 
@@ -108,6 +192,11 @@ bash scripts/admin.sh reset-mfa --email you@example.org       # remove an authen
 bash scripts/admin.sh revoke --email you@example.org          # take super-admin access away
 bash scripts/admin.sh list
 ```
+
+**Lost access** (menu option 9, `scripts/vps-recover.sh`) lists the super admins, then removes a lost
+authenticator, sets a new password with hidden input on this terminal, does both, or creates a super admin,
+all through `scripts/admin.sh`. It never sends or prints a reset link; each change signs the account out and is
+audited.
 
 The installer creates the first one from the email and password you give. On an upgrade from 0.6 or earlier,
 the existing `SUPER_ADMIN_EMAIL` account is kept as super admin automatically. Without Docker
@@ -138,15 +227,34 @@ The installer menu offers both (options 1 and 3), and the release workflow's `de
 
 ## Certificates
 
-The service certificates last 825 days. Renew them from the same CA, then recreate the data services:
+The service certificates of PostgreSQL, Redis and Silo last 825 days (the private CA ten years). On Linux with
+systemd the installer schedules `sworg-certificates.timer` (Mondays at about 04:00 UTC), which runs
+`scripts/vps-renew-certs.sh --if-due`: within 60 days of expiry it reissues them from the same CA, recreates the
+data services, the app, worker, beat and Caddy, and runs the operator checks. Option 4 shows the expiry date.
 
 ```bash
-docker run --rm --user "$(id -u):$(id -g)" --entrypoint sh -v "$PWD/tls:/tls" -v "$PWD/deploy/certificates.sh:/c.sh:ro" \
-  "$(grep ^SWO_BACKEND_IMAGE= .env | cut -d"'" -f2):$(cat .spaceworks-version)" /c.sh --renew
-scripts/spaceworks-compose.sh bundled up -d --force-recreate db redis minio backend worker beat
+bash scripts/vps-renew-certs.sh                   # renew now
+bash scripts/vps-renew-certs.sh --install-timer   # schedule the weekly check (installs made without the installer)
 ```
 
 Caddy renews the public certificates by itself.
+
+## Changing settings
+
+Option 6 (`scripts/vps-reconfigure.sh`) changes the web address (host name or domain for the HTTPS mode chosen
+at install, and the Netlify website origin for a backend-only server), outgoing email (sender, SMTP host, port,
+login, password) or an external bucket's keys. It takes a `pre-settings` database dump, keeps `.env.previous`,
+writes the new values, recreates the services and runs the operator checks; if anything fails, the previous
+`.env` comes back and the stack restarts. Changing the address signs everyone out, and links already sent keep
+the old one. Changing the HTTPS mode or the storage is in [Moving between modes](#moving-between-modes).
+
+## Server security
+
+Option 7 (`scripts/vps-harden.sh`, `--all` without questions) asks for each step: ufw (Debian/Ubuntu) or
+firewalld allowing only the SSH ports `sshd` listens on, HTTP and HTTPS (left alone if the SSH port cannot be
+found); unattended-upgrades or dnf-automatic for security fixes; and fail2ban banning an address for an hour
+after five failed SSH logins. Docker publishes its own ports past ufw; this stack publishes only 80 and 443, or
+`127.0.0.1:8080` behind your proxy.
 
 ## Moving between modes
 
@@ -158,9 +266,14 @@ Caddy renews the public certificates by itself.
 
 ## Troubleshooting
 
+- Start with option 4 (`bash scripts/vps-status.sh`): it names every failing service and check. Option 10
+  (`bash scripts/vps-support.sh`) collects the same with the last 500 log lines of each service, secrets
+  redacted, into `support/`; read it before sharing, as logs can hold email and IP addresses.
+
 - `scripts/spaceworks-compose.sh bundled logs migrate` shows a failed migration; the app never starts on a
   half-migrated database.
 - The worker and beat are healthy only while their Redis heartbeat is fresh; `logs worker beat` shows a
   Redis or database connection problem. A worker that is up but sends nothing usually means beat is down:
   check `ps` for both.
-- `run --rm ops` names the failing check without printing any connection detail.
+- `run --rm ops` names the failing check without printing any connection detail; it also checks the worker's
+  and beat's `/health` on `JOBS_HEALTH_PORT`.

@@ -31,11 +31,18 @@ What it does
   4. Installs dependencies, copies the release into /opt/spaceworks-organization
      (SWO_DIR overrides it), writes private settings and TLS certificates, and starts
      PostgreSQL, Redis, Silo storage, migrations, the app, the worker and beat, backups and Caddy.
-  Run it again later to update, back up or roll back; it detects the existing install.
+     On Linux with systemd it also schedules a weekly check of the internal certificates.
 
-Installing a fork
-  The same command works for any fork: it asks which GitHub repository to use (Enter = the
-  main project), or pass it up front with --repo YourName/YourFork.
+Run it again later; it detects the existing install and offers:
+  1 Update  2 Back up now  3 Roll back  4 Status and health  5 Backups (schedule, encryption,
+  off-site copies)  6 Change settings  7 Server security  8 Automatic deploys (runner)
+  9 Recover super-admin access  10 Support bundle  11 Uninstall  0 Cancel
+
+Options
+  --repo O/N    install from a fork (default: SpaceWorks-Labs/SpaceWorks-Organization); the
+                question is skipped. SWO_REPOSITORY does the same.
+  --help        show this guide and exit
+  SWO_DIR=PATH  (environment, on the bash side of the pipe) install directory
 EOF
 }
 REPO_ARG=""
@@ -172,23 +179,40 @@ if ${RUN_ROOT[@]+"${RUN_ROOT[@]}"} test -f "$INSTALL_DIR/.spaceworks-version"; t
   ACTION="$(prompt "
 Space Works Organization is already installed in $INSTALL_DIR (version $(${RUN_ROOT[@]+"${RUN_ROOT[@]}"} cat "$INSTALL_DIR/.spaceworks-version" 2>/dev/null || echo unknown)).
 What do you want to do?
-  1) Update to the latest release - backs up the database, moves to the newest main
-     release, runs migrations and restarts. Your settings and data stay as they are.
-  2) Back up now - database, uploaded files and settings into backups/.
-  3) Roll back to the previous release - the release that ran before the last update.
-     Database changes stay; the pre-update backup can restore them (scripts/restore.sh).
-  4) Cancel - exit without changing anything.
-  5) Install or re-register the GitHub Actions runner only.
-Choose 1-5 [4]: ")"
-  ACTION="${ACTION:-4}"
-  case "$ACTION" in
+  1) Update to the latest release - backs up the database first; settings and data stay
+  2) Back up now - database, uploaded files and settings into backups/
+  3) Roll back to the previous release - database changes stay; the pre-update backup can restore them
+  4) Check status and health - services, disk, newest backup and the operator checks
+  5) Backups - schedule, retention, encryption and off-site copies
+  6) Change settings - web address, outgoing email or bucket keys, put back if the checks fail
+  7) Server security - firewall, automatic security updates and fail2ban
+  8) Automatic deploys - install or remove the GitHub Actions runner
+  9) Recover super-admin access - lost authenticator or password, on this server only
+  10) Support bundle - checks and logs with secrets redacted
+  11) Uninstall - keeps data, secrets and backups unless you type DELETE DATA
+  0) Cancel - change nothing
+Choose 0-11 [0]: ")"
+  TOOL=()
+  case "${ACTION:-0}" in
     1) ACTION=update ;;
-    2) ACTION=backup ;;
+    2) TOOL=(backup.sh) ;;
     3) ACTION=rollback ;;
-    5) ACTION=runner ;;
-    4) say "Cancelled; existing deployment was not changed."; exit 0 ;;
+    4) TOOL=(vps-status.sh) ;;
+    5) TOOL=(vps-backup-settings.sh) ;;
+    6) TOOL=(vps-reconfigure.sh) ;;
+    7) TOOL=(vps-harden.sh) ;;
+    8) case "$(prompt 'Install or re-register the runner (i), or remove it (r)? [i]: ')" in
+         ''|i|I) TOOL=(install-runner.sh) ;;
+         r|R) TOOL=(install-runner.sh --remove) ;;
+         *) die "Invalid choice; existing deployment was not changed." ;;
+       esac ;;
+    9) TOOL=(vps-recover.sh) ;;
+    10) TOOL=(vps-support.sh) ;;
+    11) TOOL=(vps-uninstall.sh) ;;
+    0) say "Cancelled; existing deployment was not changed."; exit 0 ;;
     *) die "Invalid menu choice; existing deployment was not changed." ;;
   esac
+  ((${#TOOL[@]} == 0)) || ACTION=tool
   ${RUN_ROOT[@]+"${RUN_ROOT[@]}"} test -f "$INSTALL_DIR/scripts/update.sh" || die "The version marker exists but scripts/update.sh is missing. Repair the install manually."
   if [[ "$(id -u)" != 0 ]] && { [[ ! -w "$INSTALL_DIR" ]] \
     || { [[ "$HOST_KIND" == linux ]] && [[ "$(stat -c %u "$INSTALL_DIR")" == 0 ]]; }; }; then
@@ -205,13 +229,14 @@ elif ${RUN_ROOT[@]+"${RUN_ROOT[@]}"} test -e "$INSTALL_DIR"; then
 else
   EMPTY_INSTALL_DIR=0
 fi
-if [[ "$ACTION" == runner || "$ACTION" == backup ]]; then
-  script=install-runner.sh
-  [[ "$ACTION" != backup ]] || script=backup.sh
-  ${RUN_ROOT[@]+"${RUN_ROOT[@]}"} test -f "$INSTALL_DIR/scripts/$script" \
-    || die "This installation needs a release update before it has scripts/$script."
-  # The scripts re-run themselves as the install owner (sudo for a root-owned install).
-  bash "$INSTALL_DIR/scripts/$script" </dev/tty
+if [[ "$ACTION" == tool ]]; then
+  ${RUN_ROOT[@]+"${RUN_ROOT[@]}"} test -f "$INSTALL_DIR/scripts/${TOOL[0]}" \
+    || die "This release predates that option. Update first (option 1), then run the installer again."
+  # The tools re-run themselves as the install owner; 2 is a cancellation they already reported.
+  tool_status=0 tool_runner=()
+  [[ "$RUN_INSTALLED_AS_ROOT" != 1 ]] || tool_runner=(${RUN_ROOT[@]+"${RUN_ROOT[@]}"})
+  ${tool_runner[@]+"${tool_runner[@]}"} bash "$INSTALL_DIR/scripts/${TOOL[0]}" "${TOOL[@]:1}" </dev/tty || tool_status=$?
+  [[ "$tool_status" == 0 || "$tool_status" == 2 ]] || exit "$tool_status"
   exit 0
 fi
 port_in_use() {
@@ -393,11 +418,19 @@ run_installed() {
     (cd "$INSTALL_DIR" && bash -c "$command" < /dev/tty)
   fi
 }
+# A weekly check renews the internal certificates before they expire (Linux with systemd).
+schedule_certificate_renewal() {
+  if [[ "$HOST_KIND" == linux ]] && ${RUN_ROOT[@]+"${RUN_ROOT[@]}"} test -f "$INSTALL_DIR/scripts/vps-renew-certs.sh"; then
+    run_installed "bash scripts/vps-renew-certs.sh --install-timer" \
+      || say "Schedule it later with: bash $INSTALL_DIR/scripts/vps-renew-certs.sh --install-timer"
+  fi
+}
 if [[ "$ACTION" != fresh ]]; then
   # The installed updater downloads the target release and hands over to its own updater.
   update_options="--force"
   [[ "$ACTION" != rollback ]] || update_options="--force --rollback"
   run_installed "SWO_REPOSITORY='$REPOSITORY' bash scripts/update.sh $update_options"
+  [[ "$ACTION" != update ]] || schedule_certificate_renewal
   exit 0
 fi
 ${RUN_ROOT[@]+"${RUN_ROOT[@]}"} chmod 755 "$STAGE_DIR/install.sh" "$STAGE_DIR/scripts/spaceworks-compose.sh"
@@ -416,4 +449,6 @@ fi
 run_installed "SWO_INSTALL_REPOSITORY_PINNED=1 SWO_REPOSITORY='$REPOSITORY' SWO_IMAGE_TAG='$VERSION' bash setup.sh"
 ${RUN_ROOT[@]+"${RUN_ROOT[@]}"} rm -f -- "$INSTALL_DIR/.spaceworks-answers"
 run_installed "printf '%s\\n' '$VERSION' > .spaceworks-version"
+schedule_certificate_renewal
 say "Installed Space Works Organization $VERSION in $INSTALL_DIR."
+say "Run the installer again for status, backups, settings, server security, recovery and more."

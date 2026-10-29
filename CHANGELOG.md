@@ -39,6 +39,14 @@ drawn on demand with photos stored per member.
   `QUEUE_OUTBOX_CONCURRENCY` and `QUEUE_SCHEDULED_CONCURRENCY`. `POST /api/internal/jobs` joins
   `/api/internal/outbox` as the `CRON_SECRET` fallback for hosts without a beat. The `scheduler` role, its
   Compose service, `docker/ops/scheduler.mjs`, `SWO_SCHEDULER_TARGET` and `SCHEDULER_MODE` are removed.
+- **Run and operate it all from the one-line installer:** run it again on an installed server for status and
+  health (every service including the worker, beat, Redis, Silo and Caddy, disk, newest backups, and operator
+  checks that now include the worker's and beat's `/health`), backup schedule and retention, an `age` key kept
+  off the server with nightly encrypted off-site copies to an S3 bucket, settings changes (web address, email,
+  bucket keys) put back automatically if the checks fail, a firewall with automatic security updates and
+  fail2ban, the automatic-deploy runner, super-admin recovery through `scripts/admin.sh` only, a redacted support
+  bundle, and an uninstall that keeps data unless you type `DELETE DATA`. A weekly timer renews the internal
+  certificates before they expire.
 - **Read cache on Redis:** analytics and the public organisation page are cached for a few minutes per
   organisation (and per unit for unit-limited staff), cleared when plans, the page or units change, and read
   straight from the database when Redis is unavailable. Money state, permissions and members are never cached.

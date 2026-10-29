@@ -2,7 +2,7 @@
 # Back up the bundled stack now, while it keeps running, into backups/:
 #   bash scripts/backup.sh [--prefix NAME] [--no-storage]
 # a gzipped SQL dump of the database, a mirror of the private bucket (bundled
-# Silo only) and an owner-only archive of .env and tls/. Scheduled backups run
+# Silo only) and an owner-only archive of .env, tls/ and backup.env. Scheduled backups run
 # in the backup and backup-storage services (deploy/backup.sh).
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -35,7 +35,9 @@ if [[ "$storage" == 1 && "$(repository_env_value SWO_STORAGE)" != external ]]; t
 fi
 if [[ "$prefix" == manual ]]; then
   archive="$backups/config-$(date -u +%Y%m%dT%H%M%SZ).tar.gz"
-  (umask 077; tar -czf "$archive" -C "$ROOT" .env tls)
+  settings=(.env tls)
+  [[ ! -f "$ROOT/backup.env" ]] || settings+=(backup.env)
+  (umask 077; tar -czf "$archive" -C "$ROOT" "${settings[@]}")
   say "Settings and certificates: $archive"
 fi
 say 'Backups contain every secret. Copy them off this server, encrypted.'
