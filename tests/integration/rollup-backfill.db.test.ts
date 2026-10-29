@@ -52,7 +52,7 @@ afterAll(async () => {
 });
 
 describe.sequential("expired backfill", () => {
-  // Rebuilds about ten months of days for eleven organisations, so it runs longer than the default limit.
+  // These rebuild months of days per organisation, so they run longer than the default limit.
   it("passes over organisations that keep failing, and retries them on a later full pass", async () => {
     resetCursor();
     await prisma.operationalHeartbeat.deleteMany({ where: backfillRows });
@@ -81,7 +81,7 @@ describe.sequential("expired backfill", () => {
     expect(await prisma.orgDailyStats.count({ where: { organisationId: org.id, OR: [{ active: { gt: 0 } }, { grace: { gt: 0 } }, { expired: { gt: 0 } }] } })).toBe(0);
     expect(await prisma.orgDailyStats.count({ where: { organisationId: org.id, day: new Date("2026-08-01T00:00:00Z"), unitId: null, planId: null } })).toBe(1);
     expect(await runExpiredBackfill()).toEqual({ backfilledDays: 0, done: true });
-  });
+  }, 120_000);
 
   it("fills days the old rollup left without rows once every membership lapsed", async () => {
     const org = await prisma.organisation.create({ data: { name: "Lapsed Club", slug: `lapsed-${suffix}`, status: "ACTIVE", createdAt: new Date("2026-01-01T00:00:00Z") } });

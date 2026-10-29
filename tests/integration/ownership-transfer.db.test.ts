@@ -144,3 +144,15 @@ describe.sequential("ownership transfer", () => {
     expect(mocks.sent).toEqual([email("owner")]);
   });
 });
+
+describe("deleting an organisation with transfer history", () => {
+  it("removes the organisation with its roles and its transfers, even a cancelled one", async () => {
+    const gone = await prisma.organisation.create({ data: { name: "Short-lived", slug: `short-lived-${randomUUID().slice(0, 8)}`, status: "ACTIVE" } });
+    const keep = await starterRole(gone.id, "ADMIN");
+    await prisma.ownershipTransfer.create({ data: { organisationId: gone.id, fromUserId: u.owner, toUserId: u.viewer, keepRoleId: keep.id, token: randomUUID(), expiresAt: new Date(Date.now() + 86_400_000), cancelledAt: new Date() } });
+    await prisma.organisation.delete({ where: { id: gone.id } });
+    expect(await prisma.ownershipTransfer.count({ where: { organisationId: gone.id } })).toBe(0);
+    expect(await prisma.orgRole.count({ where: { organisationId: gone.id } })).toBe(0);
+  });
+});
+

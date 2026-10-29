@@ -91,6 +91,11 @@
       "id": "app__dashboard__orgSlug__members__page:loadOrgMembersDirectory"
     },
     {
+      "module": "lib/views/app__dashboard__orgSlug__ownership__page",
+      "name": "loadOwnershipOfferView",
+      "id": "app__dashboard__orgSlug__ownership__page:loadOwnershipOfferView"
+    },
+    {
       "module": "lib/views/app__dashboard__orgSlug__page",
       "name": "loadOrgOverviewView",
       "id": "app__dashboard__orgSlug__page:loadOrgOverviewView"

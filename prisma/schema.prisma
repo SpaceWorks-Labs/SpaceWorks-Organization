@@ -395,7 +395,7 @@ model OwnershipTransfer {
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   fromUser     User         @relation("OwnershipTransferFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
   toUser       User         @relation("OwnershipTransferTo", fields: [toUserId], references: [id], onDelete: Cascade)
-  keepRole     OrgRole      @relation(fields: [organisationId, keepRoleId], references: [organisationId, id], onDelete: Restrict, onUpdate: Restrict)
+  keepRole     OrgRole      @relation(fields: [organisationId, keepRoleId], references: [organisationId, id], onDelete: Cascade, onUpdate: Restrict)
 
   @@index([organisationId, createdAt])
   @@index([toUserId])

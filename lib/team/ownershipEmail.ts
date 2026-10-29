@@ -28,6 +28,8 @@ export async function deliverOwnershipNotice(payload: Payload, messageId: string
   if (!transfer) return "dropped";
   const { organisation } = transfer;
   const team = absoluteUrl(`/dashboard/${organisation.slug}/team`);
+  // The offer opens on its own page: the proposed owner's role may not open the team page.
+  const offerPage = absoluteUrl(`/dashboard/${organisation.slug}/ownership`);
   const from = transfer.fromUser.name ?? "The owner";
   const to = transfer.toUser.name ?? "Your chosen team member";
   if (payload.notice === "offered") {
@@ -41,7 +43,7 @@ export async function deliverOwnershipNotice(payload: Payload, messageId: string
         `${from} wants to make you the owner of ${organisation.name}. As owner you manage the team, staff roles and every setting, and can delete the organisation.`,
         `If you accept, they stay on the team as ${transfer.keepRole.name}.`,
       ],
-      action: { label: "Review the transfer", url: team },
+      action: { label: "Review the transfer", url: offerPage },
       footnote: `The offer lasts until ${transfer.expiresAt.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}. Sign in as yourself to accept it.`,
     });
     return "sent";

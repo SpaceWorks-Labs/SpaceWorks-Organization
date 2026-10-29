@@ -14,7 +14,7 @@ import { orgActionAccess } from "@/lib/permissions";
 import { MembershipError, openTerm, upsertMember } from "@/lib/membership/service";
 import { MEMBERSHIP_NOTICE_VERSION, memberProfileSchema, validateFieldValues } from "@/lib/membership/validators";
 import { teamScope, unitInScope } from "@/lib/membership/scope";
-import { planOffersUnit } from "@/lib/membership/planUnits";
+import { pathWithin, planOffersUnit } from "@/lib/membership/planUnits";
 import { loadPaymentGuidance } from "@/lib/payments/payGuidance";
 import { payLinkToken } from "@/lib/payments/payLink";
 import type { PaymentGuidance } from "@/lib/payments/unitInstructions";
@@ -74,10 +74,18 @@ export async function submitJoin(input: unknown): Promise<ActionResult<{ status:
 
   const unitId = profile.data.unitId;
   if (org.unitLevels.length > 0 && !unitId) return { ok: false, error: "Choose your unit.", fieldErrors: { unitId: ["Choose your unit"] } };
+  let unitPath: string | null = null;
   if (unitId) {
     const unit = await prisma.orgUnit.findFirst({ where: { organisationId: org.id, id: unitId, ...(existing?.unitId ? {} : { archivedAt: null }) }, select: { path: true } });
     if (!unit) return { ok: false, error: "Choose your unit.", fieldErrors: { unitId: ["Choose another unit"] } };
     if (!planOffersUnit(plan, plan.units.map((entry) => entry.unit.path), unit.path)) return { ok: false, error: "This plan isn't offered in your unit.", fieldErrors: { unitId: ["Not offered here"] } };
+    unitPath = unit.path;
+  }
+  // An invite for a unit stands in for approval only inside it: an existing member elsewhere keeps their unit, so
+  // staff limited to one unit can't approve someone outside their reach with it.
+  if (invite?.unitId && inviteOk) {
+    const inviteUnit = await prisma.orgUnit.findFirst({ where: { organisationId: org.id, id: invite.unitId }, select: { path: true } });
+    if (!inviteUnit || !unitPath || !pathWithin(unitPath, inviteUnit.path)) return { ok: false, error: "This invite is for another unit. Ask the organisation for one that matches yours." };
   }
   if (await isActionRateLimited("join", userId)) return { ok: false, error: "Too many attempts. Try again later." };
 

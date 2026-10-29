@@ -76,7 +76,7 @@ drawn on demand with photos stored per member.
     - a stalled bulk download frees the render slot;
     - card numbers are made safe in file names.
   - **Member accounts switched off:** the wallet and pay pages respect the switch.
-- **Upgrade notes:** run migrations 0013–0019 (the update does this). Super admins need an authenticator app to
+- **Upgrade notes:** run migrations 0013–0020 (the update does this). Super admins need an authenticator app to
   open organisation dashboards. Self-managed buckets need the two version permissions in `docs/CONFIGURATION.md`.
   Keep the database pool at two connections or more. Bundled installs: `scripts/update.sh` starts the new
   `worker` and `beat` services and removes the old `scheduler` container. Cloud Compose installs: `pull` and

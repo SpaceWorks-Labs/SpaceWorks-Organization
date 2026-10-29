@@ -14,6 +14,7 @@ import { upsertMember } from "@/lib/membership/service";
 import { requireOrgCapability } from "@/lib/permissions";
 import { loadMemberView } from "@/lib/views/app__dashboard__orgSlug__members__memberId__page";
 import { loadPaymentSettingsView } from "@/lib/views/app__dashboard__orgSlug__settings__payments__page";
+import { loadOwnershipOfferView } from "@/lib/views/app__dashboard__orgSlug__ownership__page";
 
 // Custom roles may leave out any permission: a denied page lands somewhere the role can open, and member page
 // controls follow the permission their action checks.
@@ -71,6 +72,15 @@ describe.sequential("custom roles on dashboard pages", () => {
     expect(await loadPaymentSettingsView({ params: Promise.resolve({ orgSlug: slug }) })).toMatchObject({ canEdit: true });
     mocks.userId = users.directory!;
     await expect(loadPaymentSettingsView({ params: Promise.resolve({ orgSlug: slug }) })).rejects.toThrow(`redirect:/dashboard/${slug}/members`);
+  });
+
+  it("shows an ownership offer to the person it names, even without the overview", async () => {
+    const keep = await prisma.orgRole.findFirstOrThrow({ where: { organisationId: orgId, name: "Role manager" } });
+    await prisma.ownershipTransfer.create({ data: { organisationId: orgId, fromUserId: users.manager!, toUserId: users.finance!, keepRoleId: keep.id, token: randomUUID(), expiresAt: new Date(Date.now() + 86_400_000) } });
+    mocks.userId = users.finance!;
+    expect(await loadOwnershipOfferView({ params: Promise.resolve({ orgSlug: slug }) })).toMatchObject({ offer: { keepRoleName: "Role manager" } });
+    mocks.userId = users.directory!;
+    await expect(loadOwnershipOfferView({ params: Promise.resolve({ orgSlug: slug }) })).rejects.toThrow("not-found");
   });
 
   it("offers erasure decisions by the erasure permission, not member management", async () => {

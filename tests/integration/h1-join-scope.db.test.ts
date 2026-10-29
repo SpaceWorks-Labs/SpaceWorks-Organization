@@ -210,3 +210,18 @@ describe("importing", () => {
     expect(assigned).toEqual([{ roleId: roles.northLead }]);
   });
 });
+
+describe.sequential("invites issued by staff limited to a unit", () => {
+  it("never approve an existing member of another unit", async () => {
+    const approval = await prisma.membershipPlan.create({ data: { organisationId: orgId, name: "By approval", slug: "by-approval", joinMode: "APPROVAL" } });
+    signIn("area");
+    const invite = await createMemberInvite({ organisationSlug: slug, planId: approval.id, unitId: units.kollam.id, maxUses: 5 });
+    expect(invite).toMatchObject({ ok: true });
+    const token = invite.ok ? invite.data!.token : "";
+    // ajzal is a member in Varkala (South): their unit is kept, so a North invite can't stand in for approval.
+    signIn("ajzal");
+    expect(await submitJoin({ organisationSlug: slug, planSlug: "by-approval", inviteToken: token, consent: true, profile: { name: "Ajzal K" } })).toEqual({ ok: false, error: "This invite is for another unit. Ask the organisation for one that matches yours." });
+    expect(await prisma.membershipTerm.count({ where: { planId: approval.id } })).toBe(0);
+    expect((await prisma.memberInvite.findFirstOrThrow({ where: { token } })).uses).toBe(0);
+  });
+});
