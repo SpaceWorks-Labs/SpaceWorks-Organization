@@ -40,6 +40,10 @@ describe("importing answers", () => {
       .toEqual([{ key: "stack", label: "Stack", value: "Rust, Go, Python" }]);
   });
 
+  it("clears an answer that an imported parent change now hides, keeping unrelated keys", () => {
+    expect(importAnswers(all, { employed: true, company: "Acme", other: "kept" }, { employed: "false" })).toEqual({ values: { other: "kept" } });
+  });
+
   it("changes only filled cells, reads conditions from stored answers and drops hidden ones", () => {
     expect(importAnswers(all, { employed: true, other: "kept" }, { company: "Acme" })).toEqual({ values: { employed: true, other: "kept", company: "Acme" } });
     expect(importAnswers(all, { company: "Old" }, { company: "Acme" })).toEqual({ values: {} });
