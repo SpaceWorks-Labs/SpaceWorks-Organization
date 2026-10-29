@@ -68,6 +68,8 @@ export async function loadMemberView({ params }: { params: Promise<{ orgSlug: st
     units: units.filter((unit) => unitInScope(scope, unit.path)).map(({ id, name, level }) => ({ id, name, level })),
     fields,
     canManage: can(membership, "members.manage"),
+    // Erasure requests are decided with their own permission, as the action checks.
+    canDecideErasure: can(membership, "erasure.decide", { write: true }),
     showContact: can(membership, "members.contact"),
   };
 }

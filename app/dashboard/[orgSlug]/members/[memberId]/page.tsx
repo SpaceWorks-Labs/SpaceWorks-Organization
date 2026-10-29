@@ -71,7 +71,7 @@ export default async function MemberPage({ params }: { params: Promise<{ orgSlug
         </div>
         <div className="flex min-w-0 flex-col gap-6">
           <MemberCardPanel slug={org.slug} memberId={member.id} memberName={member.name} plans={view.cards} canManage={view.canManageCards} />
-          <ErasureRequestCard slug={org.slug} requests={member.erasureRequests} anonymisedAt={member.anonymisedAt} canManage={view.canManage} timeZone={tz} />
+          <ErasureRequestCard slug={org.slug} requests={member.erasureRequests} anonymisedAt={member.anonymisedAt} canManage={view.canDecideErasure} timeZone={tz} />
           <MemberRolesPicker slug={org.slug} memberId={member.id} roles={view.roles} initial={member.roles.map((a) => a.roleId)} initialPrimary={primary} canManage={view.canManage} />
           <Card as="section" className="rounded-xl">
             <CardHeader title="History" />

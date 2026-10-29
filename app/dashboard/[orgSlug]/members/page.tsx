@@ -53,7 +53,8 @@ export default async function OrgMembersDirectoryPage({ params, searchParams }: 
                 Export
               </a>
             ) : null}
-            {view.canManageCards ? (
+            {/* A report drill-down narrows the list in ways the card download can't follow, so it waits for a plain filter. */}
+            {view.canManageCards && !view.drill ? (
               <CardExportButton
                 slug={org.slug}
                 filter={{ status: filter, planId: view.selected.plan || null, unitId: view.selected.unit || null, roleId: view.selected.role || null, q: view.q }}

@@ -104,9 +104,17 @@ export async function hasAuthenticator(userId: string) {
 export async function requireOrgCapability(orgSlug: string, capability: Capability): Promise<OrgAccessContext> {
   const access = await requireOrgTeam(orgSlug);
   if (!organisationAllows(access.organisation.status, capability)) redirect(`/dashboard/${orgSlug}/application`);
-  if (!can(access.membership, capability)) redirect(`/dashboard/${orgSlug}`);
+  if (!can(access.membership, capability)) {
+    // To a page the role can open, never back to this one (a custom role may lack the overview's org.view).
+    const landing = LANDINGS.find(([other]) => other !== capability && organisationAllows(access.organisation.status, other) && can(access.membership, other));
+    if (!landing) notFound();
+    redirect(`/dashboard/${orgSlug}${landing[1]}`);
+  }
   return access;
 }
+
+/** Where a denied page sends its viewer: the first of these their role opens. */
+const LANDINGS: ReadonlyArray<[Capability, string]> = [["org.view", ""], ["members.view", "/members"], ["payments.view", "/payments"], ["reports.membership", "/reports"], ["org.settings", "/settings"]];
 
 export type OrgActionAccess =
   | { ok: true; organisation: OrgAccessContext["organisation"]; membership: StaffMembership; userId: string }
