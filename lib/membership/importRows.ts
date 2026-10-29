@@ -5,6 +5,8 @@
 
 import { readRow, type ImportRow, type ImportTarget } from "./importMapping";
 import { pathWithin } from "./planUnits";
+import { importAnswers } from "./importAnswers";
+import type { QuestionPlan } from "./planAnswers";
 
 export type ImportUnit = { id: string; name: string; slug: string; code: string; path: string };
 export type ImportRole = { id: string; name: string; unitPath: string | null };
@@ -15,11 +17,12 @@ export type RowProblem = { row: number; reason: string };
  * Sort rows (without the header) into ones ready to import and ones with a problem: unreadable (no name, bad
  * email), an email already used higher up the file, an unknown unit or role, a unit outside the importer's
  * reach (`scopePath`, null for the whole organisation), an existing member filed outside that reach (`existing`:
- * the unit path of each member already holding one of the file's emails), or a role limited to another part of
- * the organisation.
+ * the unit path of each member already holding one of the file's emails), a role limited to another part of
+ * the organisation, or an answer the questions refuse (`answers`: every plan's questions, and the stored answers
+ * of the file's existing members by email).
  * Row numbers count the header as row 1, as a spreadsheet shows them.
  */
-export function checkImportRows(rows: string[][], mapping: ImportTarget[], context: { units: ImportUnit[]; roles: ImportRole[]; scopePath: string | null; existing?: Map<string, string | null> }) {
+export function checkImportRows(rows: string[][], mapping: ImportTarget[], context: { units: ImportUnit[]; roles: ImportRole[]; scopePath: string | null; existing?: Map<string, string | null>; answers?: { plans: readonly QuestionPlan[]; stored: Map<string, Record<string, unknown>> } }) {
   const ready: CheckedRow[] = [];
   const problems: RowProblem[] = [];
   const seen = new Map<string, number>();
@@ -64,6 +67,11 @@ export function checkImportRows(rows: string[][], mapping: ImportTarget[], conte
     // A role limited to a unit goes only to members in that unit's subtree, as when assigned by hand.
     if (role?.unitPath && !(unitPath && pathWithin(unitPath, role.unitPath))) {
       flag(`${role.name} isn't offered in this member's unit`);
+      continue;
+    }
+    const answers = context.answers && Object.keys(row.fieldValues).length ? importAnswers(context.answers.plans, context.answers.stored.get(row.email) ?? {}, row.fieldValues) : null;
+    if (answers && "error" in answers) {
+      flag(answers.error);
       continue;
     }
     ready.push({ rowNumber, row, unit, role });

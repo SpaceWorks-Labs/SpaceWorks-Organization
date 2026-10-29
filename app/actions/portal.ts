@@ -12,7 +12,10 @@ import { enqueueOutbox } from "@/lib/outbox";
 import { queueChatAlerts } from "@/lib/chat/notify";
 import { canTransition, PENDING_STATUSES, statusAt } from "@/lib/membership/lifecycle";
 import { decideTerm, MembershipError, startRenewal } from "@/lib/membership/service";
-import { memberProfileSchema, validateFieldValues } from "@/lib/membership/validators";
+import { memberProfileSchema } from "@/lib/membership/validators";
+import { replaceUnionAnswers, resolvePlanAnswers } from "@/lib/membership/planAnswers";
+import { memberQuestionPlans, organisationQuestionPlans } from "@/lib/membership/questionPlans";
+import { lockMember } from "@/lib/membership/memberLock";
 import { findOwnMember, type OwnMember } from "@/lib/portal/member";
 import { walletState } from "@/lib/portal/walletStatus";
 import { requestErasure, withdrawErasure } from "@/lib/portal/erasure";
@@ -181,19 +184,25 @@ export async function updateMemberProfile(input: unknown): Promise<ActionResult>
   const { member } = ctx;
   const profile = memberProfileSchema.safeParse({ ...parsed.data.profile, email: member.email, unitId: member.unitId, isMinor: member.isMinor });
   if (!profile.success) return { ok: false, error: "Check the highlighted fields.", fieldErrors: flattenZodErrors(profile.error) };
-  const planIds = (await prisma.membershipTerm.findMany({ where: { memberId: member.id, organisationId: member.organisationId }, distinct: ["planId"], select: { planId: true } })).map((term) => term.planId);
-  const fields = (await prisma.planField.findMany({ where: { organisationId: member.organisationId, planId: { in: planIds }, adminOnly: false }, orderBy: { sortOrder: "asc" } }))
-    .filter((field, index, all) => all.findIndex((other) => other.key === field.key) === index);
-  const answers = validateFieldValues(fields, profile.data.fieldValues, false);
+  // The public questions of every plan the member holds, once per key; keys admin-only or shaped differently
+  // on any plan of the organisation are neither validated nor written from here.
+  const organisationPlans = await organisationQuestionPlans(member.organisationId);
+  const questions = await memberQuestionPlans(organisationPlans, member.organisationId, member.id);
+  const answers = resolvePlanAnswers(questions, profile.data.fieldValues, false, { organisationPlans });
   if (Object.keys(answers.errors).length) return { ok: false, error: "Answer the questions marked as required.", fieldErrors: answers.errors };
 
-  const values = { ...(member.fieldValues as Record<string, unknown>) };
-  for (const field of fields) delete values[field.key];
   const guardian = member.isMinor ? { guardianName: profile.data.guardianName, guardianEmail: profile.data.guardianEmail, guardianPhone: profile.data.guardianPhone } : {};
-  await prisma.member.update({
-    where: { id: member.id },
-    data: { name: profile.data.name, phone: profile.data.phone, stateCode: profile.data.stateCode, ...guardian, fieldValues: { ...values, ...answers.values } as Prisma.InputJsonValue },
+  const saved = await prisma.$transaction(async (tx) => {
+    const locked = await lockMember(tx, member.organisationId, member.id);
+    if (!locked || locked.anonymisedAt) return false;
+    const fieldValues = replaceUnionAnswers(locked.fieldValues as Record<string, unknown>, questions, profile.data.fieldValues, false, { organisationPlans });
+    await tx.member.update({
+      where: { id: member.id },
+      data: { name: profile.data.name, phone: profile.data.phone, stateCode: profile.data.stateCode, ...guardian, fieldValues: fieldValues as Prisma.InputJsonValue },
+    });
+    return true;
   });
+  if (!saved) return { ok: false, error: "We couldn't find that membership on your account." };
   await recordAuditEvent({ action: "MEMBER_PROFILE_UPDATED_BY_MEMBER", actorUserId: ctx.userId, organisationId: member.organisationId, targetType: "Member", targetId: member.id });
   refresh(member);
   return { ok: true };

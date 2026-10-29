@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/display";
 export const metadata: Metadata = { title: "Add member", robots: { index: false, follow: false } };
 
 export default async function AddMemberPage({ params }: { params: Promise<{ orgSlug: string }> }) {
-  const { org, plans, units, fields, unitLabel } = await loadAddMembersView({ params });
+  const { org, plans, units, questions, unitLabel } = await loadAddMembersView({ params });
   return (
     <div className="flex max-w-[880px] flex-col gap-6">
       <Link href={`/dashboard/${org.slug}/members`} className="inline-flex w-fit items-center gap-1 text-sm text-ink-muted underline-offset-4 hover:text-ink hover:underline">
@@ -22,7 +22,7 @@ export default async function AddMemberPage({ params }: { params: Promise<{ orgS
           slug={org.slug}
           units={units}
           unitLabel={unitLabel}
-          fields={fields}
+          questions={questions}
           plans={plans}
           initial={{ name: "", email: "", phone: "", stateCode: "", unitId: "", isMinor: false, guardianName: "", guardianEmail: "", guardianPhone: "", fieldValues: {} }}
         />

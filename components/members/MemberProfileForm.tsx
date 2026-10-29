@@ -7,21 +7,25 @@ import { INDIAN_STATES } from "@/lib/indianStates";
 import { Button } from "@/components/ui/button";
 import { CheckboxField } from "@/components/ui/choice";
 import { Callout } from "@/components/ui/display";
-import { Dropdown, Field, Input, Textarea } from "@/components/ui/field";
+import { Dropdown, Field, Input } from "@/components/ui/field";
+import { PlanAnswerFields, type AnswerState } from "@/components/members/PlanAnswerFields";
+import type { ProfilePlan } from "@/lib/membership/profileQuestions";
 
-type ProfileFieldDef = { key: string; label: string; type: string; options: string[]; helpText: string };
 type MemberProfileValues = {
   name: string; email: string; phone: string; stateCode: string; unitId: string;
   isMinor: boolean; guardianName: string; guardianEmail: string; guardianPhone: string;
-  fieldValues: Record<string, string | boolean>;
+  fieldValues: AnswerState;
 };
 
-/** Add a member by hand, or edit one. Adding with a plan opens a membership straight away. */
+/**
+ * Add a member by hand, or edit one. Adding with a plan opens a membership straight away and asks that plan's
+ * questions; editing asks the questions of every plan the member holds (`questions`).
+ */
 export function MemberProfileForm({
-  slug, memberId, initial, units, fields, plans, unitLabel, disabled,
+  slug, memberId, initial, units, questions, plans, unitLabel, disabled,
 }: {
   slug: string; memberId?: string; initial: MemberProfileValues; units: Array<{ id: string; name: string; level: number }>;
-  fields: ProfileFieldDef[]; plans?: Array<{ id: string; name: string }>; unitLabel: string; disabled?: boolean;
+  questions: ProfilePlan[]; plans?: Array<{ id: string; name: string }>; unitLabel: string; disabled?: boolean;
 }) {
   const router = useRouter();
   const [values, setValues] = useState(initial);
@@ -73,25 +77,7 @@ export function MemberProfileForm({
           </Field>
         ) : null}
       </div>
-      {fields.length ? (
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          {fields.map((field) => {
-            const value = values.fieldValues[field.key];
-            const error = errors[`fieldValues.${field.key}`]?.[0];
-            if (field.type === "CHECKBOX") return <CheckboxField key={field.key} checked={value === true} disabled={disabled} onCheckedChange={(checked) => setAnswer(field.key, checked === true)} label={field.label} description={field.helpText || undefined} />;
-            if (field.type === "SELECT") return (
-              <Field key={field.key} label={field.label} optional error={error}>
-                <Dropdown value={String(value ?? "")} disabled={disabled} onChange={(e) => setAnswer(field.key, e.target.value)}>
-                  <option value="">Not answered</option>
-                  {field.options.map((option) => <option key={option} value={option}>{option}</option>)}
-                </Dropdown>
-              </Field>
-            );
-            if (field.type === "LONG_TEXT") return <Field key={field.key} label={field.label} optional error={error} className="sm:col-span-2"><Textarea value={String(value ?? "")} disabled={disabled} rows={3} onChange={(e) => setAnswer(field.key, e.target.value)} /></Field>;
-            return <Field key={field.key} label={field.label} optional error={error}><Input type={field.type === "DATE" ? "date" : field.type === "NUMBER" ? "number" : "text"} value={String(value ?? "")} disabled={disabled} onChange={(e) => setAnswer(field.key, e.target.value)} /></Field>;
-          })}
-        </div>
-      ) : null}
+      <PlanAnswerFields plans={memberId ? questions : questions.filter((plan) => plan.id === planId)} values={values.fieldValues} errors={errors} byManager disabled={disabled} onAnswer={setAnswer} />
       <CheckboxField checked={values.isMinor} disabled={disabled} onCheckedChange={(checked) => set("isMinor", checked === true)} label="Under 18" description="A parent or guardian consents and receives the emails too." />
       {values.isMinor ? (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">

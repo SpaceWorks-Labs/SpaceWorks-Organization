@@ -2,84 +2,78 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { savePlanFields } from "@/app/actions/plans";
-import { Button, IconButton } from "@/components/ui/button";
-import { CheckboxField } from "@/components/ui/choice";
+import { Button } from "@/components/ui/button";
 import { Callout, EmptyState } from "@/components/ui/display";
-import { Dropdown, Field, Input } from "@/components/ui/field";
+import { PlanQuestionCard } from "./PlanQuestionCard";
+import { blankQuestion, keyFrom, type QuestionValue } from "./planQuestionState";
 
-type FieldType = "TEXT" | "LONG_TEXT" | "SELECT" | "DATE" | "EMAIL" | "PHONE" | "NUMBER" | "CHECKBOX";
-type QuestionValue = { key: string; label: string; helpText: string; type: FieldType; required: boolean; options: string[]; adminOnly: boolean };
+type Item = QuestionValue & { uid: number };
+let nextUid = 0;
+const withUid = (field: QuestionValue): Item => ({ ...field, uid: (nextUid += 1) });
 
-const TYPES: Array<[FieldType, string]> = [
-  ["TEXT", "Short answer"], ["LONG_TEXT", "Paragraph"], ["SELECT", "Choose one"], ["DATE", "Date"],
-  ["EMAIL", "Email"], ["PHONE", "Phone"], ["NUMBER", "Number"], ["CHECKBOX", "Tick box"],
-];
-
-const keyFrom = (label: string, taken: string[]) => {
-  const base = label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").replace(/^(\d)/, "q_$1").slice(0, 32) || "question";
-  let key = base;
-  for (let n = 2; taken.includes(key); n += 1) key = `${base}_${n}`;
-  return key;
-};
-
-/** The extra questions on this plan's join form, beyond name, email, phone and unit. */
-export function PlanFieldsEditor({ slug, planId, initial, disabled }: { slug: string; planId: string; initial: QuestionValue[]; disabled: boolean }) {
+/** The extra questions, section headings and conditions on this plan's join form. */
+export function PlanFieldsEditor({ slug, planId, initial, conflicts, disabled }: { slug: string; planId: string; initial: QuestionValue[]; conflicts: string[]; disabled: boolean }) {
   const router = useRouter();
-  const [fields, setFields] = useState(initial);
+  const [fields, setFields] = useState(() => initial.map(withUid));
+  const [errors, setErrors] = useState<Record<string, string[] | undefined>>({});
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
-  const update = (index: number, patch: Partial<QuestionValue>) => setFields((current) => current.map((field, i) => (i === index ? { ...field, ...patch } : field)));
+  const update = (index: number, patch: Partial<QuestionValue>) => setFields((current) => {
+    const oldKey = current[index].key;
+    return current.map((field, i) => {
+      if (i === index) return { ...field, ...patch };
+      // A renamed key carries the conditions that follow it.
+      return patch.key && patch.key !== oldKey && field.showIfKey === oldKey ? { ...field, showIfKey: patch.key } : field;
+    });
+  });
+  const relabel = (index: number, label: string) => {
+    const field = fields[index];
+    const saved = initial.some((q) => q.key === field.key);
+    update(index, { label, ...(saved ? {} : { key: keyFrom(label, fields.filter((_, i) => i !== index).map((q) => q.key)) }) });
+  };
   const move = (index: number, by: number) => setFields((current) => {
     const next = [...current];
     const [item] = next.splice(index, 1);
     next.splice(index + by, 0, item);
     return next;
   });
+  const labelled = (key: string) => {
+    const field = fields.find((entry) => entry.key === key);
+    return field?.label ? `${field.label} (${key})` : key;
+  };
 
   return (
     <div className="flex flex-col gap-4">
       {status ? <Callout tone={status.ok ? "success" : "danger"} role={status.ok ? "status" : "alert"}>{status.text}</Callout> : null}
-      {fields.length === 0 ? <EmptyState mood="sleepy">No extra questions. The form asks for name, email, phone and unit.</EmptyState> : null}
+      {conflicts.length ? (
+        <Callout tone="warning" title="Keys used differently across plans">
+          {`${conflicts.map(labelled).join(", ")}. Public forms and member accounts skip these questions until every plan asks them the same way.`}
+        </Callout>
+      ) : null}
+      {fields.length === 0 ? <EmptyState mood="sleepy">No extra questions. The form asks only for the details set in the join form settings.</EmptyState> : null}
       <ol className="flex flex-col gap-3">
         {fields.map((field, index) => (
-          <li key={index} className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_12rem]">
-              <Field label={`Question ${index + 1}`}>
-                <Input value={field.label} disabled={disabled} maxLength={120} onChange={(event) => update(index, { label: event.target.value, ...(initial.some((q) => q.key === field.key) ? {} : { key: keyFrom(event.target.value, fields.filter((_, i) => i !== index).map((q) => q.key)) }) })} />
-              </Field>
-              <Field label="Answer type">
-                <Dropdown value={field.type} disabled={disabled} onChange={(event) => update(index, { type: event.target.value as FieldType })}>
-                  {TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                </Dropdown>
-              </Field>
-            </div>
-            {field.type === "SELECT" ? (
-              <Field label="Choices" helperText="Separate with commas.">
-                <Input value={field.options.join(", ")} disabled={disabled} onChange={(event) => update(index, { options: event.target.value.split(",").map((option) => option.trim()).filter(Boolean) })} />
-              </Field>
-            ) : null}
-            <Field label="Hint" optional>
-              <Input value={field.helpText} disabled={disabled} maxLength={300} onChange={(event) => update(index, { helpText: event.target.value })} />
-            </Field>
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-              <CheckboxField checked={field.required} disabled={disabled} onCheckedChange={(checked) => update(index, { required: checked === true })} label="Required" />
-              <CheckboxField checked={field.adminOnly} disabled={disabled} onCheckedChange={(checked) => update(index, { adminOnly: checked === true })} label="Managers only" description="Hidden from the public form." />
-              {!disabled ? (
-                <span className="ml-auto flex gap-1">
-                  <IconButton label="Move up" size="sm" disabled={index === 0} onClick={() => move(index, -1)}><ArrowUp aria-hidden className="size-4" /></IconButton>
-                  <IconButton label="Move down" size="sm" disabled={index === fields.length - 1} onClick={() => move(index, 1)}><ArrowDown aria-hidden className="size-4" /></IconButton>
-                  <IconButton label={`Remove ${field.label || "question"}`} size="sm" variant="danger" onClick={() => setFields((current) => current.filter((_, i) => i !== index))}><Trash2 aria-hidden className="size-4" /></IconButton>
-                </span>
-              ) : null}
-            </div>
-          </li>
+          <PlanQuestionCard
+            key={field.uid}
+            field={field}
+            index={index}
+            count={fields.length}
+            earlier={fields.slice(0, index)}
+            errors={errors}
+            conflict={conflicts.includes(field.key)}
+            disabled={disabled}
+            onLabel={(label) => relabel(index, label)}
+            onChange={(patch) => update(index, patch)}
+            onMove={(by) => move(index, by)}
+            onRemove={() => setFields((current) => current.filter((_, i) => i !== index))}
+          />
         ))}
       </ol>
       {!disabled ? (
         <div className="flex flex-wrap gap-3">
-          <Button type="button" variant="secondary" disabled={fields.length >= 40} onClick={() => setFields((current) => [...current, { key: keyFrom("question", current.map((q) => q.key)), label: "", helpText: "", type: "TEXT", required: false, options: [], adminOnly: false }])}>
+          <Button type="button" variant="secondary" disabled={fields.length >= 40} onClick={() => setFields((current) => [...current, withUid(blankQuestion(current.map((q) => q.key)))])}>
             <Plus aria-hidden className="size-4" />
             Add a question
           </Button>
@@ -88,7 +82,8 @@ export function PlanFieldsEditor({ slug, planId, initial, disabled }: { slug: st
             variant="primary"
             loading={pending}
             onClick={() => startTransition(async () => {
-              const result = await savePlanFields({ organisationSlug: slug, planId, fields });
+              const result = await savePlanFields({ organisationSlug: slug, planId, fields /* the server drops each item's uid */ });
+              setErrors(result.ok ? {} : result.fieldErrors ?? {});
               setStatus(result.ok ? { ok: true, text: "Questions saved." } : { ok: false, text: result.error });
               if (result.ok) router.refresh();
             })}

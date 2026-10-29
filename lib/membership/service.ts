@@ -7,6 +7,7 @@ import { queueChatAlerts } from "@/lib/chat/notify";
 import { issueCardOnActivation } from "@/lib/cards/issue";
 import { canTransition, chargesJoiningFee, statusAt, type TermAction } from "./lifecycle";
 import { graceUntil, localDate, renewalStartDay, termWindow } from "./periods";
+import { lockMemberByEmail } from "./memberLock";
 
 type Tx = Prisma.TransactionClient;
 type OrgClock = Pick<Organisation, "id" | "timezone" | "financialYearStartMonth">;
@@ -38,6 +39,11 @@ type MemberInput = {
   unitId?: string | null;
   userId?: string | null;
   fieldValues?: Record<string, unknown>;
+  /**
+   * "merge" (default) adds `fieldValues` to the stored answers. "replace" stores `fieldValues` as the member's
+   * whole answer object: the caller built it from the row it read with `lockMemberByEmail` in this transaction.
+   */
+  fieldValuesMode?: "merge" | "replace";
   source: "JOIN_FORM" | "MANUAL" | "IMPORT";
   isMinor?: boolean;
   guardianName?: string | null;
@@ -47,24 +53,32 @@ type MemberInput = {
   keepExistingUnit?: boolean;
 };
 
-/** The organisation's record for this email, created on first sight with the next member number. */
+/**
+ * The organisation's record for this email, created on first sight with the next member number. The row is
+ * locked first. Omitted (undefined) details keep their stored values; null clears them.
+ */
 export async function upsertMember(tx: Tx, organisationId: string, input: MemberInput) {
   const email = input.email.trim().toLowerCase();
-  const existing = await tx.member.findUnique({ where: { organisationId_email: { organisationId, email } } });
+  const existing = await lockMemberByEmail(tx, organisationId, email);
+  // Prisma leaves undefined columns untouched on update and at their defaults on create.
   const profile = {
     name: input.name.trim(),
-    phone: input.phone ?? null,
-    stateCode: input.stateCode ?? null,
+    phone: input.phone,
+    stateCode: input.stateCode,
     ...(input.unitId !== undefined && !(input.keepExistingUnit && existing?.unitId) ? { unitId: input.unitId } : {}),
-    ...(input.isMinor !== undefined ? { isMinor: input.isMinor, guardianName: input.guardianName ?? null, guardianEmail: input.guardianEmail ?? null, guardianPhone: input.guardianPhone ?? null } : {}),
+    isMinor: input.isMinor,
+    guardianName: input.guardianName,
+    guardianEmail: input.guardianEmail,
+    guardianPhone: input.guardianPhone,
   };
   if (existing) {
+    const fieldValues = input.fieldValuesMode === "replace" ? input.fieldValues : input.fieldValues && { ...(existing.fieldValues as Record<string, unknown>), ...input.fieldValues };
     return tx.member.update({
       where: { id: existing.id },
       data: {
         ...profile,
         ...(input.userId && !existing.userId ? { userId: input.userId } : {}),
-        ...(input.fieldValues ? { fieldValues: { ...(existing.fieldValues as Record<string, unknown>), ...input.fieldValues } as Prisma.InputJsonValue } : {}),
+        ...(fieldValues ? { fieldValues: fieldValues as Prisma.InputJsonValue } : {}),
       },
     });
   }

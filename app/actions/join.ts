@@ -12,7 +12,12 @@ import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { enqueueOutbox } from "@/lib/outbox";
 import { orgActionAccess } from "@/lib/permissions";
 import { MembershipError, openTerm, upsertMember } from "@/lib/membership/service";
-import { MEMBERSHIP_NOTICE_VERSION, memberProfileSchema, validateFieldValues } from "@/lib/membership/validators";
+import { lockMemberByEmail } from "@/lib/membership/memberLock";
+import { MEMBERSHIP_NOTICE_VERSION, memberProfileSchema } from "@/lib/membership/validators";
+import { DEFAULT_JOIN_FIELDS, joinFieldsSchema } from "@/lib/membership/joinFields";
+import { attachJoinPhoto, joinProfile, joinSettingErrors, readJoinInput, type JoinPhotoMode } from "@/lib/membership/joinSubmission";
+import { replacePlanAnswers, validatePlanAnswers } from "@/lib/membership/planAnswers";
+import { prepareMemberPhoto, type PreparedMemberPhoto } from "@/lib/membership/photo";
 import { teamScope, unitInScope } from "@/lib/membership/scope";
 import { pathWithin, planOffersUnit } from "@/lib/membership/planUnits";
 import { loadPaymentGuidance } from "@/lib/payments/payGuidance";
@@ -28,6 +33,7 @@ const joinSchema = z.object({
   planSlug: z.string().trim().min(1).max(64),
   inviteToken: z.string().trim().max(128).optional().nullable(),
   consent: z.literal(true, { error: "Agree to the privacy notice to join" }),
+  guardianConsent: z.boolean().optional().default(false),
   profile: z.unknown(),
 });
 
@@ -37,23 +43,27 @@ function inviteUsable(invite: { usedOut: boolean; revokedAt: Date | null; expire
   return !invite.email || invite.email === email;
 }
 
+type JoinOutcome = { status: string; termId: string; payment: PaymentGuidance | null; payUrl: string | null; accountUrl: string; warning: string | null };
+
 /**
  * Join an organisation on a plan. The account's verified email becomes the member's email, so one person
- * holds one member record per organisation and can see all of them from their account.
+ * holds one member record per organisation and can see all of them from their account. Takes FormData (the
+ * JSON `payload` and an optional `photo`) or the payload itself.
  */
-export async function submitJoin(input: unknown): Promise<ActionResult<{ status: string; termId: string; payment: PaymentGuidance | null; payUrl: string | null; accountUrl: string }>> {
+export async function submitJoin(input: FormData | unknown): Promise<ActionResult<JoinOutcome>> {
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) return { ok: false, error: "Sign in to join." };
-  const parsed = joinSchema.safeParse(input);
+  const { payload, photo } = readJoinInput(input);
+  const parsed = joinSchema.safeParse(payload);
   if (!parsed.success) return { ok: false, error: "Check the highlighted fields.", fieldErrors: flattenZodErrors(parsed.error) };
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, emailVerified: true } });
   if (!user?.email || !user.emailVerified) return { ok: false, error: "Verify your email address before joining." };
   const email = user.email.toLowerCase();
 
-  const org = await prisma.organisation.findUnique({ where: { slug: parsed.data.organisationSlug }, select: { id: true, slug: true, status: true, timezone: true, financialYearStartMonth: true, memberLimit: true, unitLevels: true, memberPortal: true } });
+  const org = await prisma.organisation.findUnique({ where: { slug: parsed.data.organisationSlug }, select: { id: true, slug: true, name: true, status: true, timezone: true, financialYearStartMonth: true, memberLimit: true, unitLevels: true, memberPortal: true, memberPhotoUpload: true } });
   if (!org || org.status !== "ACTIVE") return { ok: false, error: "This organisation isn't taking members right now." };
-  const plan = await prisma.membershipPlan.findFirst({ where: { organisationId: org.id, slug: parsed.data.planSlug, archivedAt: null }, include: { fields: true, units: { select: { unit: { select: { path: true } } } } } });
+  const plan = await prisma.membershipPlan.findFirst({ where: { organisationId: org.id, slug: parsed.data.planSlug, archivedAt: null }, include: { fields: { orderBy: { sortOrder: "asc" } }, units: { select: { unit: { select: { path: true } } } } } });
   if (!plan) return { ok: false, error: "That plan is no longer offered." };
 
   const invite = parsed.data.inviteToken
@@ -66,10 +76,18 @@ export async function submitJoin(input: unknown): Promise<ActionResult<{ status:
   }
 
   // Joining never moves an existing member: their unit wins over the invite's and the form's.
-  const existing = await prisma.member.findUnique({ where: { organisationId_email: { organisationId: org.id, email } }, select: { unitId: true } });
-  const profile = memberProfileSchema.safeParse({ ...(parsed.data.profile as object), email, unitId: existing?.unitId ?? invite?.unitId ?? (parsed.data.profile as { unitId?: string })?.unitId });
+  const existing = await prisma.member.findUnique({ where: { organisationId_email: { organisationId: org.id, email } }, select: { unitId: true, isMinor: true, photoUrl: true } });
+  const joinFields = joinFieldsSchema.safeParse(plan.joinFields).data ?? DEFAULT_JOIN_FIELDS;
+  const photoMode = plan.joinPhoto as JoinPhotoMode;
+  const raw = parsed.data.profile && typeof parsed.data.profile === "object" ? (parsed.data.profile as Record<string, unknown>) : {};
+  const { minor, profile: submitted } = joinProfile(raw, joinFields, existing);
+  const profile = memberProfileSchema.safeParse({ ...submitted, email, unitId: existing?.unitId ?? invite?.unitId ?? raw.unitId });
   if (!profile.success) return { ok: false, error: "Check the highlighted fields.", fieldErrors: flattenZodErrors(profile.error) };
-  const answers = validateFieldValues(plan.fields, profile.data.fieldValues, false);
+  const settingErrors = joinSettingErrors({ fields: joinFields, profile: profile.data, minor, guardianConsent: parsed.data.guardianConsent, photoMode, photo, hasPhoto: Boolean(existing?.photoUrl) });
+  if (Object.keys(settingErrors).length) return { ok: false, error: "Check the highlighted fields.", fieldErrors: settingErrors };
+  // Keys admin-only or shaped differently on any plan of the organisation (archived ones too) never come from here.
+  const organisationPlans = await prisma.membershipPlan.findMany({ where: { organisationId: org.id }, select: { fields: true } });
+  const answers = validatePlanAnswers(plan.fields, profile.data.fieldValues, false, { organisationPlans });
   if (Object.keys(answers.errors).length) return { ok: false, error: "Answer the questions marked as required.", fieldErrors: answers.errors };
 
   const unitId = profile.data.unitId;
@@ -88,6 +106,13 @@ export async function submitJoin(input: unknown): Promise<ActionResult<{ status:
     if (!inviteUnit || !unitPath || !pathWithin(unitPath, inviteUnit.path)) return { ok: false, error: "This invite is for another unit. Ask the organisation for one that matches yours." };
   }
   if (await isActionRateLimited("join", userId)) return { ok: false, error: "Too many attempts. Try again later." };
+  // A member who already has a photo keeps it, so their upload isn't used. A bad image stops the join here.
+  let prepared: PreparedMemberPhoto | null = null;
+  if (photo && !existing?.photoUrl) {
+    const checked = await prepareMemberPhoto(photo);
+    if ("error" in checked) return { ok: false, error: checked.error, fieldErrors: { photo: [checked.error] } };
+    prepared = checked;
+  }
 
   try {
     const term = await prisma.$transaction(async (tx) => {
@@ -95,8 +120,23 @@ export async function submitJoin(input: unknown): Promise<ActionResult<{ status:
         const existing = await tx.member.count({ where: { organisationId: org.id, email } });
         if (!existing) throw new MembershipError("This organisation is full for now. Contact them directly.");
       }
-      const member = await upsertMember(tx, org.id, { ...profile.data, unitId, keepExistingUnit: true, userId, fieldValues: answers.values, source: "JOIN_FORM" });
-      await tx.consentRecord.create({ data: { organisationId: org.id, memberId: member.id, purpose: "membership", noticeVersion: MEMBERSHIP_NOTICE_VERSION, byGuardian: profile.data.isMinor } });
+      // This plan's public answers replace its keys under the member lock; every other key stays.
+      const locked = await lockMemberByEmail(tx, org.id, email);
+      if (Boolean(locked) !== Boolean(existing) || (locked && locked.isMinor !== existing?.isMinor)) throw new MembershipError("Your details changed while you were joining. Try again.");
+      const fieldValues = replacePlanAnswers((locked?.fieldValues ?? {}) as Record<string, unknown>, plan.fields, profile.data.fieldValues, false, { organisationPlans });
+      const member = await upsertMember(tx, org.id, {
+        ...profile.data,
+        phone: joinFields.phone === "HIDDEN" ? undefined : profile.data.phone,
+        stateCode: joinFields.state === "HIDDEN" ? undefined : profile.data.stateCode,
+        ...(minor ? {} : { guardianName: undefined, guardianEmail: undefined, guardianPhone: undefined }),
+        unitId,
+        keepExistingUnit: true,
+        userId,
+        fieldValues,
+        fieldValuesMode: "replace",
+        source: "JOIN_FORM",
+      });
+      await tx.consentRecord.create({ data: { organisationId: org.id, memberId: member.id, purpose: "membership", noticeVersion: MEMBERSHIP_NOTICE_VERSION, byGuardian: minor } });
       // An invite stands in for approval: the organisation already chose this person.
       const opened = await openTerm(tx, { org, plan, memberId: member.id, byManager: inviteOk, actorUserId: userId });
       if (invite && inviteOk) {
@@ -105,13 +145,14 @@ export async function submitJoin(input: unknown): Promise<ActionResult<{ status:
       }
       return opened;
     });
+    const warning = prepared ? await attachJoinPhoto({ org, memberId: term.memberId, userId, prepared }) : null;
     revalidatePath(`/dashboard/${org.slug}/members`);
     // How to pay offline, from the member's unit up to the organisation, for the confirmation.
     const unitPath = term.status === "PENDING_PAYMENT" ? (await prisma.member.findUnique({ where: { id: term.memberId }, select: { unit: { select: { path: true } } } }))?.unit?.path : null;
     const payment = term.status === "PENDING_PAYMENT" ? await loadPaymentGuidance(org.id, unitPath, term.currency) : null;
     // Without member accounts there is no account to pay from: a signed pay link instead (lib/payments/payLink.ts).
     const payUrl = term.status !== "PENDING_PAYMENT" ? null : org.memberPortal ? `/account/pay/${term.id}` : `/pay/${payLinkToken(term.id)}`;
-    return { ok: true, data: { status: term.status, termId: term.id, payment, payUrl, accountUrl: org.memberPortal ? "/account" : `/o/${org.slug}` } };
+    return { ok: true, data: { status: term.status, termId: term.id, payment, payUrl, accountUrl: org.memberPortal ? "/account" : `/o/${org.slug}`, warning } };
   } catch (error) {
     if (error instanceof MembershipError) return { ok: false, error: error.message };
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return { ok: false, error: "You already have an application or unpaid membership on this plan. See your account." };

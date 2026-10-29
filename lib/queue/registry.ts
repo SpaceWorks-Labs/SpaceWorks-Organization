@@ -8,6 +8,7 @@ import { reconcileGatewayRefunds } from "@/lib/payments/reconcileRefunds";
 import { queueMonthlyDigests } from "@/lib/reports/digest";
 import { runExpiredBackfill } from "@/lib/reports/rollupBackfill";
 import { runStorageCleanup } from "@/lib/storage/cleanup";
+import { runMemberPhotoSweep } from "@/lib/storage/photoSweep";
 import type { JobDefinition } from "./definitions";
 import { enqueueDueOutbox } from "./enqueue";
 
@@ -31,6 +32,7 @@ export const SCHEDULED_JOBS: ReadonlyArray<JobDefinition> = [
   { area: "monthly-digest", schedule: { every: 60 * MINUTE }, run: (now) => queueMonthlyDigests(now, true) },
   { area: "expired-backfill", schedule: { every: MINUTE }, run: (now) => runExpiredBackfill(now) },
   { area: "storage-cleanup", schedule: { every: MINUTE }, run: () => runStorageCleanup() },
+  { area: "member-photo-sweep", schedule: { every: 60 * MINUTE }, run: (now) => runMemberPhotoSweep(now) },
   { area: "operational-retention", schedule: { every: MINUTE }, run: (now) => purgeExpiredOperationalData(now) },
   { area: "worker-heartbeat", schedule: { every: MINUTE }, run: () => recordHeartbeatSuccess(WORKER_HEARTBEAT_KEY, { sent: 0, failed: 0 }) },
 ];

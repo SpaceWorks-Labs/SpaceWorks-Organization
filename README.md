@@ -44,7 +44,9 @@ Grouped the way an organisation's year actually goes.
 - Fixed (financial year) or rolling plans with prices in integer paise, joining fees, renewal prices and other
   currencies.
 - A public page per organisation, edited in Settings, with every plan and a **Join** or **Apply to join** button.
-- Join forms with your own questions, open, approval-only or invitation-only, with consent recorded.
+- Join forms shaped per plan: your own questions (including "choose several", section headings and questions shown
+  only when an earlier answer matches), an optional or required photo, phone and state on or off, open,
+  approval-only or invitation-only, with consent recorded.
 
 ### Members and units
 

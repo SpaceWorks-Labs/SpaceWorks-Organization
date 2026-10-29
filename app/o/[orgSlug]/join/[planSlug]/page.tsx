@@ -57,7 +57,10 @@ export default async function JoinPage({ params, searchParams }: Props) {
         unitLabel={view.unitLabel}
         presetUnitId={view.presetUnitId}
         approval={plan.joinMode === "APPROVAL"}
-        questions={plan.fields.map(({ key, label, helpText, type, required, options }) => ({ key, label, helpText, type, required, options }))}
+        questions={view.questions}
+        photoMode={view.joinPhoto}
+        joinFields={view.joinFields}
+        ownMember={view.ownMember}
       />
     );
   }

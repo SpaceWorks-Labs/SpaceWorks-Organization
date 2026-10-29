@@ -1,4 +1,5 @@
 import { formatCalendarDate, lastValidDay } from "@/lib/membership/periods";
+import { decodeMultiSelect } from "@/lib/membership/planAnswerValues";
 import { LIFETIME_VALIDITY } from "./types";
 
 /*
@@ -37,11 +38,18 @@ export function cardState(card: { revokedAt: Date | null; revokedReason: string 
   return card.revokedReason === "REISSUED" ? "replaced" : "revoked";
 }
 
-/** Plan field answers as printable details, in field order, skipping empty ones. */
-export function memberDetails(fields: Array<{ key: string; label: string; type: string }>, values: unknown) {
+export type DetailField = { key: string; label: string; type: string; options?: string[]; multiple?: boolean; section?: boolean };
+
+/** Plan field answers as printable details, in field order, skipping empty ones and sections. Lists print with ", ". */
+export function memberDetails(fields: DetailField[], values: unknown) {
   const record = values && typeof values === "object" && !Array.isArray(values) ? (values as Record<string, unknown>) : {};
   return fields.flatMap((field) => {
     const value = record[field.key];
+    if (field.section) return [];
+    if (field.multiple) {
+      const chosen = decodeMultiSelect(field.options ?? [], value);
+      return chosen.length ? [{ key: field.key, label: field.label, value: chosen.join(", ").slice(0, 200) }] : [];
+    }
     if (typeof value === "boolean") return value ? [{ key: field.key, label: field.label, value: "Yes" }] : [];
     if (typeof value !== "string" || !value.trim()) return [];
     const date = field.type === "DATE" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value.split("-").map(Number) : null;

@@ -12,7 +12,7 @@ import { Card, CardHeader, Chip } from "@/components/ui/display";
 export const metadata: Metadata = { title: "Plan", robots: { index: false, follow: false } };
 
 export default async function PlanPage({ params }: { params: Promise<{ orgSlug: string; planId: string }> }) {
-  const { org, plan, units, invites, canManagePlan, canInvite } = await loadPlanView({ params });
+  const { org, plan, units, invites, canManagePlan, canInvite, conflictingKeys } = await loadPlanView({ params });
   const base = (process.env.NEXT_PUBLIC_BASE_URL ?? "").replace(/\/$/, "");
   return (
     <div className="flex max-w-[920px] flex-col gap-6">
@@ -50,7 +50,8 @@ export default async function PlanPage({ params }: { params: Promise<{ orgSlug: 
           slug={org.slug}
           planId={plan.id}
           disabled={!canManagePlan}
-          initial={plan.fields.map((field) => ({ key: field.key, label: field.label, helpText: field.helpText, type: field.type, required: field.required, options: field.options, adminOnly: field.adminOnly }))}
+          conflicts={conflictingKeys}
+          initial={plan.fields.map(({ key, label, helpText, type, required, options, adminOnly, multiple, section, showIfKey, showIfValue }) => ({ key, label, helpText, type, required, options, adminOnly, multiple, section, showIfKey, showIfValue }))}
         />
       </Card>
     </div>
