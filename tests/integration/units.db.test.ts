@@ -1,10 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ userId: null as string | null }));
+const mocks = vi.hoisted(() => ({ userId: null as string | null, invalidated: [] as unknown[][] }));
 vi.mock("@/lib/auth", () => ({ auth: async () => (mocks.userId ? { user: { id: mocks.userId } } : null) }));
 vi.mock("@/lib/actionRateLimit", () => ({ isActionRateLimited: async () => false }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/cache", async (original) => ({
+  ...(await original<typeof import("@/lib/cache")>()),
+  invalidateOrg: async (...args: unknown[]) => { mocks.invalidated.push(args); },
+}));
 
 import { prisma } from "@/lib/db";
 import { createUnit, moveUnit, setUnitArchived, setUnitLevels, updateUnit } from "@/app/actions/units";
@@ -68,6 +72,14 @@ describe.sequential("unit actions", () => {
     expect(await updateUnit({ organisationSlug: org.slug, unitId: area.unitId, name: "Alleppey", code: "alpy" })).toEqual({ ok: true });
     expect(await row(area.unitId)).toMatchObject({ name: "Alleppey", code: "ALPY" });
     expect(await updateUnit({ organisationSlug: org.slug, unitId: area.unitId, name: "Alleppey", code: "TOO-LONG" })).toMatchObject({ ok: false });
+  });
+
+  it("clears the organisation's cached public page and analytics when a unit changes", async () => {
+    mocks.userId = owner;
+    mocks.invalidated = [];
+    const area = await unit("Pathanamthitta", null, "PTA");
+    expect(await updateUnit({ organisationSlug: org.slug, unitId: area.unitId, name: "Pathanamthitta North", code: "PTA" })).toEqual({ ok: true });
+    expect(mocks.invalidated).toEqual([[org.id, "public-page", "analytics"], [org.id, "public-page", "analytics"]]);
   });
 
   it("moves a unit and its whole subtree to another parent on the same level", async () => {

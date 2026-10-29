@@ -92,6 +92,10 @@ describe.sequential("member cards", () => {
     expect(wallet.map((item) => item.verifyPath)).toEqual([`/verify/${token}`]);
     const stranger = await prisma.user.create({ data: { email: `stranger-${suffix}@example.test`, emailVerified: new Date() } });
     expect(await listCardsForUser(stranger.id)).toEqual([]);
+    // With member accounts off, the organisation's cards leave the wallet.
+    await prisma.organisation.update({ where: { id: org.id }, data: { memberPortal: false } });
+    expect(await listCardsForUser(user.id)).toEqual([]);
+    await prisma.organisation.update({ where: { id: org.id }, data: { memberPortal: true } });
   });
 
   it("emails the card through the outbox handler, and drops it once revoked", async () => {
