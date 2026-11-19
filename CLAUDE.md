@@ -27,11 +27,34 @@ them, or reviews the ones that sign up. There are **no events** in this product.
 - **Origins:** platform and ID-card code is derived from SpaceWorks-Events `origin/dev` @ `03186e0`. Copy it from
   there with `git show`, then remove anything event-specific.
 - **Design:**
-  - **Brand:** SpaceWorks-Design is the only source of brand truth (tokens, logos, fonts).
-  - **UX:** Space Works UX, from SpaceWorks-Design `docs/ux-spec.md`.
-  - **Buttons and controls:** pill-shaped (`--radius-control: 9999px`).
-  - **Fonts:** only the free Gilroy weights (Light 300 for text, ExtraBold 800 for headings), plus Unbounded for
-    one accent phrase per layout.
+  - **Brand:** the Space Works Design System (`SpaceWorks-Labs/SpaceWorks-Design-System`, cloned at
+    `../SpaceWorks-Design-System`, v2.6.0) is the only source of brand truth. Its `docs/current-rules.md` (CR-*) and
+    `docs/ux-rules.md` bind. Resync with `npm run design:sync`; `brand/SOURCE.json` records the commit.
+  - **UX:** Space Works UX, from the kit's `docs/ux-spec.md`.
+  - **Controls:** 10 px radius (`--radius-control`, CR-RADIUS-01); cards and panels 16 px; tags and status pills
+    fully round.
+  - **Fonts (CR-TYPE-01):** Outfit 400–700 for body and UI; Outfit 600 for product heading roles; Gilroy ExtraBold
+    800 for display headings (`.sw-display-headings` on public pages); Unbounded for one accent phrase per layout.
+    IDs and code use Outfit tabular figures (`.code-text`). Never request Gilroy 400–700. Receipt PDFs still embed
+    Gilroy (the kit's Outfit is a variable font whose default instance is Thin).
+  - **Themes (CR-THEME-01):** Light (fallback), Dark and System, from the `swo.theme` cookie mirrored to
+    localStorage, painted before first paint by the nonce'd boot script in `app/layout.tsx`. Dark is the neutral
+    black family (CR-DARK-01).
+  - **Colour:** text is opaque (`text-muted`, never `/80`); small status marks use `bg-*-mark text-on-*-mark` in both
+    themes, `*-bg/*-fg` only for large callouts; disabled is `bg-surface text-muted border-line`; charts use
+    `--chart-1…5` with `--chart-edge`, five slots at most.
+  - **Motion (CR-MOTION-01):** tokens `--sw-dur-fast/base/slow` (120/180/240) and `ease-sw`/`ease-sw-enter`/
+    `ease-sw-exit`; transform and opacity only; reduced motion honoured. The Space Works mark opens on hover and
+    focus (`SpaceWorksLogo` → `AnimatedLogoMark`); the box loader (`LogoLoader`, `BoxSpinner`) is the only loading
+    indicator; route transitions move content only (`template.tsx`); overlays and toasts share `components/ui`
+    motion. Tenant logos never animate. Shared parts: `components/motion/*` (Collapse, StaggerGroup, Skeleton,
+    SlidingNav, RouteAnnouncer). Details in `docs/DESIGN.md`.
+  - **Delight:** Patch, confetti and card tilt respect `Organisation.delightEnabled` ("Playful touches", default on,
+    `app/actions/delight.ts`); reduced motion still wins.
+  - **Landing, features and docs (§12.1):** `/` is the landing page (`LANDING_ENABLED`, default on; off → `/`
+    follows the data, §12.2), `/features` is built from `lib/features/catalog.ts`, and `/docs` serves
+    `docs/features/*.md` plus operator docs through the generated `lib/docs/content.ts`
+    (`node scripts/build-docs.mjs`, run by `dev`, `build` and `frontend:prepare`).
   - **Patch (mascot):** `components/brand/Patch.tsx` (idle, sneeze, walk), artwork from SpaceWorks-Design via
     `scripts/sync-patch.mjs`. Never recolour, mirror or resize it past native size, never beside the box logo, and
     it counts as a layout's one bold moment. Where it appears and every easter egg are in `docs/DESIGN.md`.
@@ -129,11 +152,17 @@ npx vitest run tests/unit/health.test.ts
     release working). Those columns and triggers go in a later release.
   - New browsers: `lib/loginSecurity.ts` (known-device cookie, emailed code for accounts without an
     authenticator, new-device alert). Failed sign-ins feed `lib/ipBlock.ts`. Every new password passes
-    `isBreachedPassword` (`lib/breachedPassword.ts`).
+    `isBreachedPassword` (`lib/breachedPassword.ts`). Sign-in, sign-out, recovery code use and identity link rows go through
+    `lib/authAudit.ts` (method and reason only, never a credential).
+- **Phone codes by SMS** (`lib/sms/*`, `lib/authMethods/phone.ts`, `docs/SECURITY.md`): codes, limits and `SmsCode` rows live in `lib/sms/codes.ts` (every request leaves a row, even for unknown numbers, so limits and answers never reveal an account); sends are outbox kind `sms-code` through `platformSmsSender`; providers Twilio and MSG91 sit behind `SmsSender` (`lib/sms/providers/*`), configured like email providers (`lib/sms/config.ts`, Super admin → Auth → SMS). Never put a phone number in audit metadata, a reply or a log.
 - **Notifications** (`docs/NOTIFICATIONS.md`):
   - Member-facing emails pass `organisationId` to `sendBrandedEmail`, which uses the organisation's own SMTP
     (`OrgEmailSettings`) or the platform's in its name. Account emails never pass it.
-  - Team chat alerts (Slack, Discord, Mattermost, Telegram, WhatsApp) are queued with `queueChatAlerts` in the
+  - Email goes through one `Mailer` interface (`lib/email/providers/*`): SMTP, Amazon SES, Resend or Postmark, for the platform
+    (`InstanceSetting.emailProvider`, env `EMAIL_PROVIDER`) and per organisation (`OrgEmailSettings`). Provider secrets are one
+    encrypted JSON (`lib/email/providerConfig.ts`), write-only. Every send passes `withSuppression`; provider webhooks
+    (`app/api/email/webhooks/[provider]`) are verified before the body is read and feed `EmailSuppression`.
+  - Team chat alerts (Slack, Discord, Mattermost, Telegram, WhatsApp, signed webhook) are queued with `queueChatAlerts` in the
     event's transaction (`lib/chat/*`). Organisation secrets use `encryptOrgSecret`; hosts an organisation types
     in must pass `assertPublicHost`.
   - An organisation's own wording for member emails is `OrgEmailTemplate` (`lib/email/templates.ts`): plain text
@@ -144,6 +173,35 @@ npx vitest run tests/unit/health.test.ts
   answered, `answerableKeys` over every plan of the organisation, replace not merge), inside the member row lock
   (`lib/membership/memberLock.ts`). A plan's `joinPhoto` and `joinFields` govern joining only; join photos go through
   `prepareMemberPhoto` before the transaction and `replaceMemberPhoto(..., { onlyIfEmpty: true })` after it.
+- **Web analytics** (product rules §8, `docs/features/web-analytics.md`):
+  - Outside providers (Plausible, Umami, GA4, Firebase Analytics and Performance, PostHog, Clarity, Sentry; Mixpanel
+    from env only) live in `lib/telemetry/*`. They stay off until configured *and* consented per purpose, run only
+    for signed-out visitors on approved route templates (`lib/telemetry/routes.ts`), and take public ids only.
+  - The platform config is `InstanceSetting.webTelemetry` (super admin, `app/actions/web-telemetry.ts`); each
+    organisation's is `Organisation.webTelemetry` (Owner, `app/actions/org-web-telemetry.ts`), used only on its
+    `/o/<slug>` pages. Origins must be in `WEB_TELEMETRY_ALLOWED_ORIGINS`.
+  - The CSP widens from env only, on public template paths only (`lib/pageSecurity.ts`).
+  - In-house visit counts (`WebVisitDaily`, `POST /api/visits`) are counts per organisation, day and route
+    template, never people. Platform rows upsert through the partial unique index with raw SQL.
+- **Staff invites:** single-use `TeamInvite` links (`/join/org/<token>`). A signed-out visitor can create an
+  account (password or OAuth) there; a signed, 30-minute `swo.invite-signup` cookie (`lib/inviteLink.ts`) lifts
+  "new sign-ups off" for that flow only, always re-checked against the database (`lib/inviteSignup.ts`), and
+  email-bound invites accept only that address. Creating the account claims the invite for that email
+  (`TeamInvite.signupEmail`, one account per invite). It never makes a super admin.
+- **Sessions and linking** (`docs/SECURITY.md`): every sign-in writes a `UserSession` row whose id (`sid`) is in the JWT and checked on every request (`lib/userSessions.ts`); an outside identity is linked only from a live session with a signed link intent (`lib/linkIntent.ts`, `oauthSessionGate`, `linkExternalIdentity`); unlinking must leave `countWorkingMethods` at 1 or more (passkeys and phone add their counter there).
+- **Supabase and Firebase sign-in** (`lib/bridgeTokens.ts`, `lib/bridgeSignIn.ts`) verify the provider token against
+  its JWKS and never link to an existing account by email: a bridge signs in only the account it created, by `sub`.
+  Sign-in methods are switches on `InstanceSetting` (`lib/loginMethods.ts`), fixed by env `LOGIN_METHODS` from install.
+  **Only password is on by default** (product rules §15); every other method is off until switched on, hidden everywhere
+  when off, and refuses with `method_disabled` (`lib/authMethods/gate.ts`, `authorize`). Provider assembly lives in
+  `lib/authMethods/` (one module per method family, built by `index.ts`; a new method is one module and one line).
+  **OIDC** (`OidcProvider`, any number) and **SAML** (`SamlProvider`, `@node-saml/node-saml`, `docs/decisions.md`,
+  routes under `app/api/auth/saml/[slug]`, one-time ticket into the `saml` Credentials provider) never link to an existing
+  account by email: `link_from_account` (`identityRefusal(..., { linkByEmail: false })`); only Google, Apple and GitHub link
+  by verified email. Client secrets are write-only. Per-email growing delay: `lib/signInBackoff.ts`. Without an email
+  service (`lib/emailAvailability.ts`) "Forgot?" is hidden and the emailed new-browser code is skipped. Audit rows:
+  `lib/authAudit.ts`.
+  **Passkeys** (WebAuthn; `@simplewebauthn`, `docs/decisions.md`; `lib/passkeys/*`, `lib/authMethods/passkey.ts`) are registered only from a signed-in session, need user verification, and never replace the authenticator for staff or the password for super admins.
 - **Member accounts switch:** `Organisation.memberPortal`. Off, portal queries skip the organisation, member
   emails link to the public page or a signed pay link (`lib/payments/payLink.ts`, `/pay/<token>`), and `/verify`
   is unaffected.

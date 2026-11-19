@@ -7,6 +7,10 @@ const mocks = vi.hoisted(() => ({
   session: vi.fn(),
   teamInvite: vi.fn(),
   outbox: vi.fn(),
+  smsCode: vi.fn(),
+  passkeyChallenge: vi.fn(),
+  samlLoginState: vi.fn(),
+  userSession: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: {
@@ -15,6 +19,10 @@ vi.mock("@/lib/db", () => ({ prisma: {
   session: { deleteMany: mocks.session },
   teamInvite: { deleteMany: mocks.teamInvite },
   outboxMessage: { deleteMany: mocks.outbox },
+  smsCode: { deleteMany: mocks.smsCode },
+  passkeyChallenge: { deleteMany: mocks.passkeyChallenge },
+  samlLoginState: { deleteMany: mocks.samlLoginState },
+  userSession: { deleteMany: mocks.userSession },
 } }));
 
 import { purgeExpiredOperationalData } from "@/lib/retention";
@@ -25,7 +33,7 @@ describe("operational retention", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.OUTBOX_RETENTION_DAYS = "30";
-    for (const mock of [mocks.verification, mocks.session, mocks.teamInvite, mocks.outbox]) {
+    for (const mock of [mocks.verification, mocks.session, mocks.teamInvite, mocks.outbox, mocks.smsCode, mocks.passkeyChallenge, mocks.samlLoginState, mocks.userSession]) {
       mock.mockResolvedValue({ count: 1 });
     }
     mocks.transaction.mockImplementation((operations: Array<Promise<unknown>>) => Promise.all(operations));
@@ -44,7 +52,12 @@ describe("operational retention", () => {
       unusedTeamInvites: 1,
       sentOutboxMessages: 1,
       failedOutboxMessages: 1,
+      smsCodes: 1,
+      passkeyChallenges: 1,
+      samlLoginStates: 1,
+      userSessions: 1,
     });
+    expect(mocks.smsCode).toHaveBeenCalledWith({ where: { createdAt: { lt: new Date("2030-02-27T00:00:00.000Z") } } });
     expect(mocks.teamInvite).toHaveBeenCalledWith({ where: { usedAt: null, expiresAt: { lt: now } } });
     expect(mocks.outbox).toHaveBeenNthCalledWith(1, { where: { status: OutboxStatus.SENT, sentAt: { lt: new Date("2030-01-30T00:00:00.000Z") } } });
     expect(mocks.outbox).toHaveBeenNthCalledWith(2, { where: { status: OutboxStatus.FAILED, createdAt: { lt: new Date("2030-01-30T00:00:00.000Z") } } });

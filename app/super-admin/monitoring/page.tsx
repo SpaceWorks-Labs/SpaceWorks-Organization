@@ -31,7 +31,7 @@ export default async function SuperAdminMonitoringPage() {
             <OkChip ok={configuredSuperAdmin} labelOk="SUPER_ADMIN_EMAIL set" labelBad="SUPER_ADMIN_EMAIL missing" />
           </div>
           <p className="text-sm text-ink-muted">
-            For external uptime monitors: use <code className="font-mono text-[0.9em] text-ink">/api/health</code> and <code className="font-mono text-[0.9em] text-ink">/api/health/db</code>.
+            For external uptime monitors: use <code className="code-text text-[0.9em] text-ink">/api/health</code> and <code className="code-text text-[0.9em] text-ink">/api/health/db</code>.
           </p>
         </div>
       </AdminPanel>

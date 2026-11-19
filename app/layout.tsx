@@ -1,10 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { connection } from "next/server";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { ChromeSwitch } from "@/components/chrome/ChromeSwitch";
-import { COLOR_MODE_COOKIE, resolveColorMode } from "@/lib/colorMode";
+import { WebTelemetry } from "@/components/telemetry/WebTelemetry";
+import { VisitBeacon } from "@/components/telemetry/VisitBeacon";
+import { RouteAnnouncer } from "@/components/motion/RouteAnnouncer";
+import { loadWebTelemetryView } from "@/lib/views/app__layout";
+import { COLOR_MODE_BOOT_SCRIPT, COLOR_MODE_COOKIE, THEME_COLOR, resolveColorMode, serverPaintedColorMode } from "@/lib/colorMode";
 
 export const metadata: Metadata = {
   title: {
@@ -28,22 +32,34 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", images: ["/brand/icons/og-1200x630.png"] },
 };
 
-export const viewport: Viewport = {
-  // Browser chrome matches the canvas: Warm Cream. Dark mode is a per-person choice (no media query).
-  themeColor: "#FFF4E8",
-};
+/** Browser chrome follows the painted theme: Warm Cream, or black for a saved Dark (the boot script handles System). */
+export async function generateViewport(): Promise<Viewport> {
+  const mode = resolveColorMode((await cookies()).get(COLOR_MODE_COOKIE)?.value);
+  return { themeColor: THEME_COLOR[serverPaintedColorMode(mode) ?? "light"] };
+}
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  // A per-request CSP nonce will be injected by proxy.ts; waiting for the request lets Next.js
-  // attach it to every framework script.
+  // proxy.ts injects a per-request CSP nonce (lib/pageSecurity.ts, the x-nonce request header); waiting for the
+  // request lets Next.js attach it to every framework script.
   await connection();
   const mode = resolveColorMode((await cookies()).get(COLOR_MODE_COOKIE)?.value);
+  const painted = serverPaintedColorMode(mode);
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
+  // Outside analytics (product rules §8.2): public config for signed-out visitors only, else null.
+  const telemetry = await loadWebTelemetryView();
 
   return (
-    <html lang="en-GB" className={mode === "dark" ? "dark" : undefined} style={{ colorScheme: mode }} suppressHydrationWarning>
+    <html lang="en-GB" className={painted === "dark" ? "dark" : undefined} style={painted ? { colorScheme: painted } : undefined} suppressHydrationWarning>
+      <head>
+        {/* Pre-paint: applies a System choice (and re-checks the cookie) before anything is drawn. */}
+        <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: COLOR_MODE_BOOT_SCRIPT }} />
+      </head>
       <body className="flex min-h-dvh flex-col">
         <Providers initialColorMode={mode}>
           <ChromeSwitch>{children}</ChromeSwitch>
+          <WebTelemetry view={telemetry} />
+          <VisitBeacon />
+          <RouteAnnouncer />
         </Providers>
       </body>
     </html>

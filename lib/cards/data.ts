@@ -35,7 +35,7 @@ export const CARD_INCLUDE = {
 type CardRecord = Prisma.MemberCardGetPayload<{ include: typeof CARD_INCLUDE }>;
 
 export type CardOrgContext = {
-  organisation: { id: string; name: string; slug: string; logoUrl: string | null; accentColor: string | null; timezone: string; status: string; unitLevels: string[] };
+  organisation: { id: string; name: string; slug: string; logoUrl: string | null; accentColor: string | null; timezone: string; status: string; unitLevels: string[]; delightEnabled: boolean };
   designs: Array<{ planId: string | null; roleId: string | null; design: unknown; watermarkUrl: string | null; numberPrefix: string; numberFormat: string }>;
   fields: Map<string, DetailField[]>;
   /** Ancestor units loaded so far by `loadCardUnits`, by id. */
@@ -51,7 +51,7 @@ function cardVerifyUrl(token: string) {
 export async function loadCardOrgContext(organisationId: string): Promise<CardOrgContext | null> {
   const organisation = await prisma.organisation.findUnique({
     where: { id: organisationId },
-    select: { id: true, name: true, slug: true, logoUrl: true, accentColor: true, timezone: true, status: true, unitLevels: true },
+    select: { id: true, name: true, slug: true, logoUrl: true, accentColor: true, timezone: true, status: true, unitLevels: true, delightEnabled: true },
   });
   if (!organisation) return null;
   const [designs, fields] = await Promise.all([

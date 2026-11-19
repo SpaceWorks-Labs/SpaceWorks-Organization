@@ -62,7 +62,7 @@ export function ResetPasswordForm(props: { token: string; email: string }) {
         return;
       }
       setPassword("");
-      setSuccess("Password reset successfully! Redirecting to sign in…");
+      setSuccess("Your password is reset. Taking you to sign in…");
       setTimeout(() => router.replace("/login"), 2000);
     });
   }

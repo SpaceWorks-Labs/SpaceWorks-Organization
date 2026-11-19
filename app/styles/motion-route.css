@@ -1,0 +1,109 @@
+/*
+ * Page motion (CR-MOTION-01): transform and opacity only, plus grid rows for a collapse (the kit's one named height
+ * exception, so a section that opens pushes the page down). Reduced motion zeroes every duration and distance here.
+ */
+
+/* Route transition (components/motion/RouteTransition.tsx, each shell's template.tsx): the content region fades in
+   with an 8px upward settle over slow on the enter curve, a quarter of fast after the swap. */
+@keyframes sw-route-in { from { opacity: 0; transform: translateY(var(--sw-enter-y)); } }
+@media (prefers-reduced-motion: no-preference) {
+  .sw-route-enter { animation: sw-route-in var(--sw-dur-slow) var(--sw-ease-enter) calc(var(--sw-dur-fast) / 4) backwards; }
+  /* Tenant logos stay still (CR-MOTION-01): a region holding one enters only its parts without a logo. */
+  .sw-route-enter:has([data-tenant-logo]) { animation: none; }
+  .sw-route-enter:has([data-tenant-logo]) > :not(:has([data-tenant-logo])) {
+    animation: sw-route-in var(--sw-dur-slow) var(--sw-ease-enter) calc(var(--sw-dur-fast) / 4) backwards;
+  }
+}
+/* Focus moves to the new page's heading for keyboard and screen-reader users; it is not a control, so no ring. */
+[data-sw-main] h1[tabindex="-1"]:focus { outline: none; }
+
+/* First-load stagger (components/motion/StaggerGroup.tsx): the first eight children fade and rise, 30ms apart.
+   Tenant logos stay still: a child holding one does not move; only its `data-stagger-enter` parts rise. */
+@keyframes sw-stagger-rise { from { opacity: 0; transform: translateY(calc(var(--sw-enter-y) * 0.75)); } }
+@media (prefers-reduced-motion: no-preference) {
+  .sw-stagger > :nth-child(-n + 8),
+  .sw-stagger > :nth-child(-n + 8):has([data-tenant-logo]) [data-stagger-enter] {
+    animation: sw-stagger-rise var(--sw-dur-slow) var(--sw-ease-enter) var(--sw-stagger-delay, 0s) both;
+  }
+  .sw-stagger > :nth-child(-n + 8):has([data-tenant-logo]) { animation: none; }
+  .sw-stagger > :nth-child(2) { --sw-stagger-delay: calc(var(--sw-dur-fast) * 0.25); }
+  .sw-stagger > :nth-child(3) { --sw-stagger-delay: calc(var(--sw-dur-fast) * 0.5); }
+  .sw-stagger > :nth-child(4) { --sw-stagger-delay: calc(var(--sw-dur-fast) * 0.75); }
+  .sw-stagger > :nth-child(5) { --sw-stagger-delay: var(--sw-dur-fast); }
+  .sw-stagger > :nth-child(6) { --sw-stagger-delay: calc(var(--sw-dur-fast) * 1.25); }
+  .sw-stagger > :nth-child(7) { --sw-stagger-delay: calc(var(--sw-dur-fast) * 1.5); }
+  .sw-stagger > :nth-child(8) { --sw-stagger-delay: calc(var(--sw-dur-fast) * 1.75); }
+}
+
+/* Reveal on scroll (components/motion/RevealRoot.tsx): once, 640ms (8/3 × slow) on the enter curve, only after the
+   root is marked ready. A block holding a tenant logo stays put (tenant logos never animate). */
+@media (prefers-reduced-motion: no-preference) {
+  [data-reveal-ready] [data-reveal] {
+    transition: opacity calc(var(--sw-dur-slow) * 8 / 3) var(--sw-ease-enter), transform calc(var(--sw-dur-slow) * 8 / 3) var(--sw-ease-enter);
+  }
+  [data-reveal-ready] [data-reveal]:not([data-revealed]):not(:has([data-tenant-logo])) { opacity: 0; transform: translate3d(0, 24px, 0); }
+}
+@media print { [data-reveal] { opacity: 1 !important; transform: none !important; } }
+
+/* Collapse (components/motion/Collapse.tsx): rows 0fr to 1fr with a fade, base to open and fast to close. The inner
+   padding/margin pair keeps the focus rings of edge items from being clipped. */
+.sw-collapse {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--sw-dur-base) var(--sw-ease-enter);
+}
+.sw-collapse-inner {
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 4px;
+  margin: -4px;
+  opacity: 1;
+  transition: opacity var(--sw-dur-base) var(--sw-ease-enter);
+}
+.sw-collapse[data-state="closed"] {
+  grid-template-rows: 0fr;
+  pointer-events: none;
+  transition-duration: var(--sw-dur-fast);
+  transition-timing-function: var(--sw-ease-exit);
+}
+.sw-collapse[data-state="closed"] > .sw-collapse-inner {
+  opacity: 0;
+  transition-duration: var(--sw-dur-fast);
+  transition-timing-function: var(--sw-ease-exit);
+}
+.sw-chevron { transition: transform var(--sw-dur-fast) var(--sw-ease-standard); }
+[aria-expanded="true"] > .sw-chevron { transform: rotate(180deg); }
+
+/* Sliding indicator (components/motion/useSlideIndicator.ts): one box that moves under the current tab or sidebar
+   item. Only transform transitions; while it is placed, the item's own highlight steps aside. */
+.sw-indicator {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: transform var(--sw-dur-base) var(--sw-ease-standard);
+}
+.sw-tab-indicator::after {
+  content: "";
+  position: absolute;
+  inset-inline: 12px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 9999px;
+  background: rgb(var(--sw-ui-primary));
+}
+[data-slide] > .sw-tab::after { background-color: transparent; }
+.sw-nav-indicator { border-radius: var(--radius-control, 10px); background: rgb(var(--sw-ui-sidebar-active)); }
+[data-slide] > .sw-slide-item[aria-current="page"],
+[data-slide] > .sw-slide-item[aria-current="page"]:hover { background-color: transparent; }
+.sw-slide-item { z-index: 1; }
+
+/* Progress bar (components/ui/display.tsx ProgressBar): the fill scales from the left, never animates its width. */
+.sw-progress-fill {
+  width: 100%;
+  transform-origin: left center;
+  transition: transform var(--sw-dur-slow) var(--sw-ease-standard);
+}

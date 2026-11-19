@@ -39,7 +39,7 @@ describe("frontend production boundaries", () => {
   it("requires confirmations for destructive team and security actions", () => {
     expect(source("components/team/MemberRoleActions.tsx")).toContain("from the team?");
     expect(source("components/team/OrgInviteLinkPanel.tsx")).toContain('title="Revoke invite link?"');
-    expect(source("components/security/SignOutEverywhereCard.tsx")).toContain('title="Revoke all sessions?"');
+    expect(source("components/security/SignOutEverywhereCard.tsx")).toContain('title="Sign out everywhere?"');
     expect(source("components/security/AccountSecurityClient.tsx")).toContain('title="Turn off two-step verification?"');
   });
 });

@@ -75,7 +75,7 @@ export function SwatchGroup<T extends string>({ label, value, options, colourOf,
               aria-checked={active}
               onClick={() => onChange(key)}
               className={cn(
-                "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-[14px] text-ink transition-colors duration-[120ms] hover:bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+                "inline-flex min-h-11 items-center gap-1.5 rounded-control border px-3 text-[14px] text-ink transition-colors duration-(--sw-dur-fast) hover:bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
                 active ? "border-primary bg-subtle font-semibold shadow-[inset_0_0_0_1px_var(--color-primary)]" : "border-line",
               )}
             >

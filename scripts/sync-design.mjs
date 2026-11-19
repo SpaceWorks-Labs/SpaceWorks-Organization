@@ -1,12 +1,14 @@
 #!/usr/bin/env node
-// Vendors the Space Works design kit from a local SpaceWorks-Design checkout.
+// Vendors the Space Works design kit from a local SpaceWorks-Design-System checkout.
 //
-//   node scripts/sync-design.mjs [path-to-SpaceWorks-Design]   (default: ../SpaceWorks-Design)
+//   node scripts/sync-design.mjs [path-to-SpaceWorks-Design-System]   (default: ../SpaceWorks-Design-System)
 //
 // Writes, and these outputs are committed so builds never need the design repo:
-//   app/styles/tokens.css        tokens/tokens.css re-emitted as --sw-* variables (no @font-face, no
-//                                --color-* names, so Tailwind's own --color-* theme can map onto them)
-//   public/brand/fonts/          the free Gilroy Light/ExtraBold, Unbounded, and their licences
+//   app/styles/tokens.css        every rule of tokens/tokens.css except @font-face (light and dark colours, motion
+//                                tokens, the reduced-motion and kiosk/TV rules, chart tokens), with kit names
+//                                prefixed --sw-* so Tailwind's own --color-* theme and the app's chart roles
+//                                (app/styles/charts.css) map onto them without colliding
+//   public/brand/fonts/          the free Gilroy Light/ExtraBold, Outfit, Unbounded, and their licences
 //   public/brand/logo/           every logo master (SVG) and the horizontal lockup PNG for email
 //   public/brand/icons/          favicon and app icons
 //   brand/SOURCE.json            the design commit the kit was copied from
@@ -16,12 +18,13 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const design = resolve(process.argv[2] ?? join(root, "..", "SpaceWorks-Design"));
+const design = resolve(process.argv[2] ?? join(root, "..", "SpaceWorks-Design-System"));
 const read = (path) => readFileSync(join(design, path), "utf8").replace(/^﻿/, "");
 
-// Only the free Gilroy release is redistributable in this repo (owner decision, 2026-10-19).
-const FONTS = ["Gilroy-Light.woff2", "Gilroy-ExtraBold.woff2", "Unbounded-Variable.woff2"];
-const FONT_LICENSES = ["Gilroy-Free-Font-EULA.txt", "OFL-Unbounded.txt"];
+// Only the free Gilroy release is redistributable in this repo (owner decision, 2026-10-19); Outfit and
+// Unbounded are OFL.
+const FONTS = ["Gilroy-Light.woff2", "Gilroy-ExtraBold.woff2", "Outfit-Variable.woff2", "Unbounded-Variable.woff2"];
+const FONT_LICENSES = ["Gilroy-Free-Font-EULA.txt", "OFL-Outfit.txt", "OFL-Unbounded.txt"];
 
 function reset(dir) {
   rmSync(dir, { recursive: true, force: true });
@@ -29,25 +32,65 @@ function reset(dir) {
 }
 
 // --- tokens ---------------------------------------------------------------
-const source = read("tokens/tokens.css");
-const block = (selector) => {
-  const start = source.indexOf(`${selector} {`);
-  if (start < 0) throw new Error(`tokens.css has no "${selector}" block`);
-  return source.slice(source.indexOf("{", start) + 1, source.indexOf("}", start));
-};
-const declarations = (body) =>
-  [...body.matchAll(/--([a-z0-9-]+):\s*([^;]+);/g)].map(([, name, value]) => [name, value.trim()]);
-const rename = (name) => (name.startsWith("color-") || name.startsWith("font-") || name === "shadow-color" ? `sw-${name}` : name.replace(/^brand-/, "sw-brand-"));
-const emit = (selector, body) =>
-  `${selector} {\n${declarations(body).map(([name, value]) => `  --${rename(name)}: ${value};`).join("\n")}\n}\n`;
+const PREFIXED = /^(color-|font-|brand-|chart-|shadow-color$)/;
+/** --color-x, --font-x, --brand-x, --chart-x and --shadow-color become --sw-*; --sw-* names stay. */
+const renameAll = (text) => text.replace(/--([a-z][a-z0-9-]*)/g, (_, name) => `--${PREFIXED.test(name) ? `sw-${name}` : name}`);
 
+/** Top-level rules as [prelude, body]; nested rules (an @media block) stay inside the body. */
+function rules(css) {
+  const out = [];
+  let depth = 0;
+  let mark = 0;
+  let prelude = "";
+  for (let i = 0; i < css.length; i += 1) {
+    if (css[i] === "{") {
+      if (depth === 0) {
+        prelude = css.slice(mark, i).trim();
+        mark = i + 1;
+      }
+      depth += 1;
+    } else if (css[i] === "}") {
+      depth -= 1;
+      if (depth < 0) throw new Error("tokens.css has an unbalanced }");
+      if (depth === 0) {
+        out.push([prelude, css.slice(mark, i)]);
+        mark = i + 1;
+      }
+    }
+  }
+  if (depth !== 0) throw new Error("tokens.css has an unbalanced {");
+  return out;
+}
+
+const declarationsOf = (body, indent) =>
+  body
+    .split(";")
+    .map((declaration) => declaration.trim().replace(/\s+/g, " "))
+    .filter(Boolean)
+    .map((declaration) => `${indent}  ${renameAll(declaration)};`)
+    .join("\n");
+
+function emit(css, indent = "") {
+  return rules(css)
+    .filter(([prelude]) => !prelude.startsWith("@font-face"))
+    .map(([prelude, body]) => {
+      const inner = body.includes("{") ? emit(body, `${indent}  `) : declarationsOf(body, indent);
+      return `${indent}${renameAll(prelude.replace(/\s+/g, " "))} {\n${inner}\n${indent}}`;
+    })
+    .join("\n");
+}
+
+const source = read("tokens/tokens.css").replace(/\/\*[\s\S]*?\*\//g, "");
 const tokensCss = [
-  "/* Generated by scripts/sync-design.mjs from SpaceWorks-Design tokens/tokens.css. Do not edit by hand. */",
-  "/* Colours are sRGB triplets: use rgb(var(--sw-color-accent)) or rgb(var(--sw-color-accent) / 0.5). */",
+  "/* Generated by scripts/sync-design.mjs from SpaceWorks-Design-System tokens/tokens.css. Do not edit by hand. */",
+  "/* Colours are sRGB triplets: rgb(var(--sw-color-accent)). Alpha is for compositing roles (scrims) only. */",
   "",
-  emit(":root", block(":root")),
-  emit(":root.dark", block(":root.dark")),
+  emit(source),
+  "",
 ].join("\n");
+for (const needed of [":root.dark {", "--sw-color-scrim", "--sw-chart-1", "--sw-chart-edge", "--sw-dur-base", "prefers-reduced-motion"]) {
+  if (!tokensCss.includes(needed)) throw new Error(`tokens.css came through without ${needed}`);
+}
 mkdirSync(join(root, "app", "styles"), { recursive: true });
 writeFileSync(join(root, "app", "styles", "tokens.css"), tokensCss);
 
@@ -74,7 +117,7 @@ const commit = execFileSync("git", ["-C", design, "rev-parse", "HEAD"], { encodi
 mkdirSync(join(root, "brand"), { recursive: true });
 writeFileSync(
   join(root, "brand", "SOURCE.json"),
-  `${JSON.stringify({ repository: "https://github.com/SpaceWorks-Labs/SpaceWorks-Design", commit, fonts: FONTS }, null, 2)}\n`,
+  `${JSON.stringify({ repository: "https://github.com/SpaceWorks-Labs/SpaceWorks-Design-System", commit, fonts: FONTS }, null, 2)}\n`,
 );
 
 console.log(`sync-design: copied tokens, ${FONTS.length} fonts, logos and icons from ${commit.slice(0, 7)}`);

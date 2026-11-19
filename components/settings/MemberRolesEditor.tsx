@@ -87,7 +87,7 @@ export function MemberRolesEditor({ slug, roles, units, disabled }: { slug: stri
             {editing === role.id ? (
               <RoleForm slug={slug} units={units} role={role} onDone={() => setEditing(null)} />
             ) : (
-              <div className={cn("flex flex-wrap items-center gap-3", role.archivedAt && "opacity-60")}>
+              <div className="flex flex-wrap items-center gap-3">
                 <RoleChip name={role.name} color={role.color} />
                 <span className="min-w-0 flex-1 text-caption text-ink-muted">
                   {role.members} {role.members === 1 ? "member" : "members"}

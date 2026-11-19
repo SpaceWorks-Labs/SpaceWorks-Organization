@@ -95,17 +95,17 @@
 @keyframes sw-pet-heart { 0% { opacity: 0; transform: translateY(0) scale(0.6); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-34px) scale(1.15); } }
 @keyframes sw-pet-paw { 0% { opacity: 0.35; } 100% { opacity: 0; } }
 
-/* Mood tiles (components/brand/MoodTile.tsx): the icon gives one quick wiggle on hover of its tile or of
-   a `.group` card. The tile itself never moves. Mouse only; nothing moves under reduced motion. */
+/* Mood tiles (components/brand/MoodTile.tsx): a delight moment. The icon gives one quick wiggle on hover of
+   the tile itself, never of the card around it (ordinary hover is colour only). The tile never moves. Mouse or
+   pen only; nothing moves under reduced motion. */
 @keyframes sw-wiggle {
   0%, 100% { transform: none; }
   35% { transform: rotate(-14deg) scale(1.12); }
   70% { transform: rotate(9deg) scale(1.04); }
 }
 @media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .sw-wiggle-host:hover .sw-wiggle,
-  .group:hover .sw-wiggle {
-    animation: sw-wiggle 200ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
+  .sw-wiggle-host:hover .sw-wiggle {
+    animation: sw-wiggle var(--sw-dur-base) var(--sw-ease-standard) both;
   }
 }
 

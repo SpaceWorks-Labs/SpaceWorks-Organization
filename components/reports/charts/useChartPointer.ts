@@ -59,7 +59,4 @@ export function useIndexFocus(count: number, xOf: (index: number) => number) {
   return { index, setIndex, onPointerMove, onPointerLeave: () => setIndex(null), onKeyDown, onBlur: () => setIndex(null) };
 }
 
-/** CSS variable for a categorical slot (1–6) or the de-emphasis grey. */
-export function slotColor(slot: number | "muted"): string {
-  return slot === "muted" ? "var(--chart-muted)" : `var(--chart-${Math.min(6, Math.max(1, slot))})`;
-}
+export { MAX_SERIES_SLOT, slotColor } from "./slots";

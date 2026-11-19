@@ -10,7 +10,7 @@ export async function loadOrgSettingsView({ params }: Props) {
 
   const org = await prisma.organisation.findUnique({
     where: { id: organisation.id },
-    select: { name: true, description: true, logoUrl: true, slug: true, memberPortal: true, memberPhotoUpload: true },
+    select: { name: true, description: true, logoUrl: true, slug: true, memberPortal: true, memberPhotoUpload: true, delightEnabled: true },
   });
 
   if (!org) notFound();

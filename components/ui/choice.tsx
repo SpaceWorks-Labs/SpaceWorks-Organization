@@ -18,7 +18,7 @@ export const Checkbox = forwardRef<ElementRef<typeof CheckboxPrimitive.Root>, Co
     <CheckboxPrimitive.Root
       ref={ref}
       className={cn(
-        "peer inline-flex size-5 shrink-0 items-center justify-center rounded-[6px] border-[1.5px] border-line-strong bg-panel transition-colors duration-[120ms] ease-sw hover:border-ink disabled:cursor-not-allowed disabled:border-line disabled:bg-surface data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-on-primary data-[state=indeterminate]:border-primary data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-on-primary",
+        "peer inline-flex size-5 shrink-0 items-center justify-center rounded-[6px] border-[1.5px] border-line-strong bg-panel transition-colors duration-(--sw-dur-fast) ease-sw hover:border-ink disabled:cursor-not-allowed disabled:border-line disabled:bg-surface data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-on-primary data-[state=indeterminate]:border-primary data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-on-primary",
         className,
       )}
       {...props}
@@ -102,7 +102,7 @@ export function RadioCard({ value, label, description, disabled, className }: { 
       value={value}
       disabled={disabled}
       className={cn(
-        "flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg border border-line bg-panel px-3 py-3 text-center transition-colors duration-[120ms] ease-sw hover:bg-subtle disabled:cursor-not-allowed disabled:border-line disabled:bg-surface disabled:[&_span]:text-ink-muted data-[state=checked]:border-[1.5px] data-[state=checked]:border-accent data-[state=checked]:bg-accent-soft",
+        "flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg border border-line bg-panel px-3 py-3 text-center transition-colors duration-(--sw-dur-fast) ease-sw hover:bg-subtle disabled:cursor-not-allowed disabled:border-line disabled:bg-surface disabled:[&_span]:text-ink-muted data-[state=checked]:border-[1.5px] data-[state=checked]:border-accent data-[state=checked]:bg-accent-soft",
         className,
       )}
     >
@@ -122,12 +122,12 @@ export const Switch = forwardRef<ElementRef<typeof SwitchPrimitive.Root>, Compon
     <SwitchPrimitive.Root
       ref={ref}
       className={cn(
-        "relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full bg-line-strong transition-colors duration-[180ms] ease-sw disabled:cursor-not-allowed disabled:bg-line data-[state=checked]:bg-primary",
+        "relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full bg-line-strong transition-colors duration-(--sw-dur-base) ease-sw disabled:cursor-not-allowed disabled:bg-line data-[state=checked]:bg-primary",
         className,
       )}
       {...props}
     >
-      <SwitchPrimitive.Thumb className="block size-[22px] translate-x-[3px] rounded-full bg-panel shadow-segment transition-transform duration-[180ms] ease-sw data-[state=checked]:translate-x-[23px]" />
+      <SwitchPrimitive.Thumb className="block size-[22px] translate-x-[3px] rounded-full bg-panel shadow-segment transition-transform duration-(--sw-dur-base) ease-sw data-[state=checked]:translate-x-[23px]" />
     </SwitchPrimitive.Root>
   );
 });
@@ -186,7 +186,7 @@ export function SegmentedControl<T extends string>({
           value={option.value}
           aria-label={option.ariaLabel}
           className={cn(
-            "inline-flex items-center justify-center gap-1.5 rounded-md font-semibold text-ink-muted transition-[background-color,color,box-shadow] duration-[120ms] ease-sw hover:text-ink data-[state=on]:bg-panel data-[state=on]:text-ink data-[state=on]:shadow-segment [&_svg]:size-4",
+            "inline-flex items-center justify-center gap-1.5 rounded-md font-semibold text-ink-muted transition-[background-color,color,box-shadow] duration-(--sw-dur-fast) ease-sw hover:text-ink data-[state=on]:bg-panel data-[state=on]:text-ink data-[state=on]:shadow-segment [&_svg]:size-4",
             size === "sm" ? "min-h-8 px-3 text-[13px]" : "min-h-9 px-4 text-sm",
           )}
         >

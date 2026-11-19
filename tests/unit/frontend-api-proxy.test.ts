@@ -27,4 +27,33 @@ describe("frontend API proxy", () => {
       expect(forwarded.has("x-forwarded-for")).toBe(false); expect(forwarded.get("x-swe-frontend-key")).toBe("test-peer");
     } finally { vi.unstubAllGlobals(); }
   });
+  it("lets email and SMS provider webhooks through without an Origin and forwards only their signature headers", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const signatures = { "svix-id": "msg_1", "svix-timestamp": "1", "svix-signature": "v1,abc", "x-twilio-signature": "sig", "x-amz-sns-message-type": "Notification", authorization: "Basic abc", "content-type": "application/json" };
+    try {
+      for (const path of ["/api/email/webhooks/resend", "/api/sms/webhooks/twilio"]) {
+        fetchMock.mockClear();
+        const response = await proxyBackendApi(new Request(`https://members.example.test${path}`, { method: "POST", headers: signatures, body: "{}" }));
+        expect(response.status).toBe(200);
+        const forwarded = fetchMock.mock.calls[0][1].headers as Headers;
+        for (const [name, value] of Object.entries(signatures)) expect(forwarded.get(name)).toBe(value);
+      }
+    } finally { vi.unstubAllGlobals(); }
+  });
+  it("does not forward signature headers on any other path, and still refuses other cross-origin posts and look-alike webhook paths", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const headers = { origin: "https://members.example.test", "svix-id": "msg_1", "x-twilio-signature": "sig", "x-amz-sns-topic-arn": "arn" };
+      await proxyBackendApi(new Request("https://members.example.test/api/rsvp", { method: "POST", headers, body: "{}" }));
+      const forwarded = fetchMock.mock.calls[0][1].headers as Headers;
+      expect(forwarded.has("svix-id")).toBe(false); expect(forwarded.has("x-twilio-signature")).toBe(false); expect(forwarded.has("x-amz-sns-topic-arn")).toBe(false);
+      fetchMock.mockClear();
+      for (const path of ["/api/email/webhooks/resend/extra", "/api/email/webhooks", "/api/sms/webhooks/a/b", "/api/email/other/resend"]) {
+        expect((await proxyBackendApi(new Request(`https://members.example.test${path}`, { method: "POST", body: "{}" }))).status).toBe(404);
+      }
+      expect(fetchMock).not.toHaveBeenCalled();
+    } finally { vi.unstubAllGlobals(); }
+  });
 });

@@ -21,7 +21,7 @@ export default async function StartPage() {
       </header>
 
       {openApplications.length > 0 ? (
-        <section aria-labelledby="open-applications" className="flex flex-col gap-2 rounded-2xl border border-line bg-panel p-4">
+        <section aria-labelledby="open-applications" className="flex flex-col gap-2 rounded-xl border border-line bg-panel p-4">
           <h2 id="open-applications" className="text-label font-semibold text-ink">Your applications waiting for a decision</h2>
           <ul className="flex flex-col divide-y divide-line">
             {openApplications.map((organisation) => (

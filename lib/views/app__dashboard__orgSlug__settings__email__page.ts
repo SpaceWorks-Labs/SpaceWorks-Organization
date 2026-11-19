@@ -1,7 +1,9 @@
 import { prisma } from "@/lib/db";
 import { can, requireOrgCapability } from "@/lib/permissions";
 import { getEmailSettings } from "@/lib/instanceSettings";
-import { senderAddress } from "@/lib/email/orgTransport";
+import { orgProvider, orgProviderConfig, senderAddress } from "@/lib/email/orgTransport";
+import { describeConfig } from "@/lib/email/providerConfig";
+import { absoluteUrl } from "@/lib/email/message";
 import { EMAIL_TEMPLATE_KINDS, type EmailTemplateKind, type EmailTemplateText } from "@/lib/email/templates";
 
 /**
@@ -21,12 +23,18 @@ export async function loadOrgEmailSettingsView({ params }: { params: Promise<{ o
     const row = templates.find((template) => template.kind === kind);
     return [kind, row ? { subject: row.subject, heading: row.heading, body: row.body } : null];
   })) as Record<EmailTemplateKind, EmailTemplateText | null>;
+  const { hasSesSecret, hasResendKey, hasPostmarkToken, hasWebhookSecret, ...providerFields } = describeConfig(settings ? orgProviderConfig(settings, organisation.id) : {});
+  const webhook = (provider: string) => absoluteUrl(`/api/email/webhooks/${provider}`) + `?org=${organisation.id}`;
   return {
     org,
+    providerSaved: { hasSesSecret, hasResendKey, hasPostmarkToken, hasWebhookSecret },
+    webhookUrls: { ses: webhook("ses"), resend: webhook("resend"), postmark: webhook("postmark") },
     canEdit: can(membership, "org.settings", { write: true }),
     platformSender: senderAddress(platform.from),
     templates: saved,
     settings: {
+      ...providerFields,
+      emailProvider: orgProvider(settings?.emailProvider ?? "smtp"),
       enabled: settings?.enabled ?? false,
       fromName: settings?.fromName ?? "",
       fromAddress: settings?.fromAddress ?? "",

@@ -69,8 +69,10 @@ ask_setup_questions() {
   question SMTP_PORT 'SMTP port (implicit TLS: 465)' 587 port || return 1
   question SMTP_USER 'SMTP login' '' text || return 1
   question SMTP_PASSWORD 'SMTP password or key' '' secret || return 1
-  question SETUP_SOCIAL_PROVIDERS 'Which sign-in options besides email + password? Google, Apple, GitHub - comma list, or none' none providers || return 1
+  question SETUP_SOCIAL_PROVIDERS 'Which sign-in options besides email and password? google, apple, github, oidc, saml, supabase, firebase - comma list, or none (all are off until you switch them on)' none providers || return 1
   GOOGLE_CLIENT_ID=''; GOOGLE_CLIENT_SECRET=''; GITHUB_CLIENT_ID=''; GITHUB_CLIENT_SECRET=''
+  APPLE_CLIENT_ID=''; APPLE_TEAM_ID=''; APPLE_KEY_ID=''; APPLE_PRIVATE_KEY=''
+  SUPABASE_URL=''; SUPABASE_ANON_KEY=''; FIREBASE_API_KEY=''; FIREBASE_AUTH_DOMAIN=''; FIREBASE_PROJECT_ID=''; FIREBASE_PROVIDERS=''
   if [[ ",$SETUP_SOCIAL_PROVIDERS," == *,google,* ]]; then
     echo 'Google: a Web client from Google Cloud Console. Leave blank to add it later in Super admin -> Settings.'
     question GOOGLE_CLIENT_ID 'Google client ID' '' google || return 1
@@ -82,7 +84,29 @@ ask_setup_questions() {
     [[ -z "$GITHUB_CLIENT_ID" ]] || question GITHUB_CLIENT_SECRET 'GitHub client secret' '' secret || return 1
   fi
   if [[ ",$SETUP_SOCIAL_PROVIDERS," == *,apple,* ]]; then
-    echo 'Apple: add the services ID, team ID, key ID and .p8 key in Super admin -> Settings after sign-in.'
+    echo 'Apple: a Services ID, team ID and a Sign in with Apple key (.p8). Leave the Services ID blank to add it later in Super admin -> Settings.'
+    question APPLE_CLIENT_ID 'Apple Services ID' '' optional || return 1
+    if [[ -n "$APPLE_CLIENT_ID" ]]; then
+      local apple_file=''
+      question APPLE_TEAM_ID 'Apple team ID' '' text || return 1
+      question APPLE_KEY_ID 'Apple key ID' '' text || return 1
+      question apple_file 'Path to the Apple .p8 key file' '' p8file || return 1
+      [[ -z "$apple_file" ]] || APPLE_PRIVATE_KEY="$(read_apple_key "$apple_file")"
+    fi
+  fi
+  if [[ ",$SETUP_SOCIAL_PROVIDERS," == *,supabase,* ]]; then
+    echo 'Supabase Auth: the project URL and its publishable (anon) key. The project must use asymmetric JWT signing keys. Leave the URL blank to add it later.'
+    question SUPABASE_URL 'Supabase project URL (https://<ref>.supabase.co)' '' optorigin || return 1
+    [[ -z "$SUPABASE_URL" ]] || question SUPABASE_ANON_KEY 'Supabase publishable key' '' text || return 1
+  fi
+  if [[ ",$SETUP_SOCIAL_PROVIDERS," == *,firebase,* ]]; then
+    echo 'Firebase Auth: public web app values from the Firebase console. Leave the API key blank to add it later.'
+    question FIREBASE_API_KEY 'Firebase API key' '' optional || return 1
+    if [[ -n "$FIREBASE_API_KEY" ]]; then
+      question FIREBASE_AUTH_DOMAIN 'Firebase auth domain' '' fbdomain || return 1
+      question FIREBASE_PROJECT_ID 'Firebase project ID' '' fbproject || return 1
+      question FIREBASE_PROVIDERS 'Firebase sign-in providers (google.com, microsoft.com, apple.com, github.com, emailLink, password)' google.com fbproviders || return 1
+    fi
   fi
   if [[ "${SWO_INSTALL_REPOSITORY_PINNED:-0}" == 1 ]]; then
     echo "GitHub repository to follow [$SWO_REPOSITORY] (selected before download)."
@@ -116,8 +140,7 @@ setup_summary() {
   printf '  Server: %s://%s; certificate email: %s\n' "$scheme" "$WEBHOST" "${TLS_EMAIL:-none}"
   printf '  Super admin: %s (password set; sign in at /login, then open /super-admin)\n' "$SUPER_ADMIN_EMAIL"
   printf '  Email: %s via %s:%s as %s (password hidden)\n' "$EMAIL_FROM" "$SMTP_HOST" "$SMTP_PORT" "$SMTP_USER"
-  printf '  Sign-in options: email + password, %s (Google: %s, GitHub: %s; Apple and the rest later in Super admin -> Settings)\n' \
-    "$SETUP_SOCIAL_PROVIDERS" "$([[ -n "$GOOGLE_CLIENT_ID" ]] && echo configured || echo later)" "$([[ -n "$GITHUB_CLIENT_ID" ]] && echo configured || echo later)"
+  printf '  Sign-in options: email and password, %s (configured now: %s; the rest later in Super admin -> Settings)\n' "$SETUP_SOCIAL_PROVIDERS" "$(configured_sign_in_options)"
   printf '  GitHub repository: %s; install GitHub Actions runner: %s\n' "$SWO_REPOSITORY" "$INSTALL_RUNNER"
   echo "  migrate builds the database tables. It runs once and stops. It's required."
   echo "  worker sends email and runs background jobs; beat schedules them (membership sweep and outbox every minute)."
@@ -133,4 +156,21 @@ setup_summary() {
   [[ "$RUN_FRONTEND" == 1 ]] || echo "  Then deploy the website on Netlify with BACKEND_ORIGIN=https://$PUBLIC_DOMAIN and the FRONTEND_GATEWAY_SECRET saved in .env."
   echo "  Will perform: ${SETUP_HOST_PLAN:-write private .env and TLS certificates, pull or build images, apply migrations, start services and install the optional GitHub Actions runner}."
   echo '  Production contains no demo or example data. Secrets are saved privately, never printed here.'
+}
+
+# The .p8 key as one line with literal \n, the form the AUTH_APPLE_PRIVATE_KEY variable takes.
+read_apple_key() {
+  local file="$1"
+  if command -v cygpath >/dev/null 2>&1; then file="$(cygpath -u "$file" 2>/dev/null || printf '%s' "$file")"; fi
+  tr -d '\r' <"$file" | awk 'BEGIN { ORS = "" } NF { print $0 "\\n" }'
+}
+
+configured_sign_in_options() {
+  local configured=()
+  [[ -z "$GOOGLE_CLIENT_ID" ]] || configured+=(google)
+  [[ -z "$GITHUB_CLIENT_ID" ]] || configured+=(github)
+  [[ -z "$APPLE_PRIVATE_KEY" ]] || configured+=(apple)
+  [[ -z "$SUPABASE_ANON_KEY" ]] || configured+=(supabase)
+  [[ -z "$FIREBASE_PROJECT_ID" ]] || configured+=(firebase)
+  if ((${#configured[@]})); then local IFS=,; printf '%s' "${configured[*]}"; else printf 'none'; fi
 }

@@ -129,7 +129,7 @@ export function SideSettings({ side, current, branding, fields, uploading, updat
         {mark.kind === "image" ? (
           <div className="flex flex-col gap-2">
             <Field label="Watermark image" helperText={branding.watermarkUrl ? "Shared by both sides. Choose a file to replace it." : "A simple mark works best. PNG with transparency, up to 5 MB."}>
-              <input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploading} onChange={(event) => onWatermark(event.target.files?.[0] ?? null)} className="block w-full text-[14px] text-ink-secondary file:mr-3 file:min-h-11 file:rounded-full file:border file:border-line file:bg-panel file:px-4 file:font-semibold file:text-ink hover:file:bg-muted" />
+              <input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploading} onChange={(event) => onWatermark(event.target.files?.[0] ?? null)} className="block w-full text-[14px] text-ink-secondary file:mr-3 file:min-h-11 file:rounded-control file:border file:border-line file:bg-panel file:px-4 file:font-semibold file:text-ink hover:file:bg-muted" />
             </Field>
             {branding.watermarkUrl ? <Button size="sm" variant="quiet" className="self-start" disabled={uploading} onClick={() => onWatermark(null)}>Remove image</Button> : null}
           </div>

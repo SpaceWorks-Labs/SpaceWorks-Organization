@@ -11,11 +11,12 @@ export function AcceptInviteButton(props: { token: string }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   return (
-    <div className="flex flex-col items-start gap-3">
-      {error ? <Callout tone="danger" role="alert" className="w-full">{error}</Callout> : null}
+    <div className="flex w-full flex-col gap-3">
+      {error ? <Callout tone="danger" role="alert" className="text-left">{error}</Callout> : null}
       <Button
         variant="primary"
         size="lg"
+        fullWidth
         loading={pending}
         loadingLabel="Accepting…"
         onClick={() => startTransition(async () => {

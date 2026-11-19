@@ -27,7 +27,7 @@ export async function loadMemberView({ params }: { params: Promise<{ orgSlug: st
 
   const now = new Date();
   const [org, plans, roles, units, questionPlans] = await Promise.all([
-    prisma.organisation.findUniqueOrThrow({ where: { id: organisation.id }, select: { name: true, slug: true, logoUrl: true, timezone: true, locale: true, unitLevels: true } }),
+    prisma.organisation.findUniqueOrThrow({ where: { id: organisation.id }, select: { name: true, slug: true, logoUrl: true, timezone: true, locale: true, unitLevels: true, delightEnabled: true } }),
     prisma.membershipPlan.findMany({ where: { organisationId: organisation.id, archivedAt: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
     prisma.memberRole.findMany({ where: { organisationId: organisation.id, archivedAt: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, color: true, unit: { select: { path: true } } } }),
     prisma.orgUnit.findMany({ where: { organisationId: organisation.id, archivedAt: null }, orderBy: { path: "asc" }, select: { id: true, name: true, level: true, path: true } }),

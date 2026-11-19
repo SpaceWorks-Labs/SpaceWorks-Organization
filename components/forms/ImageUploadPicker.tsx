@@ -68,7 +68,7 @@ export function ImageUploadPicker(props: {
           <div className="flex flex-wrap items-center gap-2">
             <label
               htmlFor={inputId}
-              className={buttonClasses({ variant: "secondary", size: "sm", className: cn("cursor-pointer", disabled && "pointer-events-none opacity-50") })}
+              className={buttonClasses({ variant: "secondary", size: "sm", className: cn("cursor-pointer", disabled && "pointer-events-none") })}
               aria-disabled={disabled || undefined}
             >
               {previewUrl ? "Replace image" : `Choose ${label.toLowerCase()}`}

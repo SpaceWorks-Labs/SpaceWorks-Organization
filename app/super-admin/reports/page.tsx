@@ -30,7 +30,7 @@ export default async function SuperAdminReportsPage({ searchParams }: Props) {
       <PageHeader title="Platform reports" description="Organisations, members across them, usage, payments and the health of the instance. Counts only, never personal data." />
       <nav aria-label="Window" className="flex flex-wrap gap-2">
         {(Object.keys(WINDOW_LABELS) as Array<keyof typeof WINDOW_LABELS>).map((key) => (
-          <Link key={key} href={`/super-admin/reports?window=${key}`} aria-current={view.window === key ? "page" : undefined} className={cn("inline-flex min-h-9 items-center rounded-full border px-3.5 text-sm", view.window === key ? "border-primary bg-primary font-semibold text-on-primary" : "border-line bg-panel text-ink hover:bg-muted")}>Last {WINDOW_LABELS[key]}</Link>
+          <Link key={key} href={`/super-admin/reports?window=${key}`} aria-current={view.window === key ? "page" : undefined} className={cn("inline-flex min-h-11 items-center rounded-control border px-3.5 text-sm", view.window === key ? "border-primary bg-primary font-semibold text-on-primary" : "border-line bg-panel text-ink hover:bg-muted")}>Last {WINDOW_LABELS[key]}</Link>
         ))}
       </nav>
 

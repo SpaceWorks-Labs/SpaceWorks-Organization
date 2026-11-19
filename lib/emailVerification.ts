@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { enqueueEmailVerification } from "@/lib/outbox";
+import { inviteReturnPath } from "@/lib/inviteLink";
 
 const TOKEN_EXPIRY_MS = 60 * 60 * 1000;
 
@@ -15,12 +16,14 @@ function identifierFor(userId: string) {
   return `email-verification:${userId}`;
 }
 
-function verificationUrl(token: string) {
+function verificationUrl(token: string, returnPath?: string) {
   const baseUrl = (process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000").replace(/\/$/, "");
-  return `${baseUrl}/verify-email?token=${encodeURIComponent(token)}`;
+  const next = inviteReturnPath(returnPath);
+  return `${baseUrl}/verify-email?token=${encodeURIComponent(token)}${next ? `&next=${encodeURIComponent(next)}` : ""}`;
 }
 
-export async function issueEmailVerification(user: { id: string; email: string }, client: Prisma.TransactionClient = prisma) {
+/** `returnPath` (a staff invite page) is carried in the link so confirming brings the person back to it. */
+export async function issueEmailVerification(user: { id: string; email: string }, client: Prisma.TransactionClient = prisma, returnPath?: string) {
   await client.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${user.id} FOR UPDATE`;
   const rawToken = crypto.randomBytes(32).toString("hex");
   const expires = new Date(Date.now() + TOKEN_EXPIRY_MS);
@@ -30,7 +33,7 @@ export async function issueEmailVerification(user: { id: string; email: string }
   });
   await enqueueEmailVerification(client, {
     to: user.email,
-    verificationUrl: verificationUrl(rawToken),
+    verificationUrl: verificationUrl(rawToken, returnPath),
     expiresAt: expires.toISOString(),
   });
 }

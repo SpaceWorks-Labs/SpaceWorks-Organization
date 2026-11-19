@@ -2,21 +2,23 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { SocialSignIn, type SocialProvider } from "@/components/auth/SocialSignIn";
+import { SocialSignIn, type SingleSignOnProvider, type SocialProvider } from "@/components/auth/SocialSignIn";
+import { CredentialsFields } from "@/components/auth/CredentialsFields";
+import { PhoneSignIn } from "@/components/auth/PhoneSignIn";
+import { ProvidersOnlySignIn } from "@/components/auth/ProvidersOnlySignIn";
+import { PasskeyCodeStep, PasskeySignIn, type PasskeyOutcome } from "@/components/auth/PasskeySignIn";
+import { OtherSignInMethods } from "@/components/auth/OtherSignInMethods";
 import { loginErrorMessage, MfaStep } from "@/components/auth/MfaStep";
 import { Callout } from "@/components/ui/display";
-import { Field, Input, PasswordInput } from "@/components/ui/field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { safeAuthRedirect } from "@/lib/authRedirect";
 import { resendEmailVerification, signUpWithPassword } from "@/app/actions/auth";
 
 type Mode = "signin" | "signup";
 
-export function LoginForm({ accountCreationEnabled, providers }: { accountCreationEnabled: boolean; providers: SocialProvider[] }) {
-  const router = useRouter();
+export function LoginForm({ accountCreationEnabled, providers, singleSignOn = [], passwordEnabled, emailAvailable = true, passkeyEnabled = false, phoneEnabled = false }: { accountCreationEnabled: boolean; providers: SocialProvider[]; singleSignOn?: SingleSignOnProvider[]; passwordEnabled: boolean; emailAvailable?: boolean; passkeyEnabled?: boolean; phoneEnabled?: boolean }) {
   const sp = useSearchParams();
   const callbackUrl = useMemo(() => {
     return safeAuthRedirect(sp.get("callbackUrl"));
@@ -38,6 +40,9 @@ export function LoginForm({ accountCreationEnabled, providers }: { accountCreati
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState<string | null>(null);
   const [needsEmailVerification, setNeedsEmailVerification] = useState(false);
+  // A passkey answer waiting for the authenticator code that staff still give.
+  const [passkeyResponse, setPasskeyResponse] = useState<string | null>(null);
+  const [phoneMode, setPhoneMode] = useState(false);
   const emailInputRef = useRef<HTMLInputElement>(null);
   const passwordInputRef = useRef<HTMLInputElement>(null);
 
@@ -105,8 +110,8 @@ export function LoginForm({ accountCreationEnabled, providers }: { accountCreati
         setMfaRequired(true);
         return;
       }
-      if (r.code === "address_blocked") {
-        setError(loginErrorMessage("address_blocked"));
+      if (r.code === "address_blocked" || r.code === "throttled" || r.code === "method_disabled") {
+        setError(loginErrorMessage(r.code));
         return;
       }
       if (r.code === "email_code_required") {
@@ -123,8 +128,14 @@ export function LoginForm({ accountCreationEnabled, providers }: { accountCreati
       setError(mfaRequired ? "Invalid authenticator or recovery code." : emailCodeRequired ? "That code didn't match or has expired." : "Invalid email or password.");
       return;
     }
-    router.push(callbackUrl);
-    router.refresh();
+    // A full page load, so no client analytics provider survives into the signed-in page.
+    window.location.assign(callbackUrl);
+  }
+
+  async function handlePasskeyOutcome(result: PasskeyOutcome) {
+    if (result.status === "done") { window.location.assign(callbackUrl); return; }
+    resetStatus();
+    if (result.status === "code") { setTotp(""); setPasskeyResponse(result.response); } else if (result.message) setError(result.message);
   }
 
   async function handleSignUp(e: React.FormEvent) {
@@ -172,6 +183,27 @@ export function LoginForm({ accountCreationEnabled, providers }: { accountCreati
   }
 
   const isSignUp = mode === "signup";
+  // With passwords switched off the form is hidden, except for super admins (who always use one) through ?admin=1.
+  const passwordShown = passwordEnabled || sp.get("admin") === "1";
+
+  const otherMethods = (caption?: string | null) => (
+    <OtherSignInMethods
+      caption={caption}
+      disabled={!!loading}
+      passkey={passkeyEnabled ? <PasskeySignIn disabled={!!loading} onOutcome={handlePasskeyOutcome} /> : null}
+      onPhone={phoneEnabled ? () => { resetStatus(); setPhoneMode(true); } : undefined}
+    />
+  );
+  if (phoneMode) return <PhoneSignIn callbackUrl={callbackUrl} onBack={() => setPhoneMode(false)} />;
+
+  if (passkeyResponse) {
+    return <PasskeyCodeStep response={passkeyResponse} callbackUrl={callbackUrl} onBack={(message) => { setPasskeyResponse(null); resetStatus(); if (message) setError(message); }} />;
+  }
+
+  if (!passwordShown) {
+    const others = passkeyEnabled || phoneEnabled ? otherMethods(providers.length || singleSignOn.length ? undefined : null) : null;
+    return <ProvidersOnlySignIn providers={providers} singleSignOn={singleSignOn} callbackUrl={callbackUrl} notice={error} others={others} />;
+  }
 
   if (mfaRequired || emailCodeRequired) {
     return (
@@ -199,96 +231,65 @@ export function LoginForm({ accountCreationEnabled, providers }: { accountCreati
     setNeedsEmailVerification(false);
   };
 
+  // UX P22 order: status, providers, the "or" divider, the fields and primary, then passkey and phone code.
+  const body = (
+    <>
+      {error ? <Callout tone="danger" role="alert">{error}</Callout> : null}
+      {message ? <Callout tone="success" role="status">{message}</Callout> : null}
+
+      {needsEmailVerification ? (
+        <Button variant="secondary" className="self-start" disabled={!!loading || !email} onClick={handleResendVerification}>
+          {loading === "resend-verification" ? "Sending…" : "Resend verification email"}
+        </Button>
+      ) : null}
+
+      <SocialSignIn
+        providers={providers}
+        singleSignOn={singleSignOn}
+        callbackUrl={callbackUrl}
+        disabled={!!loading}
+        onStart={(provider) => {
+          resetStatus();
+          setLoading(provider);
+        }}
+        onError={(text) => {
+          setLoading(null);
+          setError(text);
+        }}
+      />
+
+      <CredentialsFields
+        isSignUp={isSignUp}
+        name={name}
+        onName={setName}
+        email={email}
+        onEmail={(value) => { setEmail(value); resetMfaChallenge(); }}
+        password={password}
+        onPassword={(value) => { setPassword(value); resetMfaChallenge(); }}
+        fieldErrors={fieldErrors}
+        emailRef={emailInputRef}
+        passwordRef={passwordInputRef}
+        loading={loading}
+        emailAvailable={emailAvailable}
+        passkeyAutofill={passkeyEnabled}
+        onSubmit={isSignUp ? handleSignUp : handleSignIn}
+      />
+
+      {isSignUp ? null : otherMethods()}
+    </>
+  );
+
+  // Staff accounts are invited (UX S20): without self sign-up there is no Sign in | Create account switch.
+  if (!accountCreationEnabled) return <div className="flex flex-col gap-4">{body}</div>;
+
+  const trigger = "min-h-11 justify-center rounded-control border border-transparent px-4 after:hidden data-[state=active]:border-line-strong data-[state=active]:bg-panel data-[state=active]:font-semibold";
   return (
-    <Tabs value={mode} onValueChange={(value) => switchMode(value as Mode)} className="flex flex-col gap-4">
-      <TabsList aria-label="Sign in or create an account" className="grid auto-cols-fr grid-flow-col gap-1 rounded-full border border-line bg-surface p-1">
-        <TabsTrigger value="signin" className="min-h-10 justify-center rounded-full px-4 after:hidden border border-transparent data-[state=active]:border-line-strong data-[state=active]:bg-panel data-[state=active]:font-semibold">Sign in</TabsTrigger>
-        {accountCreationEnabled ? <TabsTrigger value="signup" className="min-h-10 justify-center rounded-full px-4 after:hidden border border-transparent data-[state=active]:border-line-strong data-[state=active]:bg-panel data-[state=active]:font-semibold">Create account</TabsTrigger> : null}
+    <Tabs value={mode} onValueChange={(value) => switchMode(value as Mode)} className="flex flex-col gap-5">
+      <TabsList aria-label="Sign in or create an account" className="grid auto-cols-fr grid-flow-col gap-1 rounded-xl border border-line bg-surface p-1">
+        <TabsTrigger value="signin" className={trigger}>Sign in</TabsTrigger>
+        <TabsTrigger value="signup" className={trigger}>Create account</TabsTrigger>
       </TabsList>
-
-      <TabsContent value={mode} className="flex flex-col gap-4 pt-0">
-        {error ? <Callout tone="danger" role="alert">{error}</Callout> : null}
-        {message ? <Callout tone="success" role="status">{message}</Callout> : null}
-
-        {needsEmailVerification ? (
-          <Button variant="secondary" className="self-start" disabled={!!loading || !email} onClick={handleResendVerification}>
-            {loading === "resend-verification" ? "Sending…" : "Resend verification email"}
-          </Button>
-        ) : null}
-
-        <SocialSignIn
-          providers={providers}
-          callbackUrl={callbackUrl}
-          disabled={!!loading}
-          onStart={(provider) => {
-            resetStatus();
-            setLoading(provider);
-          }}
-          onError={(text) => {
-            setLoading(null);
-            setError(text);
-          }}
-        />
-
-        <form className="flex flex-col gap-4" onSubmit={isSignUp ? handleSignUp : handleSignIn}>
-          {isSignUp ? (
-            <Field label="Name" required error={fieldErrors.name?.[0]}>
-              <Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
-            </Field>
-          ) : null}
-          <Field label="Email" required error={fieldErrors.email?.[0]}>
-            <Input
-              ref={emailInputRef}
-              type="email"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                resetMfaChallenge();
-              }}
-              autoComplete="email"
-            />
-          </Field>
-          <div className="relative">
-            <Field label="Password" required error={fieldErrors.password?.[0]} helperText={isSignUp ? "At least 12 characters." : undefined}>
-              <PasswordInput
-                ref={passwordInputRef}
-                value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  resetMfaChallenge();
-                }}
-                autoComplete={isSignUp ? "new-password" : "current-password"}
-                minLength={isSignUp ? 12 : undefined}
-                maxLength={128}
-              />
-            </Field>
-            {!isSignUp ? (
-              <Link href="/reset-password" className="absolute right-0 top-0 text-sm font-semibold text-ink-secondary underline underline-offset-4 hover:text-ink">
-                Forgot password?
-              </Link>
-            ) : null}
-          </div>
-          <Button type="submit" variant="primary" size="lg" fullWidth disabled={!!loading} className="mt-1">
-            {isSignUp
-              ? loading === "signup"
-                ? "Creating account…"
-                : "Create account"
-              : loading === "credentials"
-                ? "Signing in…"
-                : "Sign in"}
-          </Button>
-        </form>
-
-        {accountCreationEnabled ? (
-          <button
-            type="button"
-            onClick={() => switchMode(isSignUp ? "signin" : "signup")}
-            className="self-center text-sm text-ink-secondary underline-offset-4 hover:text-ink hover:underline"
-          >
-            {isSignUp ? "Already have an account? Sign in" : "Don't have an account? Create one"}
-          </button>
-        ) : null}
-      </TabsContent>
+      <TabsContent value={mode} className="flex flex-col gap-4 pt-0">{body}</TabsContent>
     </Tabs>
   );
 }

@@ -146,7 +146,7 @@ export function EditOrgForm(props: {
             <div aria-hidden className="sw-dot-strip h-14" />
             <div className="flex flex-col gap-2 px-4 pb-4 sm:px-5 sm:pb-5">
               <OrgLogo name={previewName} src={logoPreviewUrl || null} size="lg" className="-mt-7 border-[3px] border-canvas" />
-              <span className="wrap-break-word font-display text-[22px] font-semibold leading-tight text-ink">{previewName}</span>
+              <span className="wrap-break-word text-[22px] font-semibold leading-tight text-ink">{previewName}</span>
               {description.trim() ? (
                 <p className="line-clamp-4 whitespace-pre-line wrap-break-word text-sm text-ink-secondary">{description}</p>
               ) : (

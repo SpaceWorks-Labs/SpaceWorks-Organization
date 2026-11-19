@@ -4,18 +4,19 @@ import { useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { ArrowUpRight, ChevronsUpDown, Home, LogOut, Menu as MenuIcon, Moon, Plus, Sun, UserRound, X } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { ArrowUpRight, ChevronsUpDown, Home, LogOut, Menu as MenuIcon, Plus, UserRound } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { ShellOrganisation, ShellUser } from "@/lib/appShell";
 import { organisationAllows, type Capability } from "@/lib/permissionRoles";
 import { SpaceWorksProductLogo } from "@/components/brand/SpaceWorksLogo";
-import { useAppColorMode } from "@/components/providers";
-import { Avatar, OrgLogo } from "@/components/ui/display";
+import { Avatar } from "@/components/ui/display";
 import { IconButton } from "@/components/ui/button";
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { BrandHomeLink } from "./SiteHeader";
 import { PlatformOrganisationProvider, usePlatformOrganisation } from "./PlatformOrganisation";
+import { ColorModeMenuItems } from "./ColorModeToggle";
+import { SlidingNav } from "@/components/motion/SlidingNav";
 
 /** Organisation navigation, in order. Each entry shows only when the role has the capability. */
 const ORG_NAV: Array<{ path: string; label: string; capability: Capability; exact?: boolean }> = [
@@ -44,8 +45,9 @@ function NavItem({ href, children, active, onNavigate, badge }: { href: string; 
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
       className={cn(
-        // Text-only navigation (brand D9); 44px targets; pills (owner decision J1).
-        "relative flex min-h-11 items-center gap-2.5 rounded-control px-4 text-[15px] text-ink transition-colors duration-[120ms] hover:bg-sidebar-hover",
+        // CR-SIDEBAR-01: text-only, 44px items, 10px control radius, filled teal current item (its fill is the
+        // SlidingNav indicator once placed, so it slides between items).
+        "sw-slide-item relative flex min-h-11 items-center gap-2.5 rounded-control px-3 text-[15px] text-ink transition-colors duration-(--sw-dur-fast) ease-sw hover:bg-sidebar-hover",
         active && "bg-sidebar-active font-semibold text-on-sidebar-active hover:bg-sidebar-active",
       )}
     >
@@ -61,10 +63,9 @@ function currentOrganisationSlug(pathname: string | null) {
   return decodeURIComponent(match[1]!);
 }
 
-/** The person's menu: account, light/dark mode and sign out. */
+/** The person's menu: account, appearance (Light, Dark, System; CR-THEME-01) and sign out. */
 function AccountMenu({ user, onNavigate }: { user: ShellUser; onNavigate?: () => void }) {
   const pathname = usePathname() ?? "";
-  const { mode, toggleColorMode } = useAppColorMode();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const name = user.name ?? user.email ?? "Account";
   return (
@@ -88,15 +89,8 @@ function AccountMenu({ user, onNavigate }: { user: ShellUser; onNavigate?: () =>
         <MenuItem asChild icon={<UserRound />}>
           <Link href="/account" onClick={onNavigate}>Account settings</Link>
         </MenuItem>
-        <MenuItem
-          icon={mode === "dark" ? <Sun /> : <Moon />}
-          onSelect={() => {
-            const rect = triggerRef.current?.getBoundingClientRect();
-            toggleColorMode(rect ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : undefined);
-          }}
-        >
-          {mode === "dark" ? "Light mode" : "Dark mode"}
-        </MenuItem>
+        <MenuSeparator />
+        <ColorModeMenuItems originRef={triggerRef} />
         <MenuSeparator />
         <MenuItem icon={<LogOut />} onSelect={() => void signOut({ callbackUrl: "/" })}>
           Sign out
@@ -110,8 +104,7 @@ function OrganisationSwitcher({ current, organisations, onNavigate }: { current:
   return (
     <Menu>
       <MenuTrigger className="group w-full overflow-hidden rounded-xl border border-line bg-panel text-left transition-colors hover:border-line-strong">
-        <span className="flex min-h-[58px] items-center gap-2.5 px-2.5 py-2">
-          <OrgLogo name={current.name} src={current.logoUrl} size="md" />
+        <span className="flex min-h-[58px] items-center gap-2.5 px-3 py-2">
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[15px] font-semibold text-ink">{current.name}</span>
             <span className="block text-caption text-ink-muted">{current.roleName}</span>
@@ -125,10 +118,7 @@ function OrganisationSwitcher({ current, organisations, onNavigate }: { current:
         {organisations.map((organisation) => (
           <MenuItem key={organisation.slug} asChild>
             <Link href={`/dashboard/${organisation.slug}`} onClick={onNavigate}>
-              <span className="flex items-center gap-2.5">
-                <OrgLogo name={organisation.name} src={organisation.logoUrl} size="sm" />
-                <span className="min-w-0 truncate">{organisation.name}</span>
-              </span>
+              <span className="min-w-0 truncate">{organisation.name}</span>
             </Link>
           </MenuItem>
         ))}
@@ -155,15 +145,16 @@ function SidebarContents({ user, organisations: teams, onNavigate }: { user: She
   const active = current?.status === "ACTIVE";
 
   return (
-    <div className="flex h-full flex-col gap-4 px-3 py-3.5">
-      <div className="pl-2 pt-1">
+    // CR-SIDEBAR-01: 20px inset; nav items sit 4px apart.
+    <div className="flex h-full flex-col gap-4 p-5">
+      <div>
         <BrandHomeLink href="/dashboard" stacked />
       </div>
 
       {current ? (
         <>
           <OrganisationSwitcher current={current} organisations={organisations} onNavigate={onNavigate} />
-          <nav aria-label="Organisation" className="flex flex-col gap-1">
+          <SlidingNav aria-label="Organisation" className="flex flex-col gap-1">
             {ORG_NAV.filter((item) => organisationAllows(current.status, item.capability) && current.capabilities.includes(item.capability)).map((item) => {
               const href = `${base}${item.path}`;
               const isActive = item.exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
@@ -187,25 +178,24 @@ function SidebarContents({ user, organisations: teams, onNavigate }: { user: She
                 {current.status === "SUSPENDED" || current.status === "ARCHIVED" ? "Status" : "Application"}
               </NavItem>
             )}
-          </nav>
+          </SlidingNav>
         </>
       ) : (
-        <nav aria-label="Workspace" className="flex flex-col gap-1">
+        <SlidingNav aria-label="Workspace" className="flex flex-col gap-1">
           <NavItem href="/dashboard" active={pathname === "/dashboard"} onNavigate={onNavigate}>Home</NavItem>
-          <p className="mt-4 px-4 pb-0.5 text-overline text-ink-muted">Organisations</p>
+          <p className="mt-4 px-3 pb-0.5 text-overline text-ink-muted">Organisations</p>
           {organisations.map((organisation) => (
             <Link
               key={organisation.slug}
               href={`/dashboard/${organisation.slug}`}
               onClick={onNavigate}
-              className="relative flex min-h-11 items-center gap-2.5 rounded-control px-4 text-[15px] text-ink transition-colors hover:bg-sidebar-hover"
+              className="relative flex min-h-11 items-center gap-2.5 rounded-control px-3 text-[15px] text-ink transition-colors duration-(--sw-dur-fast) ease-sw hover:bg-sidebar-hover"
             >
-              <OrgLogo name={organisation.name} src={organisation.logoUrl} size="sm" className="size-6 rounded-[7px] text-[10px]" />
               <span className="min-w-0 flex-1 truncate">{organisation.name}</span>
             </Link>
           ))}
           <NavItem href="/start" active={pathname === "/start"} onNavigate={onNavigate}>Apply for an organisation</NavItem>
-        </nav>
+        </SlidingNav>
       )}
 
       <div className="mt-auto flex flex-col gap-2">
@@ -213,7 +203,7 @@ function SidebarContents({ user, organisations: teams, onNavigate }: { user: She
           <Link
             href={`/o/${current.slug}`}
             onClick={onNavigate}
-            className="inline-flex min-h-11 items-center gap-1 rounded-control px-4 text-sm font-medium text-ink underline-offset-4 hover:underline"
+            className="inline-flex min-h-11 items-center gap-1 rounded-control px-3 text-sm font-medium text-ink underline-offset-4 hover:underline"
           >
             View public page
             <ArrowUpRight aria-hidden className="size-4" />
@@ -226,8 +216,9 @@ function SidebarContents({ user, organisations: teams, onNavigate }: { user: She
 }
 
 /**
- * Dashboard app shell (docs/DESIGN.md): a 256px Citron sidebar with text-only navigation from 1024px,
- * and a top bar with a menu sheet below it. There is no icon rail: the navigation is words only.
+ * Dashboard app shell (docs/DESIGN.md, CR-SIDEBAR-01): a 256px sidebar (Citron in light, #0B0B0B in dark) with
+ * text-only navigation from 1024px, and a top bar with a menu sheet below it. There is no icon rail and no logo
+ * in a nav row: the navigation is words only.
  */
 export function AppShell({ user, organisations, children }: { user: ShellUser; organisations: ShellOrganisation[]; children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -242,26 +233,16 @@ export function AppShell({ user, organisations, children }: { user: ShellUser; o
           <Link href="/dashboard" aria-label="Space Works Organization home" className="inline-flex shrink-0 items-center rounded-md">
             <SpaceWorksProductLogo height={30} label={null} />
           </Link>
-          <DialogPrimitive.Root open={menuOpen} onOpenChange={setMenuOpen}>
-            <DialogPrimitive.Trigger asChild>
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+            <SheetTrigger asChild>
               <IconButton label="Open navigation menu">
                 <MenuIcon />
               </IconButton>
-            </DialogPrimitive.Trigger>
-            <DialogPrimitive.Portal>
-              <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[rgb(var(--sw-color-ink)/0.48)] dark:bg-[rgb(0_0_0/0.48)]" />
-              <DialogPrimitive.Content className="fixed inset-y-0 left-0 z-50 w-[min(280px,86vw)] overflow-y-auto border-r border-line bg-sidebar shadow-float focus:outline-none">
-                <DialogPrimitive.Title className="sr-only">Navigation</DialogPrimitive.Title>
-                <DialogPrimitive.Description className="sr-only">Dashboard navigation</DialogPrimitive.Description>
-                <DialogPrimitive.Close asChild>
-                  <IconButton label="Close navigation menu" size="sm" className="absolute right-3 top-3 z-10">
-                    <X />
-                  </IconButton>
-                </DialogPrimitive.Close>
-                <SidebarContents user={user} organisations={organisations} onNavigate={() => setMenuOpen(false)} />
-              </DialogPrimitive.Content>
-            </DialogPrimitive.Portal>
-          </DialogPrimitive.Root>
+            </SheetTrigger>
+            <SheetContent edge="left" title="Navigation" description="Dashboard navigation" closeLabel="Close navigation menu" className="w-[min(280px,86vw)] bg-sidebar">
+              <SidebarContents user={user} organisations={organisations} onNavigate={() => setMenuOpen(false)} />
+            </SheetContent>
+          </Sheet>
         </div>
 
         <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 px-4 py-6 focus:outline-none sm:px-6 lg:px-9 lg:py-9">

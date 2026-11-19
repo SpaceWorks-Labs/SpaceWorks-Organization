@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// Copies Patch, the Space Works mascot, out of a local SpaceWorks-Design checkout. The design repo is only
+// Copies Patch, the Space Works mascot, out of a local SpaceWorks-Design-System checkout. The design repo is only
 // read, never changed.
 //
-//   node scripts/sync-patch.mjs [path-to-SpaceWorks-Design]   (default: ../SpaceWorks-Design)
+//   node scripts/sync-patch.mjs [path-to-SpaceWorks-Design-System]   (default: ../SpaceWorks-Design-System)
 //
 // Writes, and these outputs are committed so builds never need the design repo:
 //   public/brand/patch/patch.webp        the hero pose, from mascot/original/patch.png (640 px)
@@ -19,7 +19,7 @@ import { fileURLToPath } from "node:url";
 import sharp from "sharp";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const design = resolve(process.argv[2] ?? join(root, "..", "SpaceWorks-Design"));
+const design = resolve(process.argv[2] ?? join(root, "..", "SpaceWorks-Design-System"));
 const mascot = join(design, "mascot", "original");
 const out = join(root, "public", "brand", "patch");
 mkdirSync(out, { recursive: true });

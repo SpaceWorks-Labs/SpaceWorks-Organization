@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { confirmEmailVerification } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
 import { Callout } from "@/components/ui/display";
 
-export function VerifyEmailForm({ token }: { token: string }) {
-  const router = useRouter();
+/** `next` is a validated staff invite path: after confirming, the visitor goes to sign in and lands back on it. */
+export function VerifyEmailForm({ token, next }: { token: string; next?: string }) {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -26,14 +25,15 @@ export function VerifyEmailForm({ token }: { token: string }) {
           setError(null);
           startTransition(async () => {
             let result;
-            try { result = await confirmEmailVerification({ token }); }
+            try { result = await confirmEmailVerification({ token, next }); }
             catch { setError("Email verification is temporarily unavailable. Please try again."); return; }
             if (!result.ok) {
               setError(result.error);
               return;
             }
-            router.replace("/login?verified=1");
-            router.refresh();
+            // A full page load, so nothing from this signed-out page carries into the signed-in one.
+            const back = result.data?.next;
+            window.location.assign(back ? `/login?verified=1&callbackUrl=${encodeURIComponent(back)}` : "/login?verified=1");
           });
         }}
       >

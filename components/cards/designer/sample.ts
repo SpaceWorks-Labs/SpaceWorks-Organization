@@ -4,7 +4,7 @@ import type { DesignerField } from "./SideSettings";
 
 /** The sample member the designer previews cards with. */
 
-export const SAMPLES = { latin: "Shaan Shoukath", malayalam: "ഷാൻ ഷൗക്കത്ത്", devanagari: "शान शौकत" } as const;
+export const SAMPLES = { latin: "Meera Nair", malayalam: "മീര നായർ", devanagari: "मीरा नायर" } as const;
 export type Sample = keyof typeof SAMPLES;
 
 const SAMPLE_UNITS = [["North", "N"], ["North 1", "N1"], ["North 1 East", "N1E"], ["North 1 East A", "N1EA"]] as const;

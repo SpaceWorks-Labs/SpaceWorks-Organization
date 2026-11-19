@@ -51,9 +51,9 @@ export function SectionList({ slug, sections, disabled, errors, contact, onChang
                   aria-expanded={expanded}
                   aria-controls={`edit-${section.id}`}
                   onClick={() => setOpen(expanded ? null : section.id)}
-                  className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-full px-2 text-left hover:bg-muted"
+                  className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-control px-2 text-left hover:bg-muted"
                 >
-                  <ChevronDown aria-hidden className={cn("size-4 shrink-0 text-ink-muted transition-transform duration-200 ease-sw motion-reduce:transition-none", expanded && "rotate-180")} />
+                  <ChevronDown aria-hidden className={cn("size-4 shrink-0 text-ink-muted transition-transform duration-(--sw-dur-base) ease-sw motion-reduce:transition-none", expanded && "rotate-180")} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-label font-semibold text-ink">{section.title || label}</span>
                     <span className="block text-caption text-ink-muted">{label}{section.visible ? "" : " · hidden"}</span>

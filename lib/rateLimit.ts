@@ -25,7 +25,8 @@ export type Bucket =
   | "reportExport"
   | "documentView"
   | "cardRender"
-  | "testEmail";
+  | "testEmail"
+  | "smsCode";
 
 const limits: Record<Bucket, { max: number; windowMs: number; }> = {
   global: { max: 300, windowMs: 60_000 },
@@ -62,6 +63,8 @@ const limits: Record<Bucket, { max: number; windowMs: number; }> = {
   cardRender: { max: 60, windowMs: 60 * 60_000 },
   // "Send me a test" for an email template: to the sender's own address only.
   testEmail: { max: 10, windowMs: 60 * 60_000 },
+  // Phone codes asked for from one address (sign-in and number verification); per-number and per-country limits are in lib/sms.
+  smsCode: { max: 10, windowMs: 60 * 60_000 },
 };
 
 // Local fallback store

@@ -105,7 +105,7 @@ export function PageEditor({ org, initial, publishedLabel, hasDraft, canEdit, pl
       </div>
 
       {canEdit ? (
-        <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center gap-3 border-t border-line bg-canvas/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-xl sm:border">
+        <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center gap-3 border-t border-line bg-canvas px-4 py-3 sm:mx-0 sm:rounded-xl sm:border">
           <Button variant="primary" loading={busy && confirm === "publish"} onClick={() => setConfirm("publish")}>Publish</Button>
           <Button variant="secondary" loading={busy && confirm === null} disabled={!dirty} onClick={() => submit("draft")}>Save draft</Button>
           {hasDraft || dirty ? <Button variant="ghost" onClick={() => setConfirm("discard")}>Discard changes</Button> : null}

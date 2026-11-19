@@ -44,7 +44,7 @@ export function RefundRequestReview(props: Props) {
   });
 
   return (
-    <Card as="section" className="rounded-xl border-warning-fg/30">
+    <Card as="section" className="rounded-xl border-warning-fg">
       <CardHeader title="Refund requested" description={`The member asked on ${props.askedOn} to cancel and get ${props.suggested} back under your refund policy.`} />
       {message ? <Callout tone={message.ok ? "success" : "danger"} role={message.ok ? "status" : "alert"} className="mb-3">{message.text}</Callout> : null}
       <blockquote className="mb-4 whitespace-pre-line border-l-2 border-line-strong pl-3 text-body-ui text-ink-secondary">{props.reason}</blockquote>

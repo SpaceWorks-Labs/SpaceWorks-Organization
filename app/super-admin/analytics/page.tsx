@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Download } from "lucide-react";
 import { requireSuperAdmin } from "@/lib/permissions";
 import { loadSuperAdminAnalyticsView } from "@/lib/views/app__super-admin__analytics__page";
+import { loadSuperAdminWebAnalyticsView } from "@/lib/views/app__super-admin__analytics__web";
+import { WebAnalytics } from "@/components/super-admin/analytics/WebAnalytics";
 import { ComparisonTable } from "@/components/super-admin/analytics/ComparisonTable";
 import { PlatformTrends } from "@/components/super-admin/analytics/PlatformTrends";
 import { KpiTile } from "@/components/reports/charts/Figures";
@@ -14,7 +16,7 @@ type Props = { searchParams: Promise<{ sort?: string; dir?: string }> };
 
 export default async function SuperAdminAnalyticsPage({ searchParams }: Props) {
   await requireSuperAdmin();
-  const view = await loadSuperAdminAnalyticsView({ searchParams });
+  const [view, web] = await Promise.all([loadSuperAdminAnalyticsView({ searchParams }), loadSuperAdminWebAnalyticsView()]);
   const latest = view.trends.members.at(-1);
   return (
     <div className="flex flex-col gap-6">
@@ -41,6 +43,7 @@ export default async function SuperAdminAnalyticsPage({ searchParams }: Props) {
         {view.rows.length ? <ComparisonTable view={view} /> : <p className="text-label text-ink-muted">No active organisations yet.</p>}
       </section>
       <PlatformTrends trends={view.trends} />
+      <WebAnalytics view={web} />
     </div>
   );
 }

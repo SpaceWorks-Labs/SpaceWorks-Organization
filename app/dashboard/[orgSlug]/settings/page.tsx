@@ -6,7 +6,7 @@ import { CopyOrganisationUrl } from "@/components/org/CopyOrganisationUrl";
 import { DeleteOrganisationButton } from "@/components/dashboard/DeleteOrganisationButton";
 import { OrgPageHeader } from "@/components/dashboard/org/OrgPageHeader";
 import { SettingsTabs } from "@/components/settings/SettingsTabs";
-import { MemberPhotoUploadSwitch, MemberPortalSwitch } from "@/components/settings/MemberPortalSwitch";
+import { MemberPhotoUploadSwitch, MemberPortalSwitch, PlayfulTouchesSwitch } from "@/components/settings/MemberPortalSwitch";
 import { cn } from "@/lib/cn";
 
 import type { Metadata } from "next";
@@ -65,6 +65,11 @@ export default async function OrgSettingsPage({ params }: Props) {
           <h2 id="member-accounts-title" className="mb-3 text-h4 text-ink">Member accounts</h2>
           <MemberPortalSwitch slug={org.slug} enabled={org.memberPortal} canEdit={canEditPortal} />
           <MemberPhotoUploadSwitch slug={org.slug} enabled={org.memberPhotoUpload} portal={org.memberPortal} canEdit={canEditPortal} />
+        </section>
+
+        <section id="playful-touches" aria-labelledby="playful-touches-title" className={sectionCard}>
+          <h2 id="playful-touches-title" className="mb-3 text-h4 text-ink">Look and feel</h2>
+          <PlayfulTouchesSwitch slug={org.slug} enabled={org.delightEnabled} canEdit={canEditPortal} />
         </section>
 
         {canDelete ? (

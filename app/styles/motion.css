@@ -1,4 +1,17 @@
-/* Motion (ui-brand-spec §E): colour 120ms, expand 200ms, overlays 240/160ms; reduced motion respected. */
+@import "./motion-box.css";
+@import "./motion-overlays.css";
+@import "./motion-route.css";
+@import "./motion-search.css";
+
+/*
+ * Motion (CR-MOTION-01): the kit tokens in tokens.css. Durations --sw-dur-fast/base/slow = 120/180/240ms
+ * (zeroed under reduced motion); curves --sw-ease-standard (most movement), --sw-ease-enter (arrivals) and
+ * --sw-ease-exit (departures). Ordinary hover is colour only; buttons sink to 0.98 on press. Theme reveal
+ * (720ms) is a named non-blocking exception. Reduced motion reaches the identical end state at once.
+ * The motion components' rules are split by area: motion-box.css (box loader and logo), motion-overlays.css
+ * (dialog, sheet, drawer, menu, popover, toast), motion-route.css (route transition, stagger, collapse, sliding
+ * indicator, progress) and motion-search.css (SearchField).
+ */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -15,27 +28,22 @@
   to { opacity: 1; }
 }
 
-@keyframes sw-dialog-in {
-  from { opacity: 0; transform: translateY(8px) scale(0.98); }
-  to { opacity: 1; transform: none; }
-}
-
-@keyframes sw-toast-in {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
 @keyframes sw-success-in {
   from { opacity: 0; transform: scale(0.6); }
   to { opacity: 1; transform: scale(1); }
 }
 
 .sw-success-in {
-  animation: sw-success-in 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: sw-success-in var(--sw-dur-slow) var(--sw-ease-enter) both;
 }
 
-/* Colour-mode switch (components/providers.tsx): the new mode is revealed as a soft-edged circle
-   growing from the toggle; the old snapshot stays still. */
+/* Colour-mode switch (components/providers.tsx, after the kit's motion/theme-reveal): the new mode is revealed
+   as a soft-edged circle growing from the picker over --sw-theme-duration (3 × slow = 720ms); the old snapshot
+   stays still. Reduced motion switches instantly. */
+:root {
+  --sw-theme-duration: calc(var(--sw-dur-slow) * 3);
+}
+
 @property --sw-reveal {
   syntax: "<length>";
   inherits: true;
@@ -66,20 +74,11 @@
 .sw-theme-fade *::before,
 .sw-theme-fade *::after {
   transition-property: background-color, border-color, color, fill, stroke, box-shadow !important;
-  transition-duration: 420ms !important;
-  transition-timing-function: cubic-bezier(0.45, 0, 0.2, 1) !important;
+  transition-duration: calc(var(--sw-dur-slow) * 1.75) !important;
+  transition-timing-function: var(--sw-ease-standard) !important;
 }
 
 .sw-mode-icon {
-  transition: transform 420ms cubic-bezier(0.22, 1, 0.36, 1), opacity 320ms ease-out;
+  transition: transform var(--sw-dur-slow) var(--sw-ease-enter), opacity var(--sw-dur-base) var(--sw-ease-standard);
 }
 
-/* BrandLoader (components/brand/BrandLoader.tsx): the three dots hop one after the other;
-   with reduced motion they rest on the baseline. */
-@keyframes sw-dot-jump {
-  0%, 45%, 100% { transform: translateY(0); }
-  20% { transform: translateY(-80%); }
-}
-.sw-dot-loader-jump {
-  animation: sw-dot-jump 1.2s cubic-bezier(0.45, 0, 0.3, 1) infinite;
-}

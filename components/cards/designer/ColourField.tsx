@@ -33,9 +33,9 @@ export function ColourField({ label, value, onChange, orgAccent, allowNone = fal
           defaultColor={value ?? BRAND.ink}
           onChange={(hex) => onChange(hex ? hex.toUpperCase() : value)}
           trigger={
-            <button type="button" className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-line bg-panel px-2.5 text-[14px] text-ink hover:bg-muted">
+            <button type="button" className="inline-flex min-h-11 items-center gap-1.5 rounded-control border border-line bg-panel px-2.5 text-[14px] text-ink hover:bg-muted">
               <span aria-hidden className="size-4 rounded-full border border-line-strong" style={{ background: value ?? "transparent" }} />
-              <span className="font-mono text-caption">{value ?? "None"}</span>
+              <span className="code-text text-caption">{value ?? "None"}</span>
             </button>
           }
         />

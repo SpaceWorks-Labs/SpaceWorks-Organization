@@ -25,7 +25,7 @@ export function EmailTemplateEditor({ slug, kind, organisation, saved, canEdit }
   const run = (action: () => Promise<{ ok: boolean; error?: string; fieldErrors?: Record<string, string[] | undefined> }>, done: string, refresh = true) => startTransition(async () => {
     const result = await action();
     setErrors(result.ok ? {} : result.fieldErrors ?? {});
-    setStatus(result.ok ? { ok: true, text: done } : { ok: false, text: result.error ?? "Something went wrong." });
+    setStatus(result.ok ? { ok: true, text: done } : { ok: false, text: result.error ?? "The template couldn’t be saved. Try again." });
     if (result.ok && refresh) router.refresh();
   });
 

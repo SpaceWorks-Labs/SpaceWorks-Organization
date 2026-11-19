@@ -13,6 +13,7 @@ import { asErasurePayload, deliverErasureNotice } from "@/lib/email/erasure";
 import { asRefundPayload, deliverRefundNotice } from "@/lib/email/refunds";
 import { asChatPayload, deliverChatNotice } from "@/lib/chat/notify";
 import { asLoginAlertPayload, asLoginCodePayload, deliverLoginAlert, deliverLoginCode } from "@/lib/email/loginSecurity";
+import { asSmsCodePayload, deliverSmsCode } from "@/lib/sms/outbox";
 import { asOwnershipPayload, deliverOwnershipNotice } from "@/lib/team/ownershipEmail";
 import { asLegacyPhotoPurgePayload, asPhotoPurgePayload, deleteFilesWithHistory, purgeErasedMemberPhotos } from "@/lib/storage/memberPhotos";
 
@@ -204,6 +205,13 @@ const loginCode: OutboxKindHandler = {
   },
 };
 
+// A phone code is a sign-in capability: the row (number and code) is deleted after sending.
+const smsCode: OutboxKindHandler = {
+  capability: true,
+  shortLived: true,
+  deliver: async (value, messageId) => { const payload = asSmsCodePayload(value); if (!payload) throw new PermanentOutboxError(); return deliverSmsCode(payload, messageId); },
+};
+
 const loginAlert: OutboxKindHandler = {
   capability: false,
   async deliver(value, messageId) {
@@ -283,6 +291,7 @@ export const OUTBOX_KINDS = {
   "chat-notice": chatNotice,
   "login-code": loginCode,
   "login-alert": loginAlert,
+  "sms-code": smsCode,
   "ownership-transfer": ownershipTransfer,
   "member-photo-purge": memberPhotoPurge,
   "legacy-photo-purge": legacyPhotoPurge,

@@ -229,6 +229,8 @@ still awaiting confirmation and the day the oldest was recorded. Scoped viewers 
   - The server re-checks scope and renewability, and skips anything else.
   - It is audited as `RENEWAL_REMINDERS_SENT`.
 
+**Web visits.** A separate page (Reports, Web visits) and its own CSV, described under "Web visits" below.
+
 **Exports.** Report keys: `register`, `worklist`, `lapsed`, `approvals`, `cohorts`, `units`, plus the finance exports `revenue`, `outstanding`, `documents` and `gstr1`.
 
 ### Members (portal)
@@ -347,6 +349,21 @@ Once wired, P7 also calls `markStatsDirty` (`lib/reports/rollup.ts`) inside back
 | Dormant | Created over 60 days ago, with no staff sign-in and no paid payment in the last 60 days. |
 
 Platform trends: active members at each month end (A3), organisations going live (`CREATED` or `APPROVED`), applications (`SUBMITTED`) and declines (`REJECTED`) per month, revenue per currency per month, and failures by organisation over 30 days (`FAILED` payments, `PAYMENT_WEBHOOK_UNMATCHED` audit rows, `FAILED` outbox messages by `payload.organisationId`). Months are UTC calendar months.
+
+
+### Web visits (owner, 2026-11-19)
+
+Counts of views of public pages, kept by this site itself (product rules section 8.1). Always on, and no person is stored: no cookie, no address, no identifier. Pure in `lib/reports/visits.ts`; rows are `WebVisitDaily` (organisation or the platform when null, UTC day, approved route template, channel `web`, count).
+
+| Figure | Definition |
+| --- | --- |
+| Visits | Sum of `count` over the period for the organisation's rows. Days are UTC days, so a period in the organisation's timezone can differ by up to a day at its edges. |
+| Visits each day, each month | The same sum per UTC day, with a point (zero when quiet) for every day; periods over 92 days group by month. |
+| Visits by page | The sum per route template (home, public page, join form and so on), busiest first, with its share of all visits. Never a literal address. |
+
+- **Counting.** A same-origin beacon on public pages sends the route template to `POST /api/visits`, which ignores tokens and private routes, unknown or inactive organisations, obvious bots, and callers over the per-address limit. Pages under `/o/<slug>` count for that organisation; every other public page counts for the platform.
+- **Who sees it.** The report at `/dashboard/<org>/reports/visits` (and its CSV, `/api/visits/export/<org>`, audited as `REPORT_EXPORTED`) needs `reports.membership`. It is whole-organisation public information, not member data, so staff limited to a unit may read it; the plan and unit filters do not apply. The super admin sees the platform total and every organisation's total in Analytics, and one organisation under its analytics page. Aggregates only.
+- **Cache.** Read through `lib/visits/read.ts` with `analyticsCacheKey` (organisation-wide) or `platformCacheKey`, five minutes; counts are not money and nothing invalidates them early.
 
 ## Not applicable
 

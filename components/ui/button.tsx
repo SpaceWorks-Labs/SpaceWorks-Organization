@@ -14,7 +14,10 @@ import { Spinner } from "./spinner";
  * - `danger` / `dangerOutline`: red outline that opens a confirmation.
  * - `dangerSolid`: red fill for the final destructive confirmation.
  * - `inverse`: Warm Cream fill with a Deep Ink label; the main action on dark bands and bars (teal would sink into them).
- * No hover lift or shadow; disabled is an explicit surface/muted/line state, never opacity.
+ * Hover is colour only (no lift or shadow); pressing sinks the control to 0.98 (CR-MOTION-01, never under
+ * reduced motion). Disabled is the explicit bg-surface/text-muted/border-line state, never opacity, with hover
+ * and press suppressed (CR-DISABLED-01). Prefer native `disabled`; an `aria-disabled` control also ignores
+ * clicks, Enter and Space (lib/ariaDisabled.ts, installed once in components/providers.tsx).
  */
 export type ButtonVariant =
   | "primary"
@@ -32,7 +35,7 @@ export type ButtonVariant =
 export type ButtonSize = "sm" | "md" | "lg";
 
 const base =
-  "relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-control font-semibold transition-[background-color,border-color,color] duration-[120ms] ease-sw disabled:pointer-events-none aria-disabled:pointer-events-none";
+  "relative inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-control font-semibold transition-[background-color,border-color,color,transform] duration-(--sw-dur-fast) ease-sw motion-safe:active:scale-[0.98] disabled:pointer-events-none aria-disabled:pointer-events-none aria-disabled:cursor-not-allowed";
 
 /** Organisation accents are chosen by the organisation, so hover darkens toward Deep Ink in sRGB instead of using a fixed token. */
 const accentHover = "hover:bg-[color-mix(in_srgb,var(--sw-accent)_88%,var(--sw-ink))]";
@@ -152,10 +155,11 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       aria-label={label}
       title={label}
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full transition-colors duration-[120ms] ease-sw disabled:pointer-events-none disabled:text-ink-disabled [&_svg]:size-[18px]",
-        size === "sm" ? "size-9" : "size-11",
+        "inline-flex shrink-0 items-center justify-center rounded-full transition-[background-color,border-color,color,transform] duration-(--sw-dur-fast) ease-sw motion-safe:active:scale-[0.98] disabled:pointer-events-none disabled:text-ink-muted aria-disabled:pointer-events-none aria-disabled:text-ink-muted [&_svg]:size-[18px]",
+        // sm keeps a 36px visual; the ::after extends its target to 44px (UX-2.1).
+        size === "sm" ? "relative size-9 after:absolute after:-inset-1" : "size-11",
         variant === "quiet" && "text-ink-secondary hover:bg-muted hover:text-ink",
-        variant === "secondary" && "border border-line bg-panel text-ink hover:bg-muted",
+        variant === "secondary" && "border border-line bg-panel text-ink hover:bg-muted disabled:bg-surface",
         variant === "danger" && "text-danger-fg hover:bg-danger-bg",
         variant === "primary" && "bg-primary text-on-primary hover:bg-primary-hover disabled:bg-surface disabled:text-ink-muted",
         className,

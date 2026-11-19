@@ -53,7 +53,7 @@ export default async function OrgOverviewPage({ params }: { params: Promise<{ or
                     aria-hidden
                     className={cn(
                       "flex size-7 shrink-0 items-center justify-center rounded-full border",
-                      step.done ? "border-transparent bg-success-bg text-success-fg" : "border-line-strong text-transparent",
+                      step.done ? "border-transparent bg-success-mark text-on-success-mark" : "border-line-strong text-transparent",
                     )}
                   >
                     <Check className="size-4" />
@@ -65,7 +65,7 @@ export default async function OrgOverviewPage({ params }: { params: Promise<{ or
                     </span>
                     <span className="text-caption text-ink-muted">{step.description}</span>
                   </span>
-                  <ArrowRight aria-hidden className="size-4 shrink-0 text-ink-muted transition-transform group-hover:translate-x-0.5" />
+                  <ArrowRight aria-hidden className="size-4 shrink-0 text-ink-muted transition-colors group-hover:text-ink" />
                 </Link>
               </li>
             ))}

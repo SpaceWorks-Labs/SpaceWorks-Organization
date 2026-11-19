@@ -141,7 +141,7 @@ export function ColorPicker({
             {/* How members will see it: the button and link colours, contrast-adjusted like the public pages. */}
             <div className="flex items-center justify-between gap-3 rounded-lg bg-subtle px-3 py-2.5">
               <span
-                className="inline-flex min-h-8 items-center rounded-full px-3.5 text-[13px] font-semibold"
+                className="inline-flex min-h-8 items-center rounded-control px-3.5 text-[13px] font-semibold"
                 style={{ backgroundColor: tokens["--sw-accent"], color: tokens["--sw-on-accent"] }}
               >
                 Register

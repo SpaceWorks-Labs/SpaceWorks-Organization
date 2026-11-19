@@ -23,7 +23,7 @@ export function PageDetailsFields({ slug, value, fallbackAccent, disabled, error
 }) {
   const accent = value.accentColor ?? fallbackAccent;
   const check = checkAccentContrast(accent);
-  const swatch = "inline-flex size-11 items-center justify-center rounded-full border-2 transition-colors duration-[120ms] ease-sw";
+  const swatch = "inline-flex size-11 items-center justify-center rounded-full border-2 transition-colors duration-(--sw-dur-fast) ease-sw";
 
   return (
     <div className="flex flex-col gap-6">

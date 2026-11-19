@@ -20,8 +20,21 @@ const whatsapp = z.object({
   language: z.string().trim().regex(/^[a-z]{2}(_[A-Z]{2})?$/).default("en"),
 });
 
-export const CHAT_CONFIG_SCHEMAS = { SLACK: slack, DISCORD: discord, MATTERMOST: mattermost, TELEGRAM: telegram, WHATSAPP: whatsapp } as const;
-export type ChatConfig = { SLACK: z.infer<typeof slack>; DISCORD: z.infer<typeof discord>; MATTERMOST: z.infer<typeof mattermost>; TELEGRAM: z.infer<typeof telegram>; WHATSAPP: z.infer<typeof whatsapp> };
+/** Any HTTPS address on a public host (checked when saving and when sending). Each post is signed with the secret. */
+const webhook = z.object({
+  url: z.string().trim().max(2000).refine((value) => {
+    try {
+      const url = new URL(value);
+      return url.protocol === "https:" && !url.username && !url.password;
+    } catch {
+      return false;
+    }
+  }, "Use an https:// address without a login in it"),
+  secret: z.string().trim().min(16, "Use a secret of at least 16 characters").max(200),
+});
+
+export const CHAT_CONFIG_SCHEMAS = { SLACK: slack, DISCORD: discord, MATTERMOST: mattermost, TELEGRAM: telegram, WHATSAPP: whatsapp, WEBHOOK: webhook } as const;
+export type ChatConfig = { SLACK: z.infer<typeof slack>; DISCORD: z.infer<typeof discord>; MATTERMOST: z.infer<typeof mattermost>; TELEGRAM: z.infer<typeof telegram>; WHATSAPP: z.infer<typeof whatsapp>; WEBHOOK: z.infer<typeof webhook> };
 
 const tail = (value: string) => `••••${value.slice(-4)}`;
 
@@ -32,6 +45,7 @@ export function describeTarget(kind: ChatKind, config: ChatConfig[ChatKind]) {
     case "DISCORD": return `Discord webhook ${tail((config as ChatConfig["DISCORD"]).webhookUrl)}`;
     case "MATTERMOST": return `${new URL((config as ChatConfig["MATTERMOST"]).webhookUrl).host} webhook ${tail((config as ChatConfig["MATTERMOST"]).webhookUrl)}`;
     case "TELEGRAM": return `Telegram chat ${(config as ChatConfig["TELEGRAM"]).chatId}`;
+    case "WEBHOOK": return `Signed webhook ${new URL((config as ChatConfig["WEBHOOK"]).url).host}`;
     case "WHATSAPP": {
       const numbers = (config as ChatConfig["WHATSAPP"]).recipients;
       return `WhatsApp ${tail(numbers[0])}${numbers.length > 1 ? ` and ${numbers.length - 1} more` : ""}`;

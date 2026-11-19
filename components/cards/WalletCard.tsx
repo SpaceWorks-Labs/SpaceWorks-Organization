@@ -21,6 +21,7 @@ export function WalletCard({
   downloads,
   verifyPath,
   celebrate = false,
+  delight = true,
 }: {
   design: CardDesign;
   holder: CardHolder;
@@ -30,6 +31,8 @@ export function WalletCard({
   downloads: { pdf: string; pngFront: string; pngBack: string | null } | null;
   verifyPath: string;
   celebrate?: boolean;
+  /** The organisation's playful-touches switch: off keeps the card flat (no tilt, sheen or sweep). */
+  delight?: boolean;
 }) {
   const back = design.backEnabled ? design.back : null;
   return (
@@ -40,6 +43,7 @@ export function WalletCard({
         widthMm={design.front.widthMm}
         heightMm={design.front.heightMm}
         celebrate={celebrate}
+        delight={delight}
         front={<ScaledCard settings={design.front} holder={holder} branding={branding} />}
         back={back ? <ScaledCard settings={back} holder={holder} branding={branding} /> : null}
       />

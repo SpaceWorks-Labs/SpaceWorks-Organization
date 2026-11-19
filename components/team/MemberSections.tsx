@@ -11,7 +11,7 @@ export function MemberStat({ label, value, hint, dots }: { label: string; value:
     <div className="flex min-w-0 flex-col gap-2.5 rounded-lg border border-line bg-panel px-5 py-4">
       <span className="text-sm text-ink-muted">{label}</span>
       <span className="flex min-w-0 items-end justify-between gap-3">
-        <span className="font-display text-[34px] font-semibold leading-none text-ink">{value}</span>
+        <span className="text-[34px] font-semibold leading-none tabular-nums text-ink">{value}</span>
         {dots && dots.length > 0 ? (
           <span aria-hidden className="flex min-w-0 flex-wrap justify-end gap-1 pb-1">
             {dots.map((tone, index) => (

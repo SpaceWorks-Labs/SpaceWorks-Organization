@@ -61,7 +61,7 @@ export function AccountSecurityClient(props: { mfaEnabled: boolean }) {
         {!enabled ? (
           <div className="flex flex-col gap-4 rounded-xl bg-warning-bg p-4 text-warning-fg sm:flex-row sm:items-center sm:p-5">
             <ShieldAlert aria-hidden className="size-5 shrink-0" />
-            <p className="min-w-0 flex-1 text-body-ui">Add an authenticator app so a stolen password isn’t enough. Google sign-in follows your Google security.</p>
+            <p className="min-w-0 flex-1 text-body-ui">Add an authenticator app so a stolen password isn’t enough. Signing in through a linked account follows that account’s own security.</p>
             {!enrollment ? (
               <Button variant="primary" className="w-full shrink-0 sm:w-auto" disabled={pending} onClick={startEnrollment}>
                 Set up authenticator
@@ -71,13 +71,13 @@ export function AccountSecurityClient(props: { mfaEnabled: boolean }) {
         ) : (
           <div className="flex items-start gap-3 rounded-xl bg-success-bg p-4 text-success-fg sm:p-5">
             <ShieldCheck aria-hidden className="mt-0.5 size-5 shrink-0" />
-            <p className="min-w-0 flex-1 text-body-ui">Password sign-in needs a six-digit authenticator code. Google sign-in follows your Google security.</p>
+            <p className="min-w-0 flex-1 text-body-ui">Password sign-in needs a six-digit authenticator code. Signing in through a linked account follows that account’s own security.</p>
           </div>
         )}
 
         {recoveryCodes.length > 0 ? (
           <Callout tone="warning" title="Save these one-time recovery codes now.">
-            <pre className="my-2 whitespace-pre-wrap font-mono text-sm">{recoveryCodes.join("\n")}</pre>
+            <pre className="my-2 whitespace-pre-wrap code-text text-sm">{recoveryCodes.join("\n")}</pre>
             <Button size="sm" variant="secondary" onClick={() => void signOut({ callbackUrl: "/login" })}>
               I saved them — sign in again
             </Button>
@@ -92,7 +92,7 @@ export function AccountSecurityClient(props: { mfaEnabled: boolean }) {
             <div className="flex min-w-0 flex-1 flex-col gap-3">
               <p className="text-body-ui text-ink-secondary">Scan the code with your authenticator app, then enter the six-digit code it shows.</p>
               <p className="break-all text-sm text-ink-secondary">
-                Manual key: <span className="font-mono text-ink">{enrollment.secret}</span>
+                Manual key: <span className="code-text text-ink">{enrollment.secret}</span>
               </p>
               <Field label="Six-digit code">
                 <Input value={code} onChange={(event) => setCode(event.target.value)} autoComplete="one-time-code" inputMode="numeric" />
@@ -117,7 +117,7 @@ export function AccountSecurityClient(props: { mfaEnabled: boolean }) {
                   })
                 }
               >
-                Verify and enable
+                Verify and turn on
               </Button>
             </div>
           </div>
@@ -128,7 +128,7 @@ export function AccountSecurityClient(props: { mfaEnabled: boolean }) {
             <Field label="Authenticator or recovery code" className="sm:w-72">
               <Input value={code} onChange={(event) => setCode(event.target.value)} autoComplete="one-time-code" />
             </Field>
-            <Button variant="dangerQuiet" disabled={pending || !code.trim()} onClick={() => setConfirming(true)}>
+            <Button variant="danger" disabled={pending || !code.trim()} onClick={() => setConfirming(true)}>
               Turn off two-step
             </Button>
           </div>

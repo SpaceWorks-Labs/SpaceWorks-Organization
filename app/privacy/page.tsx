@@ -1,12 +1,27 @@
 import type { Metadata } from "next";
 import { LegalPage, type LegalSection } from "@/components/legal/LegalPage";
+import { loadPrivacyTelemetryView } from "@/lib/views/app__privacy__page";
+import type { ConfiguredProvider } from "@/lib/telemetry/configured";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description: "What personal information this Space Works Organization site collects, why, who can see it, how long it is kept and the choices you have.",
 };
 
-const sections: LegalSection[] = [
+const PURPOSE_TEXT = { analytics: "usage analytics", replay: "session replay", diagnostics: "diagnostics and performance" } as const;
+
+/** Without configured providers this site sets no tracking; with them, each is named with its purpose and needs consent first. */
+function cookiesBody(providers: ConfiguredProvider[]): string | string[] {
+  const base = "We use cookies only to keep you signed in, to protect forms against misuse and to remember your light or dark choice. We do not use advertising cookies.";
+  if (providers.length === 0) return `${base} We do not use tracking cookies.`;
+  const list = providers.map((item) => `${item.name} (${PURPOSE_TEXT[item.purpose]})`).join(", ");
+  return [
+    base,
+    `The operator has switched on optional outside services for the public pages of this site: ${list}. Each is off until you agree to its purpose in Privacy preferences, which you can reopen from the footer at any time. Until then nothing is loaded from them and nothing is sent. They are never used on pages you sign in to, and they receive page types, not personal details. Your choice is kept in this browser only. Withdrawing stops them at once, but cannot delete what a provider already holds. The rules they follow are in section 8 of the Space Works product rules (docs/product-rules.md in the SpaceWorks-Design repository).`,
+  ];
+}
+
+const buildSections = (providers: ConfiguredProvider[]): LegalSection[] => [
   {
     id: "who-is-responsible",
     title: "Who is responsible",
@@ -58,7 +73,7 @@ const sections: LegalSection[] = [
   {
     id: "cookies",
     title: "Cookies and similar technology",
-    body: "We use cookies only to keep you signed in, to protect forms against misuse and to remember your light or dark choice. We do not use advertising or tracking cookies.",
+    body: cookiesBody(providers),
   },
   {
     id: "emails",
@@ -118,14 +133,15 @@ const sections: LegalSection[] = [
   },
 ];
 
-export default function PrivacyPage() {
+export default async function PrivacyPage() {
+  const { providers } = await loadPrivacyTelemetryView();
   return (
     <LegalPage
       current="privacy"
       title="Privacy"
       updated="19 October 2026"
       notice="This policy describes how Space Works Organization handles personal information. Each operator must replace the bracketed placeholders with its own name and contact details, add its hosting, email, storage and payment providers, retention periods and the laws that apply to it, and should have it reviewed by a lawyer. It is not legal advice."
-      sections={sections}
+      sections={buildSections(providers)}
     />
   );
 }

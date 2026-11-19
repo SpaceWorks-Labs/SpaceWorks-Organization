@@ -11,7 +11,10 @@ import type { ActionResult } from "./org";
 import { flattenZodErrors } from "./utils";
 import { issueEmailVerification, verifyEmail } from "@/lib/emailVerification";
 import { isNewUserRegistrationEnabled } from "@/lib/instanceSettings";
+import { inviteReturnPath, invitePath } from "@/lib/inviteLink";
+import { inviteSignupToken, reserveInviteSignup } from "@/lib/inviteSignup";
 import { currentRequestBlocked } from "@/lib/ipBlock";
+import { availableLoginMethods } from "@/lib/loginMethods";
 
 const signUpSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
@@ -37,9 +40,14 @@ export async function signUpWithPassword(
   }
 
   const { name, email, password } = parsed.data;
+  if (!(await availableLoginMethods()).includes("password")) return { ok: false, error: "Signing up with an email and password is switched off. Use one of the other sign-in options." };
   if (await currentRequestBlocked()) return { ok: false, error: "Too many failed sign-ins from your network. Try again in an hour." };
 
-  if (!(await isNewUserRegistrationEnabled())) {
+  // A valid staff invite this browser started from lets an account be created even while sign-ups are off,
+  // and sends the verification link back to that invite.
+  const registrationOpen = await isNewUserRegistrationEnabled();
+  const inviteToken = await inviteSignupToken(email);
+  if (!inviteToken && !registrationOpen) {
     return { ok: false, error: "New account creation is currently unavailable." };
   }
 
@@ -62,6 +70,10 @@ export async function signUpWithPassword(
   if (await isActionRateLimited("signup", email)) {
     return { ok: false, error: "Too many attempts. Please try again later." };
   }
+  // While sign-ups are off, the invite creates one account only: claim it for this email now.
+  if (!registrationOpen && !(await reserveInviteSignup(email))) {
+    return { ok: false, error: "New account creation is currently unavailable." };
+  }
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -71,9 +83,8 @@ export async function signUpWithPassword(
       });
       // The signup input is a validated non-null email; keep the persisted
       // model nullable for OAuth adapter compatibility.
-      await issueEmailVerification({ id: user.id, email }, tx);
+      await issueEmailVerification({ id: user.id, email }, tx, inviteToken ? invitePath(inviteToken) : undefined);
     });
-
   } catch (error) {
     if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") throw error;
     return { ok: true, data: { email } };
@@ -83,15 +94,17 @@ export async function signUpWithPassword(
 
 const verificationTokenSchema = z.object({
   token: z.string().regex(/^[a-f0-9]{64}$/, "Invalid verification link."),
+  next: z.string().max(300).optional(),
 });
 
-export async function confirmEmailVerification(input: unknown): Promise<ActionResult<{ verified: true }>> {
+/** `next` is where to go after confirming: only a staff invite page on this site is honoured. */
+export async function confirmEmailVerification(input: unknown): Promise<ActionResult<{ verified: true; next: string | null }>> {
   const parsed = verificationTokenSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "This verification link is invalid or has expired." };
   if (await isActionRateLimited("auth")) return { ok: false, error: "Too many attempts. Please try again later." };
   const verified = await verifyEmail(parsed.data.token);
   if (!verified) return { ok: false, error: "This verification link is invalid or has expired." };
-  return { ok: true, data: { verified: true } };
+  return { ok: true, data: { verified: true, next: inviteReturnPath(parsed.data.next) } };
 }
 
 const resendVerificationSchema = z.object({

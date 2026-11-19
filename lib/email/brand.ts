@@ -16,10 +16,11 @@ export const EMAIL_COLORS = {
   line: "#E6DCCF",
 } as const;
 
-const EMAIL_FONT = "Gilroy, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
+// Outfit (CR-TYPE-01) where the reader has it; email cannot load web fonts reliably, so system faces follow.
+const EMAIL_FONT = "Outfit, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
-/** Inline style for a primary email button: teal fill, cream label, pill shape (as in the app). */
-export const EMAIL_BUTTON_STYLE = `background-color: ${EMAIL_COLORS.teal}; color: ${EMAIL_COLORS.cream}; padding: 14px 28px; border-radius: 9999px; text-decoration: none; font-weight: 700; font-size: 16px; display: inline-block;`;
+/** Inline style for a primary email button: teal fill, cream label, the 10px control radius (as in the app). */
+export const EMAIL_BUTTON_STYLE = `background-color: ${EMAIL_COLORS.teal}; color: ${EMAIL_COLORS.cream}; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 16px; display: inline-block;`;
 
 function baseUrl(): string | null {
   return process.env.NEXT_PUBLIC_BASE_URL?.trim().replace(/\/$/, "") || null;

@@ -80,9 +80,9 @@ export const PrefixInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTML
   ref,
 ) {
   return (
-    <div className="flex min-h-11 w-full overflow-hidden rounded-control border border-line-strong bg-panel transition-colors duration-[120ms] ease-sw hover:border-ink focus-within:border-accent focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[rgb(var(--sw-ui-focus))] has-[[aria-invalid=true]]:border-danger-fg">
+    <div className="flex min-h-11 w-full overflow-hidden rounded-control border border-line-strong bg-panel transition-colors duration-(--sw-dur-fast) ease-sw hover:border-ink focus-within:border-accent focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-[rgb(var(--sw-ui-focus))] has-[[aria-invalid=true]]:border-danger-fg has-[:disabled]:border-line has-[:disabled]:bg-surface">
       <span className="flex shrink-0 items-center border-r border-line bg-surface px-3 text-[15px] text-ink-muted">{prefix}</span>
-      <input ref={ref} className={cn("min-w-0 flex-1 bg-transparent px-3.5 py-[9px] text-base text-ink placeholder:text-ink-muted outline-none", className)} {...props} />
+      <input ref={ref} className={cn("min-w-0 flex-1 bg-transparent px-3.5 py-[9px] text-base text-ink placeholder:text-ink-muted outline-none disabled:cursor-not-allowed disabled:text-ink-muted", className)} {...props} />
     </div>
   );
 });
@@ -108,7 +108,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, Omit<InputHTMLAttribut
         onClick={() => setVisible((value) => !value)}
         aria-label={visible ? "Hide password" : "Show password"}
         aria-pressed={visible}
-        className="absolute right-1.5 top-1/2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full text-ink-muted hover:bg-muted hover:text-ink"
+        className="absolute right-1.5 top-1/2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full text-ink-muted transition-colors after:absolute after:-inset-1 hover:bg-muted hover:text-ink"
       >
         {visible ? <EyeOff aria-hidden className="size-[18px]" /> : <Eye aria-hidden className="size-[18px]" />}
       </button>
@@ -137,7 +137,7 @@ export const SearchInput = forwardRef<HTMLInputElement, Omit<InputHTMLAttributes
           type="button"
           onClick={onClear}
           aria-label="Clear search"
-          className="absolute right-1.5 top-1/2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full text-ink-muted hover:bg-muted hover:text-ink"
+          className="absolute right-1.5 top-1/2 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-full text-ink-muted transition-colors after:absolute after:-inset-1 hover:bg-muted hover:text-ink"
         >
           <X aria-hidden className="size-4" />
         </button>

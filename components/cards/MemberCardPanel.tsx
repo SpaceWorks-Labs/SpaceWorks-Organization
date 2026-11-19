@@ -38,8 +38,11 @@ function useCelebration(plans: MemberCardPlan[]) {
 
 type Pending = { kind: "reissue" | "revoke"; cardId: string } | null;
 
-/** The member's cards, one per plan: view, download, email, reissue or revoke, and issue where missing. */
-export function MemberCardPanel({ slug, memberId, memberName, plans, canManage }: { slug: string; memberId: string; memberName: string; plans: MemberCardPlan[]; canManage: boolean }) {
+/**
+ * The member's cards, one per plan: view, download, email, reissue or revoke, and issue where missing. `delight` is
+ * the organisation's playful-touches switch: off, the card stays flat and the "card issued" moment doesn't animate.
+ */
+export function MemberCardPanel({ slug, memberId, memberName, plans, canManage, delight = true }: { slug: string; memberId: string; memberName: string; plans: MemberCardPlan[]; canManage: boolean; delight?: boolean }) {
   const router = useRouter();
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, setPending] = useState<Pending>(null);
@@ -67,7 +70,7 @@ export function MemberCardPanel({ slug, memberId, memberName, plans, canManage }
             {plan.live ? (
               <>
                 {celebrate.includes(plan.live.cardId) ? (
-                  <p role="status" className="sw-success-in inline-flex items-center gap-2 self-center rounded-full bg-success-bg px-3.5 py-1.5 text-label font-semibold text-success-fg">
+                  <p role="status" className={`${delight ? "sw-success-in " : ""}inline-flex items-center gap-2 self-center rounded-full bg-success-mark px-3.5 py-1.5 text-label font-semibold text-on-success-mark`}>
                     <BadgeCheck aria-hidden className="size-4" />Card issued
                   </p>
                 ) : null}
@@ -79,6 +82,7 @@ export function MemberCardPanel({ slug, memberId, memberName, plans, canManage }
                   downloads={plan.live.downloads}
                   verifyPath={plan.live.verifyPath}
                   celebrate={celebrate.includes(plan.live.cardId)}
+                  delight={delight}
                 />
                 {canManage ? (
                   <div className="flex flex-wrap justify-center gap-2 border-t border-line pt-4">

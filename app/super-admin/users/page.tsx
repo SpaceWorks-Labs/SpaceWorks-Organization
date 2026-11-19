@@ -39,7 +39,7 @@ export default async function SuperAdminUsersPage({ searchParams }: Props) {
             href={filterHref(key)}
             aria-current={key === filter ? "page" : undefined}
             className={cn(
-              "inline-flex min-h-8 items-center rounded-full border border-line px-3 text-sm text-ink-secondary transition-colors hover:bg-muted hover:text-ink",
+              "inline-flex min-h-11 items-center rounded-control border border-line px-3 text-sm text-ink-secondary transition-colors hover:bg-muted hover:text-ink",
               key === filter && "border-transparent bg-primary font-semibold text-on-primary hover:bg-primary hover:text-on-primary",
             )}
           >

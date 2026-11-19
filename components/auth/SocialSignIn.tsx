@@ -1,9 +1,14 @@
 "use client";
 
 import { signIn } from "next-auth/react";
+import { KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { OrDivider } from "./OrDivider";
 
-export type SocialProvider = "google" | "apple" | "github";
+export type SocialProvider = "google" | "apple" | "github" | "supabase" | "firebase";
+
+/** An enabled OpenID Connect or SAML provider: one button each, named by the operator. */
+export type SingleSignOnProvider = { kind: "oidc" | "saml"; id: string; slug: string; name: string };
 
 function GoogleMark() {
   return (
@@ -32,53 +37,87 @@ function GitHubMark() {
   );
 }
 
-const PROVIDERS: Record<SocialProvider, { label: string; Mark: () => React.ReactElement }> = {
-  google: { label: "Continue with Google", Mark: GoogleMark },
-  apple: { label: "Continue with Apple", Mark: AppleMark },
-  github: { label: "Continue with GitHub", Mark: GitHubMark },
-};
+function NeutralMark() {
+  return <KeyRound size={18} aria-hidden className="block" />;
+}
 
-/** One button per sign-in provider this instance has switched on. Renders nothing when none are. */
+/** Brand marks only for Google, Apple and GitHub; every other provider gets the neutral key. */
+const PROVIDERS: Record<SocialProvider, { name: string; Mark: () => React.ReactElement }> = {
+  google: { name: "Google", Mark: GoogleMark },
+  apple: { name: "Apple", Mark: AppleMark },
+  github: { name: "GitHub", Mark: GitHubMark },
+  supabase: { name: "Supabase", Mark: NeutralMark },
+  firebase: { name: "Firebase", Mark: NeutralMark },
+};
+const SOCIAL: SocialProvider[] = ["google", "apple", "github"];
+
+/**
+ * One button per sign-in provider this instance has switched on, in the UX P22 order: Google, Apple and GitHub first,
+ * then single sign-on (OpenID Connect, SAML, Supabase, Firebase), then the "or" divider. With four or more buttons
+ * the brand trio sits in one row so the stack stays short. Renders nothing when no provider is on.
+ */
 export function SocialSignIn({
   providers,
+  singleSignOn = [],
   callbackUrl,
   disabled,
   onStart,
   onError,
+  dividerLabel = "or with email",
 }: {
   providers: SocialProvider[];
+  singleSignOn?: SingleSignOnProvider[];
   callbackUrl: string;
   disabled?: boolean;
-  onStart: (provider: SocialProvider) => void;
+  /** Text between the buttons and the form below; empty when nothing follows. */
+  dividerLabel?: string;
+  onStart: (provider: SocialProvider | "sso") => void;
   onError: (message: string) => void;
 }) {
-  if (providers.length === 0) return null;
+  const social = SOCIAL.filter((provider) => providers.includes(provider));
+  const bridges = providers.filter((provider) => !SOCIAL.includes(provider));
+  if (social.length + bridges.length + singleSignOn.length === 0) return null;
+  const compact = social.length >= 2 && social.length + bridges.length + singleSignOn.length >= 4;
+
+  const start = (provider: SocialProvider) => {
+    onStart(provider);
+    if (provider === "supabase" || provider === "firebase") {
+      // These open the provider's own sign-in on the bridge page, which finishes the sign-in here.
+      window.location.assign(new URL(`/login/bridge/${provider}?callbackUrl=${encodeURIComponent(callbackUrl)}`, window.location.origin).href);
+      return;
+    }
+    void signIn(provider, { callbackUrl }).catch(() => onError(`${PROVIDERS[provider].name} sign-in is temporarily unavailable. Please try again.`));
+  };
+  const startSso = (entry: SingleSignOnProvider) => {
+    onStart("sso");
+    if (entry.kind === "saml") {
+      // SAML is a redirect to the identity provider and back through the site's own routes.
+      window.location.assign(new URL(`/api/auth/saml/${encodeURIComponent(entry.slug)}/login?callbackUrl=${encodeURIComponent(callbackUrl)}`, window.location.origin).href);
+      return;
+    }
+    void signIn(`oidc-${entry.id}`, { callbackUrl }).catch(() => onError(`${entry.name} sign-in is temporarily unavailable. Please try again.`));
+  };
+  const button = (key: string, label: string, Mark: () => React.ReactElement, onClick: () => void, short?: string) => (
+    <Button key={key} variant="secondary" size="lg" fullWidth disabled={disabled} aria-label={short ? label : undefined} className="px-4" onClick={onClick}>
+      <Mark />
+      <span className="min-w-0 truncate">{short ?? label}</span>
+    </Button>
+  );
+
   return (
-    <div className="flex flex-col gap-2.5">
-      {providers.map((provider) => {
-        const { label, Mark } = PROVIDERS[provider];
-        return (
-          <Button
-            key={provider}
-            variant="secondary"
-            size="lg"
-            fullWidth
-            disabled={disabled}
-            onClick={() => {
-              onStart(provider);
-              void signIn(provider, { callbackUrl }).catch(() => onError(`${label.replace("Continue with ", "")} sign-in is temporarily unavailable. Please try again.`));
-            }}
-          >
-            <Mark />
-            {label}
-          </Button>
-        );
-      })}
-      <div className="mt-1.5 flex items-center gap-3 text-sm text-ink-muted">
-        <span aria-hidden className="h-px flex-1 bg-line" />
-        or with email
-        <span aria-hidden className="h-px flex-1 bg-line" />
-      </div>
+    <div className="flex flex-col gap-4">
+      {social.length ? (
+        <div className={compact ? "grid grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))] gap-2" : "flex flex-col gap-2"}>
+          {social.map((provider) => button(provider, `Continue with ${PROVIDERS[provider].name}`, PROVIDERS[provider].Mark, () => start(provider), compact ? PROVIDERS[provider].name : undefined))}
+        </div>
+      ) : null}
+      {bridges.length || singleSignOn.length ? (
+        <div className="flex flex-col gap-2">
+          {singleSignOn.map((entry) => button(`${entry.kind}-${entry.slug}`, `Continue with ${entry.name}`, NeutralMark, () => startSso(entry)))}
+          {bridges.map((provider) => button(provider, `Continue with ${PROVIDERS[provider].name}`, PROVIDERS[provider].Mark, () => start(provider)))}
+        </div>
+      ) : null}
+      {dividerLabel ? <OrDivider label={dividerLabel} /> : null}
     </div>
   );
 }

@@ -37,14 +37,14 @@ describe("branded email construction", () => {
     expect(message.html).toContain("&lt;b&gt;bold&lt;/b&gt;");
   });
 
-  it("wears the Space Works brand: hosted lockup, pill teal buttons with cream labels, Space Works footer", async () => {
+  it("wears the Space Works brand: hosted lockup, 10px teal buttons with cream labels, Space Works footer", async () => {
     vi.stubEnv("NEXT_PUBLIC_BASE_URL", "https://members.test/");
     await sendBrandedEmail({ to: "person@example.test", subject: "Hi", heading: "Hi", paragraphs: ["Hello"], action: { label: "Open", url: "https://members.test/dashboard" } });
     vi.unstubAllEnvs();
     const message = lastMessage();
     expect(message.html).toContain('<img src="https://members.test/brand/logo/lockup-horizontal.png" width="180" height="29" alt="Space Works"');
     expect(message.html).toContain("background-color: #006E63; color: #FFF4E8;");
-    expect(message.html).toContain("border-radius: 9999px");
+    expect(message.html).toContain("border-radius: 10px");
     expect(message.html).toContain("This email was sent by Space Works Organization.");
     expect(message.html).toMatch(/&copy; \d{4} Space Works\s*<\/div>/);
     expect(message.text).toContain("Open: https://members.test/dashboard");

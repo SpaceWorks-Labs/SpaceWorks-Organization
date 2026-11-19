@@ -4,10 +4,10 @@ import { useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { ArrowLeft, LogOut, Moon, Sun, UserRound } from "lucide-react";
+import { ArrowLeft, LogOut, UserRound } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { BrandHomeLink } from "@/components/chrome/SiteHeader";
-import { useAppColorMode } from "@/components/providers";
+import { ColorModeMenuItems } from "@/components/chrome/ColorModeToggle";
 import { Avatar } from "@/components/ui/display";
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 
@@ -39,9 +39,8 @@ function activeSection(pathname: string): string | null {
 
 type SuperAdminUser = { name: string | null; email: string | null; image: string | null };
 
-/** The person's menu: account settings, light/dark mode and sign out (same items as the app shell). */
+/** The person's menu: account settings, appearance (Light, Dark, System) and sign out (same items as the app shell). */
 function AccountMenu({ user }: { user: SuperAdminUser }) {
-  const { mode, toggleColorMode } = useAppColorMode();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const name = user.name ?? user.email ?? "Account";
   return (
@@ -49,7 +48,7 @@ function AccountMenu({ user }: { user: SuperAdminUser }) {
       <MenuTrigger
         ref={triggerRef}
         aria-label={`Account menu for ${name}`}
-        className="inline-flex shrink-0 rounded-full outline-offset-2 transition-opacity hover:opacity-85"
+        className="inline-flex size-11 shrink-0 items-center justify-center rounded-full outline-offset-2 transition-colors hover:bg-surface"
       >
         <Avatar name={user.name ?? user.email} src={user.image} size="sm" />
       </MenuTrigger>
@@ -58,15 +57,8 @@ function AccountMenu({ user }: { user: SuperAdminUser }) {
         <MenuItem asChild icon={<UserRound />}>
           <Link href="/account">Account settings</Link>
         </MenuItem>
-        <MenuItem
-          icon={mode === "dark" ? <Sun /> : <Moon />}
-          onSelect={() => {
-            const rect = triggerRef.current?.getBoundingClientRect();
-            toggleColorMode(rect ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : undefined);
-          }}
-        >
-          {mode === "dark" ? "Light mode" : "Dark mode"}
-        </MenuItem>
+        <MenuSeparator />
+        <ColorModeMenuItems originRef={triggerRef} />
         <MenuSeparator />
         <MenuItem icon={<LogOut />} onSelect={() => void signOut({ callbackUrl: "/" })}>
           Sign out
@@ -93,7 +85,7 @@ export function SuperAdminTopBar({ user }: { user: SuperAdminUser }) {
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
           <Link
             href="/dashboard"
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-control px-2.5 text-sm font-medium text-ink-secondary transition-colors hover:bg-surface hover:text-ink"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-control px-2.5 text-sm font-medium text-ink-secondary transition-colors hover:bg-surface hover:text-ink"
           >
             <ArrowLeft aria-hidden className="size-4" />
             <span className="hidden sm:inline">Back to dashboard</span>
@@ -112,7 +104,7 @@ export function SuperAdminTopBar({ user }: { user: SuperAdminUser }) {
                   href={section.href}
                   aria-current={isActive ? "page" : undefined}
                   className={cn(
-                    "inline-flex min-h-9 items-center whitespace-nowrap rounded-control px-3 text-sm font-medium text-ink-secondary transition-colors hover:bg-surface hover:text-ink",
+                    "inline-flex min-h-11 items-center whitespace-nowrap rounded-control px-3 text-sm font-medium text-ink-secondary transition-colors hover:bg-surface hover:text-ink",
                     isActive && "bg-sidebar-active font-semibold text-on-sidebar-active hover:bg-sidebar-active hover:text-on-sidebar-active",
                   )}
                 >

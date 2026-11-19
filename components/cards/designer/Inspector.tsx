@@ -87,7 +87,7 @@ export function Inspector({ settings, branding, selected, onSelect, update }: {
               aria-checked={selected === element}
               onClick={() => onSelect(element)}
               className={cn(
-                "min-h-9 rounded-full border px-3 text-[14px] transition-colors duration-[120ms] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+                "min-h-11 rounded-control border px-3 text-[14px] transition-colors duration-(--sw-dur-fast) focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
                 selected === element ? "border-primary bg-primary font-semibold text-on-primary" : "border-line text-ink-secondary hover:bg-subtle hover:text-ink",
               )}
             >

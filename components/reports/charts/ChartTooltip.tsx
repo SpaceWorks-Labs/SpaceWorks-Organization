@@ -16,7 +16,7 @@ export function ChartTooltip({ title, rows, x, width }: { title: string; rows: T
       <ul className="mt-1 flex flex-col gap-1">
         {rows.map((row) => (
           <li key={row.label} className="flex items-center gap-2">
-            <span aria-hidden className={row.shape === "rect" ? "size-2.5 shrink-0 rounded-[3px]" : "h-0.5 w-3 shrink-0 rounded-full"} style={{ background: slotColor(row.slot) }} />
+            <span aria-hidden className={row.shape === "rect" ? "sw-chart-mark size-2.5 shrink-0 rounded-[3px]" : "sw-chart-mark h-1 w-3 shrink-0 rounded-full"} style={{ background: slotColor(row.slot) }} />
             <span className="font-semibold tabular-nums text-ink">{row.value}</span>
             <span className="min-w-0 truncate text-caption text-ink-secondary">{row.label}</span>
           </li>
@@ -33,7 +33,7 @@ export function ChartLegend({ items }: { items: Array<{ label: string; slot: num
     <ul className="flex flex-wrap gap-x-4 gap-y-1 text-caption text-ink-secondary" aria-label="Legend">
       {items.map((item) => (
         <li key={item.label} className="inline-flex items-center gap-1.5">
-          <span aria-hidden className={item.shape === "line" ? "h-0.5 w-3.5 rounded-full" : "size-2.5 rounded-[3px]"} style={{ background: slotColor(item.slot) }} />
+          <span aria-hidden className={item.shape === "line" ? "sw-chart-mark h-1 w-3.5 rounded-full" : "sw-chart-mark size-2.5 rounded-[3px]"} style={{ background: slotColor(item.slot) }} />
           {item.label}
         </li>
       ))}

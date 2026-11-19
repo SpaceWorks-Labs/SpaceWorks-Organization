@@ -5,6 +5,7 @@
 //   node docker/ops/admin.mjs reset-mfa --email you@example.org
 //   node docker/ops/admin.mjs revoke --email you@example.org
 //   node docker/ops/admin.mjs list
+//   node docker/ops/admin.mjs login-methods --show | --set google,apple,github   (password, google, apple, github, oidc, saml, supabase, firebase, or none)
 //   node docker/ops/admin.mjs promote-bootstrap   (run after migrations; see promoteBootstrap)
 // On a Compose install, run it through scripts/admin.sh, which starts it in the ops container.
 import { createHash } from "node:crypto";
@@ -108,6 +109,29 @@ async function superAdmin(email) {
   return user;
 }
 
+const METHOD_FIELDS = { password: "passwordSignIn", google: "googleSignIn", apple: "appleSignIn", github: "githubSignIn", oidc: "oidcSignIn", saml: "samlSignIn", supabase: "supabaseSignIn", firebase: "firebaseSignIn" };
+
+/** Which sign-in methods are switched on. A switch only gates a method that is also configured; off never deletes credentials. */
+async function loginMethods() {
+  const row = await prisma.instanceSetting.findUnique({ where: { id: "global" } });
+  // Password is on by default and every other method is off until switched on (product rules section 15).
+  const current = (method) => row?.[METHOD_FIELDS[method]] ?? method === "password";
+  if (flag("show") || option("set") === undefined) {
+    const forced = process.env.LOGIN_METHODS?.trim();
+    if (forced) say(`The server's LOGIN_METHODS decides: ${forced}`);
+    for (const method of Object.keys(METHOD_FIELDS)) console.log(`${method}	${current(method) ? "on" : "off"}`);
+    return say("Super admins always sign in with a password, whatever the password switch says.");
+  }
+  const words = option("set").split(",").map((word) => word.trim().toLowerCase()).filter(Boolean);
+  const unknown = words.filter((word) => word !== "none" && !(word in METHOD_FIELDS));
+  if (unknown.length || words.length === 0) fail(`Use a comma list of ${Object.keys(METHOD_FIELDS).join(", ")}, or none.`, 64);
+  const data = Object.fromEntries(Object.entries(METHOD_FIELDS).map(([method, field]) => [field, words.includes(method)]));
+  const changed = Object.entries(METHOD_FIELDS).filter(([method, field]) => current(method) !== data[field]).map(([, field]) => field);
+  await prisma.instanceSetting.upsert({ where: { id: "global" }, create: { id: "global", ...data }, update: data });
+  await prisma.auditEvent.create({ data: { action: "LOGIN_METHODS_UPDATED", actorUserId: null, targetType: "InstanceSetting", targetId: "global", metadata: { via: "server", changed: changed.join(",") } } });
+  say(`Sign-in methods on: ${words.filter((word) => word !== "none").join(", ") || "none"}. Each also needs its configuration to work.`);
+}
+
 async function main() {
   switch (command) {
     case "create": return create();
@@ -135,8 +159,9 @@ async function main() {
       for (const admin of admins) console.log(`${admin.email}\tsince ${admin.createdAt.toISOString().slice(0, 10)}\t${admin.passwordHash ? "password set" : "no password"}`);
       return;
     }
+    case "login-methods": return loginMethods();
     case "promote-bootstrap": return promoteBootstrap();
-    default: fail("Use create, set-password, reset-mfa, revoke or list (each with --email, except list).", 64);
+    default: fail("Use create, set-password, reset-mfa, revoke, list or login-methods (each with --email, except list and login-methods).", 64);
   }
 }
 

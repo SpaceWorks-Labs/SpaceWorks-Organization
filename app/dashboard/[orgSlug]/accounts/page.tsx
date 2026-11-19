@@ -29,7 +29,7 @@ export default async function AccountsPage({ params, searchParams }: Props) {
         <>
           <nav aria-label="Financial year" className="sw-print-hide flex flex-wrap gap-2">
             {view.years.map((year) => (
-              <Link key={year} href={`/dashboard/${org.slug}/accounts?fy=${year}`} aria-current={year === view.year ? "page" : undefined} className={cn("inline-flex min-h-9 items-center rounded-full border px-3.5 text-sm", year === view.year ? "border-primary bg-primary font-semibold text-on-primary" : "border-line bg-panel text-ink hover:bg-muted")}>
+              <Link key={year} href={`/dashboard/${org.slug}/accounts?fy=${year}`} aria-current={year === view.year ? "page" : undefined} className={cn("inline-flex min-h-11 items-center rounded-control border px-3.5 text-sm", year === view.year ? "border-primary bg-primary font-semibold text-on-primary" : "border-line bg-panel text-ink hover:bg-muted")}>
                 FY {year}
               </Link>
             ))}

@@ -11,7 +11,7 @@ export async function loadOrgApplicationView({ params }: { params: Promise<{ org
       where: { id: organisation.id },
       select: {
         name: true, slug: true, status: true, kind: true, description: true, contactEmail: true, contactPhone: true,
-        website: true, addressLine: true, city: true, stateCode: true, postalCode: true, createdAt: true,
+        website: true, addressLine: true, city: true, stateCode: true, postalCode: true, createdAt: true, delightEnabled: true,
       },
     }),
     prisma.organisationReview.findMany({

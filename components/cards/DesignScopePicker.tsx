@@ -27,7 +27,7 @@ export function DesignScopePicker({ slug, plans, roles, planId, roleId, source, 
       href={href}
       aria-current={current ? "page" : undefined}
       className={cn(
-        "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3.5 text-[14px] transition-colors duration-[120ms]",
+        "inline-flex min-h-11 items-center gap-1.5 rounded-control border px-3.5 text-[14px] transition-colors duration-(--sw-dur-fast)",
         current ? "border-primary bg-primary font-semibold text-on-primary" : "border-line bg-panel text-ink hover:bg-muted",
       )}
     >

@@ -1,4 +1,5 @@
 import { cn } from "@/lib/cn";
+import { AnimatedLogoMark } from "./AnimatedLogoMark";
 
 export type SpaceWorksLogoVariant = "symbol" | "lockup-horizontal" | "lockup-stacked" | "app-icon";
 export type SpaceWorksLogoTone = "full" | "reversed" | "ink";
@@ -36,11 +37,6 @@ export function spaceWorksLogoSize(variant: SpaceWorksLogoVariant, height?: numb
   return { width: Math.round((h * artwork.width) / artwork.height), height: h };
 }
 
-// Light/dark twins: CSS picks one, so there is no flash or layout shift. Dark is the
-// `dark` class on <html>; the operating-system preference is never consulted.
-const SHOW_IN_LIGHT = "dark:hidden";
-const SHOW_IN_DARK = "hidden dark:block";
-
 type SpaceWorksLogoProps = {
   variant?: SpaceWorksLogoVariant;
   /** full colour on cream/light, ink on white, reversed (cream) on Deep Ink or teal. Ignored for app-icon. */
@@ -61,16 +57,12 @@ type SpaceWorksLogoProps = {
 };
 
 /**
- * The Space Works logo, drawn from the unaltered master SVGs. Use full colour
- * on cream/light surfaces, ink on white, and reversed on Deep Ink or teal.
+ * The Space Works logo. Use full colour on cream/light surfaces, ink on white, and reversed on Deep Ink or teal.
+ * The symbol and lockups are drawn inline from the unaltered masters by AnimatedLogoMark, so the box opens once on
+ * hover or keyboard focus of the surrounding link (CR-MOTION-01). The app-icon tile is a static image and never moves.
  */
 export function SpaceWorksLogo({ variant = "lockup-horizontal", tone = "full", adaptive = true, height, clearSpace = false, label = "Space Works", className }: SpaceWorksLogoProps) {
   const size = spaceWorksLogoSize(variant, height);
-  const twin = adaptive && tone !== "reversed" && variant !== "app-icon";
-  const image = (src: string, display: string) => (
-    // eslint-disable-next-line @next/next/no-img-element -- static SVG masters from /public
-    <img src={src} alt="" width={size.width} height={size.height} className={cn("block max-w-none shrink-0", display)} draggable={false} />
-  );
   return (
     <span
       role={label ? "img" : undefined}
@@ -80,15 +72,19 @@ export function SpaceWorksLogo({ variant = "lockup-horizontal", tone = "full", a
       className={cn("inline-flex shrink-0", className)}
       style={clearSpace ? { padding: Math.round(size.height / 4) } : undefined}
     >
-      {image(spaceWorksLogoSrc(variant, tone), twin ? SHOW_IN_LIGHT : "")}
-      {twin ? image(spaceWorksLogoSrc(variant, "reversed"), SHOW_IN_DARK) : null}
+      {variant === "app-icon" ? (
+        // eslint-disable-next-line @next/next/no-img-element -- static SVG master from /public
+        <img src={spaceWorksLogoSrc(variant)} alt="" width={size.width} height={size.height} className="block max-w-none shrink-0" draggable={false} />
+      ) : (
+        <AnimatedLogoMark shape={variant} tone={tone} adaptive={adaptive} width={size.width} height={size.height} />
+      )}
     </span>
   );
 }
 
 /**
  * The product lockup for headers: the horizontal Space Works lockup, a thin
- * rule, and "Organization" in Gilroy ExtraBold. The rule and label sit a clear space
+ * rule, and "Organization" in Outfit SemiBold (600, CR-TYPE-01). The rule and label sit a clear space
  * (¼ of the lockup height) away from the artwork.
  */
 export function SpaceWorksProductLogo({ height = 36, label = "Space Works Organization", className }: { height?: number; label?: string | null; className?: string }) {

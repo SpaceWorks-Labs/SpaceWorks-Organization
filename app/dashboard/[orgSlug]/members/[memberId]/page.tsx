@@ -49,7 +49,7 @@ export default async function MemberPage({ params }: { params: Promise<{ orgSlug
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <div className="flex min-w-0 flex-col gap-6">
-          <MembershipPanel slug={org.slug} memberId={member.id} memberships={memberships} plans={view.plans} canManage={view.canManage} />
+          <MembershipPanel slug={org.slug} memberId={member.id} memberships={memberships} plans={view.plans} canManage={view.canManage} delight={org.delightEnabled} />
           {payments ? <MemberPaymentsSection data={payments} /> : null}
           <Card as="section" className="rounded-xl">
             <CardHeader title="Details" />
@@ -70,7 +70,7 @@ export default async function MemberPage({ params }: { params: Promise<{ orgSlug
           </Card>
         </div>
         <div className="flex min-w-0 flex-col gap-6">
-          <MemberCardPanel slug={org.slug} memberId={member.id} memberName={member.name} plans={view.cards} canManage={view.canManageCards} />
+          <MemberCardPanel slug={org.slug} memberId={member.id} memberName={member.name} plans={view.cards} canManage={view.canManageCards} delight={org.delightEnabled} />
           <ErasureRequestCard slug={org.slug} requests={member.erasureRequests} anonymisedAt={member.anonymisedAt} canManage={view.canDecideErasure} timeZone={tz} />
           <MemberRolesPicker slug={org.slug} memberId={member.id} roles={view.roles} initial={member.roles.map((a) => a.roleId)} initialPrimary={primary} canManage={view.canManage} />
           <Card as="section" className="rounded-xl">

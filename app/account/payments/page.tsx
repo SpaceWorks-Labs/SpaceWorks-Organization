@@ -24,7 +24,7 @@ export default async function AccountPaymentsPage() {
       ) : payments.length === 0 ? (
         <EmptyState mood="waiting" title="No payments yet">When you pay for a membership, the payment and its receipt show up here.</EmptyState>
       ) : (
-        <ul className="flex flex-col divide-y divide-line rounded-2xl border border-line bg-panel px-5">
+        <ul className="flex flex-col divide-y divide-line rounded-xl border border-line bg-panel px-5">
           {payments.map((payment) => (
             <li key={payment.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-4">
               <span className="min-w-0 flex-[1_1_240px]">

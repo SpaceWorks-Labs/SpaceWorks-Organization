@@ -6,6 +6,7 @@ import { requireAuth } from "@/lib/permissions";
 import { hasRecentAuthentication } from "@/lib/reauth";
 import { consumeMfaCode, createMfaEnrollment, decryptMfaSecret, encryptMfaSecret, generateRecoveryCodes, hashRecoveryCode, verifyMfaCode } from "@/lib/mfa";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
+import { revokeAllUserSessions } from "@/lib/userSessions";
 import type { ActionResult } from "./org";
 
 const codeSchema = z.object({ code: z.string().trim().min(6).max(32) });
@@ -109,6 +110,7 @@ export async function revokeAllSessions(): Promise<ActionResult> {
     await tx.user.update({ where: { id: session.user.id }, data: { sessionVersion: { increment: 1 } } });
     await tx.verificationToken.deleteMany({ where: { identifier: `mfa:${session.user.id}` } });
     await tx.session.deleteMany({ where: { userId: session.user.id } });
+    await revokeAllUserSessions(session.user.id, tx);
     await tx.auditEvent.create({ data: { action: "SESSIONS_REVOKED", actorUserId: session.user.id, targetType: "User", targetId: session.user.id } });
   });
   return { ok: true };

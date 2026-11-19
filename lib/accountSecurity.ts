@@ -12,6 +12,14 @@ const SECURITY_ACTIVITY_LABELS = {
   ACCOUNT_PASSWORD_CHANGED: "Password changed",
   ACCOUNT_PASSWORD_RESET: "Password reset by email link",
   SESSIONS_REVOKED: "Signed out everywhere",
+  SESSION_REVOKED: "Signed out of a device",
+  IDENTITY_LINKED: "Sign-in method added",
+  IDENTITY_UNLINKED: "Sign-in method removed",
+  RECOVERY_CODES_REGENERATED: "Recovery codes replaced",
+  PASSKEY_ADDED: "Passkey added",
+  PASSKEY_REMOVED: "Passkey removed",
+  PHONE_ADDED: "Phone number added",
+  PHONE_REMOVED: "Phone number removed",
 } as const satisfies Record<string, string>;
 
 type SecurityActivityAction = keyof typeof SECURITY_ACTIVITY_LABELS;
@@ -24,7 +32,7 @@ export function securityActivityLabel(action: string): string {
   return Object.hasOwn(SECURITY_ACTIVITY_LABELS, action) ? SECURITY_ACTIVITY_LABELS[action as SecurityActivityAction] : "Security change";
 }
 
-const PROVIDER_LABELS: Record<string, string> = { google: "Google" };
+const PROVIDER_LABELS: Record<string, string> = { google: "Google", apple: "Apple", github: "GitHub", supabase: "Supabase", firebase: "Firebase" };
 
 /** Display name for an Auth.js OAuth provider id ("google" → "Google"). */
 export function signInProviderLabel(provider: string): string {

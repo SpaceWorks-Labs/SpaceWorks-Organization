@@ -126,7 +126,7 @@ export function PlanForm({
       </Section>
 
       {!disabled ? (
-        <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center gap-3 border-t border-line bg-canvas/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-xl sm:border">
+        <div className="sticky bottom-0 z-10 -mx-4 flex flex-wrap items-center gap-3 border-t border-line bg-canvas px-4 py-3 sm:mx-0 sm:rounded-xl sm:border">
           <Button type="submit" variant="primary" loading={pending}>{planId ? "Save plan" : "Create plan"}</Button>
           {planId ? (
             <Button type="button" variant={archived ? "secondary" : "dangerQuiet"} className="ml-auto" disabled={pending} onClick={archive}>

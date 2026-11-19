@@ -19,7 +19,7 @@ export function FontPicker({ value, onChange }: { value: string; onChange: (id: 
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button type="button" aria-label={`Font: ${current.label}`} className="flex min-h-11 w-full items-center justify-between gap-2 rounded-full border border-line bg-panel px-4 text-left text-ink hover:bg-muted">
+        <button type="button" aria-label={`Font: ${current.label}`} className="flex min-h-11 w-full items-center justify-between gap-2 rounded-control border border-line bg-panel px-4 text-left text-ink hover:bg-muted">
           <span className="truncate text-[16px]" style={{ fontFamily: cardFontStack(current.id) }}>{current.label}</span>
           <ChevronDown aria-hidden className="size-4 shrink-0 text-ink-muted" />
         </button>

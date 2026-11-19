@@ -277,3 +277,15 @@ after five failed SSH logins. Docker publishes its own ports past ufw; this stac
   check `ps` for both.
 - `run --rm ops` names the failing check without printing any connection detail; it also checks the worker's
   and beat's `/health` on `JOBS_HEALTH_PORT`.
+
+## Sign-in options
+
+The installer asks "Which sign-in options besides email and password?" (`google, apple, github, oidc, saml, supabase,
+firebase`, or `none`, the default; every option is off until switched on) and then the ids each needs: Google and GitHub client id and secret, Apple Services ID, team ID, key ID and
+the path to the `.p8` key, the Supabase project URL and publishable key, and the Firebase web app values and
+providers. Everything goes into `.env` (mode 600); secrets are never printed. Picking options also writes
+`LOGIN_METHODS`, which then decides the switches. Change them later with
+`bash scripts/admin.sh login-methods --show` or `--set google,apple` (OpenID Connect and SAML providers themselves
+are added in Super admin, Auth) (remove `LOGIN_METHODS` from `.env` first, or
+the server's list wins). Supabase needs asymmetric JWT signing keys and `/login/bridge/supabase` in its redirect
+allow-list. Details: `docs/CONFIGURATION.md`, `docs/SECURITY.md`.

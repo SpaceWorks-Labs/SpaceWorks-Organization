@@ -12,7 +12,7 @@ export const CHAT_EVENT_LABELS: Record<ChatEvent, string> = {
   "monthly-summary": "Monthly summary",
 };
 
-export const CHAT_KINDS = ["SLACK", "DISCORD", "MATTERMOST", "TELEGRAM", "WHATSAPP"] as const;
+export const CHAT_KINDS = ["SLACK", "DISCORD", "MATTERMOST", "TELEGRAM", "WHATSAPP", "WEBHOOK"] as const;
 export type ChatKind = (typeof CHAT_KINDS)[number];
 
 export const CHAT_KIND_LABELS: Record<ChatKind, string> = {
@@ -21,6 +21,7 @@ export const CHAT_KIND_LABELS: Record<ChatKind, string> = {
   MATTERMOST: "Mattermost",
   TELEGRAM: "Telegram",
   WHATSAPP: "WhatsApp",
+  WEBHOOK: "Signed webhook",
 };
 
 /** The WhatsApp message template organisations create and get approved in Meta's WhatsApp Manager. */

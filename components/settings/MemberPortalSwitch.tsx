@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { setDelightEnabled } from "@/app/actions/delight";
 import { setMemberPhotoUpload, setMemberPortal } from "@/app/actions/member-portal";
 import type { ActionResult } from "@/app/actions/org";
 import { Callout } from "@/components/ui/display";
@@ -66,6 +67,21 @@ export function MemberPhotoUploadSwitch({ slug, enabled, canEdit, portal }: Prop
       enabled={enabled}
       canEdit={canEdit}
       save={(next) => setMemberPhotoUpload({ organisationSlug: slug, enabled: next })}
+    />
+  );
+}
+
+/** The organisation's playful touches (Organisation.delightEnabled): on by default, with this opt-out. */
+export function PlayfulTouchesSwitch({ slug, enabled, canEdit }: Props) {
+  return (
+    <SettingSwitch
+      label="Playful touches"
+      description={(on) => on
+        ? "Members' cards tilt and catch the light, plans rise into place on your public page, joining ends with a small flourish, and Patch sneezes when your team lets a member in. Devices set to reduce motion never see them."
+        : "Off: cards stay flat and pages appear without the flourishes. Everything else works the same."}
+      enabled={enabled}
+      canEdit={canEdit}
+      save={(next) => setDelightEnabled({ organisationSlug: slug, enabled: next })}
     />
   );
 }

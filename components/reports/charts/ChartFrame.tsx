@@ -94,7 +94,7 @@ export function HeatTable({ rows, columns, label }: { rows: Array<{ key: string;
                 cell === null || row.size === 0 ? (
                   <td key={index} className="rounded-[4px] bg-transparent px-1 py-1 text-center text-ink-disabled">·</td>
                 ) : (
-                  <td key={index} className="rounded-[4px] px-1 py-1 text-center font-semibold tabular-nums" style={{ background: `var(--chart-ord-${step(cell)})`, color: `var(--chart-ord-on-${step(cell)})` }}>
+                  <td key={index} className="sw-chart-mark rounded-[4px] px-1 py-1 text-center font-semibold tabular-nums" style={{ background: `var(--chart-ord-${step(cell)})`, color: `var(--chart-ord-on-${step(cell)})` }}>
                     {Math.round(cell * 100)}
                   </td>
                 ),

@@ -78,8 +78,12 @@ export function TrendChart({ labels, series, ariaLabel, format = "number", area 
             <text key={`${label}-${index}`} x={xOf(index)} y={TOP + height + 16} textAnchor={index === 0 && labels.length > 1 ? "start" : index === labels.length - 1 && labels.length > 1 ? "end" : "middle"} className="fill-ink-muted text-[12px]">{label}</text>
           ) : null)}
           {area && series.length === 1 ? (
-            <path d={`${path(series[0].values)}L${xOf(lastIndex(series[0].values)).toFixed(1)} ${yOf(0)}L${xOf(series[0].values.findIndex((v) => v !== null)).toFixed(1)} ${yOf(0)}Z`} fill={slotColor(series[0].slot)} opacity={0.1} />
+            <path d={`${path(series[0].values)}L${xOf(lastIndex(series[0].values)).toFixed(1)} ${yOf(0)}L${xOf(series[0].values.findIndex((v) => v !== null)).toFixed(1)} ${yOf(0)}Z`} style={{ fill: series[0].slot === 1 ? "var(--chart-wash)" : `color-mix(in srgb, ${slotColor(series[0].slot)} 14%, var(--chart-surface))` }} />
           ) : null}
+          {/* A 4px edge-coloured casing under every 2px line carries the contrast (CR-CHART-01). */}
+          {series.map((entry) => (
+            <path key={`${entry.key}-casing`} d={path(entry.values)} fill="none" stroke="var(--chart-edge)" strokeWidth={4} strokeLinejoin="round" strokeLinecap="round" />
+          ))}
           {series.map((entry) => (
             <path key={entry.key} data-series={entry.key} d={path(entry.values)} fill="none" stroke={slotColor(entry.slot)} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
           ))}
@@ -89,7 +93,7 @@ export function TrendChart({ labels, series, ariaLabel, format = "number", area 
             const value = entry.values[end]!;
             return (
               <g key={`${entry.key}-end`}>
-                <circle cx={xOf(end)} cy={yOf(value)} r={4} fill={slotColor(entry.slot)} stroke="var(--chart-surface)" strokeWidth={2} />
+                <circle cx={xOf(end)} cy={yOf(value)} r={4} fill={slotColor(entry.slot)} stroke="var(--chart-edge)" strokeWidth={1} />
                 {directLabels ? <text x={xOf(end) + 8} y={yOf(value)} dy="0.32em" className="fill-ink-secondary text-[12px] font-semibold tabular-nums">{formatValue(value, format)}</text> : null}
               </g>
             );
@@ -99,7 +103,7 @@ export function TrendChart({ labels, series, ariaLabel, format = "number", area 
               <line x1={xOf(focus.index)} x2={xOf(focus.index)} y1={TOP} y2={TOP + height} stroke="var(--chart-axis)" strokeWidth={1} />
               {series.map((entry) => {
                 const value = entry.values[focus.index!];
-                return value === null || value === undefined ? null : <circle key={entry.key} cx={xOf(focus.index!)} cy={yOf(value)} r={4} fill={slotColor(entry.slot)} stroke="var(--chart-surface)" strokeWidth={2} />;
+                return value === null || value === undefined ? null : <circle key={entry.key} cx={xOf(focus.index!)} cy={yOf(value)} r={4} fill={slotColor(entry.slot)} stroke="var(--chart-edge)" strokeWidth={1} />;
               })}
             </g>
           ) : null}

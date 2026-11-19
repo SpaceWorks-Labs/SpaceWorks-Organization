@@ -4,6 +4,54 @@ Releases are published from `main` and titled **`Space Works Organization <versi
 file selects the series; each build is tagged `v<series>-main.<run>.<sha>`, which is what a deployment pins
 to. Pushes to `dev` publish staging images tagged `dev` without a release.
 
+## 0.9.0 (2026-11-19)
+
+Space Works Design System v2.5.1 everywhere, a landing page, a features page and in-product docs, motion,
+web analytics for the platform and each organisation, and staff sign-up from an invite link.
+
+- **Design system v2.5.1:**
+  - Outfit for reading and interface text, with Gilroy ExtraBold for display headings.
+  - Light, Dark and System themes with no flash on load, and a solid-black dark theme.
+  - 10 px controls.
+  - Status marks that keep their fills, opaque text, explicit disabled states, the five-colour chart palette with
+    edges, and the Citron sidebar.
+- **Motion:**
+  - The Space Works box opens on hover and focus. The box loader is the only loading indicator, and buttons show a
+    small box while busy.
+  - Pages move their content only; dialogs, drawers, menus and toasts enter and leave smoothly.
+  - Toasts stay for 8 seconds, pause while you read them, and errors stay until dismissed.
+  - Tabs and the sidebar slide their highlight. Reduced motion turns it all off.
+- **Organisations' public pages:**
+  - Plans and the directory arrive in order, the FAQ opens smoothly, and long pages reveal as you scroll.
+  - The card check shows a stamp, and joining shows its result.
+  - "Playful touches" (Patch, confetti, card tilt) can be switched off per organisation.
+  - The footer links to the features, the docs and the source.
+- **Landing page, features and docs:**
+  - A new landing page with links to GitHub, the latest release and installer, the docs, the licence and this
+    changelog. `LANDING_ENABLED=false` sends visitors to the organisations instead.
+  - `/features` describes every area: organisations, units, staff and roles, plans, payments, cards, reports and
+    more.
+  - `/docs` has a page per feature area plus the operator guides.
+- **Web analytics:**
+  - Optional outside providers for the platform (super admin) and for each organisation's own public pages
+    (Owner): Plausible, Umami, Google Analytics 4, Firebase Analytics and Performance, PostHog, Microsoft Clarity
+    and Sentry, plus Mixpanel from the server's environment.
+  - Nothing loads until the provider is configured and the visitor agrees in Privacy preferences. Providers run
+    only for signed-out visitors on public pages and never receive personal data.
+  - Built-in visit counts for public pages (counts only, no cookies) appear in organisation reports ("Web visits")
+    and in super-admin analytics.
+- **Staff invites:**
+  - Someone opening an invite link can create an account there, with email and password or Google (Apple and
+    GitHub when enabled), even while new sign-ups are switched off.
+  - Verifying their email brings them back to the invite.
+- **Security:**
+  - The Content Security Policy now limits connections to the site itself, the backend and Razorpay.
+  - Pay links can open Razorpay checkout.
+- **Upgrade notes:**
+  - Run migration 0022 (the update does this).
+  - New optional environment variables: `LANDING_ENABLED`, `WEB_TELEMETRY_ALLOWED_ORIGINS` and
+    `WEB_TELEMETRY_MIXPANEL_TOKEN`/`_API_HOST`/`_SDK_HOST` (see `docs/CONFIGURATION.md`).
+
 ## 0.8.1 (2026-10-29)
 
 Join forms each organisation shapes for itself.

@@ -2,10 +2,10 @@
 
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { Check } from "lucide-react";
+import { INSTALL_COMMAND } from "@/lib/openSource";
 import { CopyCommand } from "./CopyCommand";
 
 const IMAGE = "ghcr.io/spaceworks-labs/spaceworks-organization";
-const INSTALL = "curl -fsSL https://raw.githubusercontent.com/SpaceWorks-Labs/SpaceWorks-Organization/main/install.sh | bash";
 
 /** The ways to run it, each with what it sets up and the command that starts it. */
 const OPTIONS = [
@@ -19,7 +19,7 @@ const OPTIONS = [
       "Nightly encrypted backups, kept on the server and offsite if you add a bucket.",
       "Updates come from GitHub releases; a backup is taken first and the old version returns if the new one fails its health check.",
     ],
-    copy: INSTALL,
+    copy: INSTALL_COMMAND,
     terminal: [
       ["$ ", "curl -fsSL \\"],
       ["", "  https://raw.githubusercontent.com/\\"],
@@ -102,7 +102,10 @@ const OPTIONS = [
   },
 ] as const;
 
-/** The self-hosting choices on the teal band, each with its terminal. */
+/**
+ * The self-hosting choices, each with its terminal. Drawn on the Deep Ink island (`.sw-dark-band`), whose tokens
+ * are the dark set in light mode and the neutral black family in dark mode, so it uses role tokens only.
+ */
 export function DeployTabs() {
   return (
     <TabsPrimitive.Root defaultValue="vps" className="flex flex-col gap-6">
@@ -111,7 +114,7 @@ export function DeployTabs() {
           <TabsPrimitive.Trigger
             key={option.id}
             value={option.id}
-            className="min-h-10 rounded-control border border-sw-cream/25 px-4 text-label font-semibold text-sw-cream transition-colors hover:bg-sw-cream/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sw-citron data-[state=active]:border-sw-citron data-[state=active]:bg-sw-citron data-[state=active]:text-sw-ink"
+            className="min-h-11 rounded-control border border-line-strong px-4 text-label font-semibold text-ink transition-colors duration-(--sw-dur-fast) hover:bg-muted data-[state=active]:border-sw-citron data-[state=active]:bg-sw-citron data-[state=active]:text-sw-ink"
           >
             {option.label}
           </TabsPrimitive.Trigger>
@@ -119,12 +122,12 @@ export function DeployTabs() {
       </TabsPrimitive.List>
 
       {OPTIONS.map((option) => (
-        <TabsPrimitive.Content key={option.id} value={option.id} className="grid gap-8 focus-visible:outline-none lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-start">
+        <TabsPrimitive.Content key={option.id} value={option.id} className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:items-start">
           <div className="flex flex-col gap-4">
-            <p className="text-h4 text-sw-cream">{option.summary}</p>
+            <p className="text-h4 text-ink">{option.summary}</p>
             <ul className="flex flex-col gap-3">
               {option.points.map((point) => (
-                <li key={point} className="flex gap-3 text-body-ui text-sw-cream/85">
+                <li key={point} className="flex gap-3 text-body-ui text-ink-secondary">
                   <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-sw-citron text-sw-ink">
                     <Check aria-hidden className="size-3.5" />
                   </span>
@@ -134,20 +137,19 @@ export function DeployTabs() {
             </ul>
           </div>
 
-          <figure className="overflow-hidden rounded-[20px] bg-sw-ink text-sw-cream shadow-[0_30px_70px_-30px_rgb(0_0_0/0.6)]">
-            <div className="flex items-center justify-between gap-3 border-b border-sw-cream/10 px-5 py-3">
-              <figcaption className="text-caption text-sw-cream/70">Terminal preview · {option.label}</figcaption>
+          <figure className="overflow-hidden rounded-xl border border-line bg-surface text-ink">
+            <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
+              <figcaption className="text-caption text-ink-muted">Terminal preview · {option.label}</figcaption>
               <CopyCommand command={option.copy} />
             </div>
-            <pre className="overflow-x-auto px-5 py-5 font-mono text-[13px] leading-relaxed text-sw-cream/90">
+            <pre tabIndex={0} aria-label={`Commands for ${option.label}`} className="overflow-x-auto px-5 py-5 code-text text-[13px] leading-relaxed text-ink">
               <code>
                 {option.terminal.map(([prompt, line], index) => (
                   <span key={index} className="block min-h-[1.6em]">
-                    {prompt ? <span className={prompt === "$ " ? "text-sw-citron" : "text-sw-cream/50"}>{prompt}</span> : null}
-                    <span className={prompt === "# " ? "text-sw-cream/60" : undefined}>{line}</span>
+                    {prompt ? <span aria-hidden className="text-ink-muted">{prompt}</span> : null}
+                    <span className={prompt === "# " ? "text-ink-muted" : undefined}>{line}</span>
                   </span>
                 ))}
-                <span className="landing-caret mt-1 inline-block h-4 w-2 translate-y-0.5 bg-sw-citron" />
               </code>
             </pre>
           </figure>

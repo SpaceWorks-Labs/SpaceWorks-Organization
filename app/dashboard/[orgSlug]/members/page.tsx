@@ -83,10 +83,12 @@ export default async function OrgMembersDirectoryPage({ params, searchParams }: 
             key={key}
             href={query({ status: key === "all" ? "" : key, page: "" })}
             aria-current={filter === key ? "page" : undefined}
+            // An empty filter is disabled with the explicit recipe (CR-DISABLED-01), never dimmed.
+            aria-disabled={key !== "all" && counts[key] === 0 && filter !== key ? true : undefined}
             className={cn(
-              "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm transition-colors",
+              "inline-flex min-h-11 items-center gap-1.5 rounded-control border px-3.5 text-sm transition-colors duration-(--sw-dur-fast) ease-sw",
               filter === key ? "border-primary bg-primary font-semibold text-on-primary" : "border-line bg-panel text-ink hover:bg-muted",
-              key !== "all" && counts[key] === 0 && filter !== key && "opacity-60",
+              key !== "all" && counts[key] === 0 && filter !== key && "pointer-events-none border-line bg-surface text-ink-muted",
             )}
           >
             {FILTER_LABELS[key]} <span className="tabular-nums">{counts[key]}</span>

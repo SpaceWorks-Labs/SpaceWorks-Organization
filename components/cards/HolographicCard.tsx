@@ -11,6 +11,8 @@ import styles from "./cards.module.css";
  * 3D transforms; no WebGL. With reduced motion the card stays flat and the
  * flip is an instant swap. `celebrate` plays the one-time "card issued" entrance: the card rises
  * into place and a Citron and Sky Blue sweep crosses it once (still under reduced motion).
+ * `delight={false}` is the organisation's playful-touches opt-out (Organisation.delightEnabled): the card stays
+ * flat with no sheen, sweep or phone tilt, and still flips.
  */
 
 type Tilt = { x: number; y: number };
@@ -45,6 +47,7 @@ export function HolographicCard({
   heightMm,
   label,
   celebrate = false,
+  delight = true,
 }: {
   front: ReactNode;
   back: ReactNode | null;
@@ -52,6 +55,7 @@ export function HolographicCard({
   heightMm: number;
   label: string;
   celebrate?: boolean;
+  delight?: boolean;
 }) {
   const reduced = useReducedMotion();
   const [flipped, setFlipped] = useState(false);
@@ -59,7 +63,7 @@ export function HolographicCard({
   const support = useSyncExternalStore(noop, gyroSupport, () => "none" as const);
   const [granted, setGranted] = useState(false);
   // Phones tilt the card; iOS asks first, so it offers a button.
-  const gyro = support === "auto" || granted ? "on" : support === "ask" ? "ask" : "off";
+  const gyro = !delight ? "off" : support === "auto" || granted ? "on" : support === "ask" ? "ask" : "off";
   const frame = useRef<number | null>(null);
   const stage = useRef<HTMLDivElement>(null);
 
@@ -96,7 +100,8 @@ export function HolographicCard({
     }
   };
 
-  const active = !reduced;
+  const active = !reduced && delight;
+  const celebrating = celebrate && delight;
   const rotateY = (flipped ? 180 : 0) + (active ? tilt.x * MAX_TILT_DEG : 0);
   const rotateX = active ? -tilt.y * MAX_TILT_DEG : 0;
   const sheenX = 50 + tilt.x * 40;
@@ -111,7 +116,7 @@ export function HolographicCard({
     borderRadius: 14,
     overflow: "hidden",
     // A filter on the turning element would flatten the 3D scene, so each face carries its own lift.
-    boxShadow: "0 18px 32px -12px rgb(20 44 42 / 0.35)",
+    boxShadow: "0 18px 32px -12px color-mix(in srgb, var(--sw-brand-deep-ink) 35%, transparent)",
   };
 
   const sheen = (
@@ -122,7 +127,7 @@ export function HolographicCard({
         mixBlendMode: "soft-light",
         opacity: active ? 0.55 + Math.min(0.35, Math.hypot(tilt.x, tilt.y) * 0.35) : 0,
         // Longhand only: React warns when the `background` shorthand is mixed with backgroundSize/Position on re-render.
-        backgroundImage: `radial-gradient(circle at ${sheenX}% ${sheenY}%, rgb(255 255 255 / 0.75), transparent 42%), linear-gradient(${110 + tilt.x * 25}deg, transparent 22%, rgb(223 255 143 / 0.65) 38%, rgb(181 205 255 / 0.7) 50%, rgb(255 244 232 / 0.6) 60%, transparent 76%)`,
+        backgroundImage: `radial-gradient(circle at ${sheenX}% ${sheenY}%, color-mix(in srgb, white 75%, transparent), transparent 42%), linear-gradient(${110 + tilt.x * 25}deg, transparent 22%, color-mix(in srgb, var(--sw-brand-citron) 65%, transparent) 38%, color-mix(in srgb, var(--sw-brand-sky-blue) 70%, transparent) 50%, color-mix(in srgb, var(--sw-brand-warm-cream) 60%, transparent) 60%, transparent 76%)`,
         backgroundSize: "100% 100%, 220% 220%",
         backgroundPosition: `center, ${sheenX}% ${sheenY}%`,
       }}
@@ -133,7 +138,7 @@ export function HolographicCard({
     <div className="flex flex-col items-center gap-3">
       <div
         ref={stage}
-        className={celebrate ? `w-full ${styles.issued}` : "w-full"}
+        className={celebrating ? `w-full ${styles.issued}` : "w-full"}
         style={{ perspective: 1200, maxWidth: widthMm > heightMm ? 420 : 280 }}
         onPointerMove={(event) => {
           if (!active || event.pointerType === "touch") return;
@@ -151,13 +156,14 @@ export function HolographicCard({
             aspectRatio: aspect,
             transformStyle: "preserve-3d",
             transform: reduced ? undefined : `rotateX(${rotateX}deg) rotateY(${rotateY}deg)`,
-            transition: reduced ? undefined : "transform 650ms cubic-bezier(.2,.8,.2,1)",
+            // The tilt eases after the pointer over 2.5 × slow (600ms) on the enter curve.
+            transition: reduced ? undefined : "transform calc(var(--sw-dur-slow) * 2.5) var(--sw-ease-enter)",
           }}
         >
           <div style={{ ...faceStyle, visibility: reduced && flipped ? "hidden" : undefined }}>
             {front}
             {sheen}
-            {celebrate ? <span aria-hidden className={styles.sweep} /> : null}
+            {celebrating ? <span aria-hidden className={styles.sweep} /> : null}
           </div>
           {back ? (
             <div style={{ ...faceStyle, transform: reduced ? undefined : "rotateY(180deg)", visibility: reduced && !flipped ? "hidden" : undefined }}>

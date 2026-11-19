@@ -1,6 +1,11 @@
 {
   "readers": [
     {
+      "module": "lib/views/account__phone",
+      "name": "loadPhoneCardView",
+      "id": "account__phone:loadPhoneCardView"
+    },
+    {
       "module": "lib/views/app__account__layout",
       "name": "loadAccountShell",
       "id": "app__account__layout:loadAccountShell"
@@ -44,6 +49,11 @@
       "module": "lib/views/app__account__security__page",
       "name": "loadAccountSecurityView",
       "id": "app__account__security__page:loadAccountSecurityView"
+    },
+    {
+      "module": "lib/views/app__auth__login__bridge__provider__page",
+      "name": "loadBridgeView",
+      "id": "app__auth__login__bridge__provider__page:loadBridgeView"
     },
     {
       "module": "lib/views/app__auth__login__page",
@@ -176,6 +186,16 @@
       "id": "app__dashboard__orgSlug__reports__units__page:loadOrgReportsUnits"
     },
     {
+      "module": "lib/views/app__dashboard__orgSlug__reports__visits__page",
+      "name": "loadOrgVisitsReport",
+      "id": "app__dashboard__orgSlug__reports__visits__page:loadOrgVisitsReport"
+    },
+    {
+      "module": "lib/views/app__dashboard__orgSlug__settings__analytics__page",
+      "name": "loadOrgWebAnalyticsSettingsView",
+      "id": "app__dashboard__orgSlug__settings__analytics__page:loadOrgWebAnalyticsSettingsView"
+    },
+    {
       "module": "lib/views/app__dashboard__orgSlug__settings__cards__page",
       "name": "loadOrgCardSettingsView",
       "id": "app__dashboard__orgSlug__settings__cards__page:loadOrgCardSettingsView"
@@ -226,6 +246,11 @@
       "id": "app__dashboard__orgSlug__settings__structure__unitId__page:loadOrgUnitView"
     },
     {
+      "module": "lib/views/app__dashboard__orgSlug__settings__tabs",
+      "name": "loadSettingsTabsView",
+      "id": "app__dashboard__orgSlug__settings__tabs:loadSettingsTabsView"
+    },
+    {
       "module": "lib/views/app__dashboard__orgSlug__team__page",
       "name": "loadOrgMembersView",
       "id": "app__dashboard__orgSlug__team__page:loadOrgMembersView"
@@ -239,6 +264,11 @@
       "module": "lib/views/app__join__org__token__page",
       "name": "loadJoinOrganisationView",
       "id": "app__join__org__token__page:loadJoinOrganisationView"
+    },
+    {
+      "module": "lib/views/app__layout",
+      "name": "loadWebTelemetryView",
+      "id": "app__layout:loadWebTelemetryView"
     },
     {
       "module": "lib/views/app__o__orgSlug__join__planSlug__page",
@@ -256,6 +286,16 @@
       "id": "app__o__orgSlug__page:loadPublicOrgPage"
     },
     {
+      "module": "lib/views/app__o__orgSlug__telemetry",
+      "name": "loadOrgWebTelemetryView",
+      "id": "app__o__orgSlug__telemetry:loadOrgWebTelemetryView"
+    },
+    {
+      "module": "lib/views/app__o__orgSlug__telemetry",
+      "name": "loadOrgPrivacyNoteView",
+      "id": "app__o__orgSlug__telemetry:loadOrgPrivacyNoteView"
+    },
+    {
       "module": "lib/views/app__organisations__page",
       "name": "loadOrganisationsDirectory",
       "id": "app__organisations__page:loadOrganisationsDirectory"
@@ -264,6 +304,11 @@
       "module": "lib/views/app__pay__token__page",
       "name": "loadPayLinkView",
       "id": "app__pay__token__page:loadPayLinkView"
+    },
+    {
+      "module": "lib/views/app__privacy__page",
+      "name": "loadPrivacyTelemetryView",
+      "id": "app__privacy__page:loadPrivacyTelemetryView"
     },
     {
       "module": "lib/views/app__sitemap",
@@ -279,6 +324,11 @@
       "module": "lib/views/app__super-admin__analytics__page",
       "name": "loadSuperAdminAnalyticsView",
       "id": "app__super-admin__analytics__page:loadSuperAdminAnalyticsView"
+    },
+    {
+      "module": "lib/views/app__super-admin__analytics__web",
+      "name": "loadSuperAdminWebAnalyticsView",
+      "id": "app__super-admin__analytics__web:loadSuperAdminWebAnalyticsView"
     },
     {
       "module": "lib/views/app__super-admin__audit__page",
@@ -321,6 +371,11 @@
       "id": "app__super-admin__orgs__orgId__analytics__page:loadSuperAdminOrgAnalyticsView"
     },
     {
+      "module": "lib/views/app__super-admin__orgs__orgId__analytics__visits",
+      "name": "loadSuperAdminOrgVisitsView",
+      "id": "app__super-admin__orgs__orgId__analytics__visits:loadSuperAdminOrgVisitsView"
+    },
+    {
       "module": "lib/views/app__super-admin__orgs__orgId__page",
       "name": "loadSuperAdminOrgDetailView",
       "id": "app__super-admin__orgs__orgId__page:loadSuperAdminOrgDetailView"
@@ -346,9 +401,19 @@
       "id": "app__super-admin__security__page:loadSuperAdminSecurityView"
     },
     {
+      "module": "lib/views/app__super-admin__settings__email",
+      "name": "loadInstanceEmailProviderView",
+      "id": "app__super-admin__settings__email:loadInstanceEmailProviderView"
+    },
+    {
       "module": "lib/views/app__super-admin__settings__page",
       "name": "loadSuperAdminSettingsView",
       "id": "app__super-admin__settings__page:loadSuperAdminSettingsView"
+    },
+    {
+      "module": "lib/views/app__super-admin__settings__telemetry",
+      "name": "loadWebTelemetrySettingsView",
+      "id": "app__super-admin__settings__telemetry:loadWebTelemetrySettingsView"
     },
     {
       "module": "lib/views/app__super-admin__storage__page",
@@ -369,6 +434,16 @@
       "module": "lib/views/app__verify__token__page",
       "name": "loadVerifyView",
       "id": "app__verify__token__page:loadVerifyView"
+    },
+    {
+      "module": "lib/views/components__security__passkeys",
+      "name": "loadPasskeysView",
+      "id": "components__security__passkeys:loadPasskeysView"
+    },
+    {
+      "module": "lib/views/super-admin__sms",
+      "name": "loadInstanceSmsView",
+      "id": "super-admin__sms:loadInstanceSmsView"
     }
   ],
   "actions": [
@@ -488,6 +563,11 @@
       "id": "collection:recordCollection"
     },
     {
+      "module": "app/actions/delight",
+      "name": "setDelightEnabled",
+      "id": "delight:setDelightEnabled"
+    },
+    {
       "module": "app/actions/email-templates",
       "name": "saveEmailTemplate",
       "id": "email-templates:saveEmailTemplate"
@@ -508,6 +588,16 @@
       "id": "erasure:decideErasureRequest"
     },
     {
+      "module": "app/actions/instance-email",
+      "name": "saveInstanceEmailProvider",
+      "id": "instance-email:saveInstanceEmailProvider"
+    },
+    {
+      "module": "app/actions/instance-email",
+      "name": "sendInstanceTestEmail",
+      "id": "instance-email:sendInstanceTestEmail"
+    },
+    {
       "module": "app/actions/instance-settings",
       "name": "setNewUserRegistrationEnabled",
       "id": "instance-settings:setNewUserRegistrationEnabled"
@@ -521,6 +611,16 @@
       "module": "app/actions/instance-settings",
       "name": "saveInstanceServiceSettings",
       "id": "instance-settings:saveInstanceServiceSettings"
+    },
+    {
+      "module": "app/actions/instance-sms",
+      "name": "saveInstanceSmsProvider",
+      "id": "instance-sms:saveInstanceSmsProvider"
+    },
+    {
+      "module": "app/actions/instance-sms",
+      "name": "sendInstanceTestSms",
+      "id": "instance-sms:sendInstanceTestSms"
     },
     {
       "module": "app/actions/instance",
@@ -548,6 +648,11 @@
       "id": "invite-acceptance:acceptOrganisationInvite"
     },
     {
+      "module": "app/actions/invite-acceptance",
+      "name": "startInviteSignup",
+      "id": "invite-acceptance:startInviteSignup"
+    },
+    {
       "module": "app/actions/ip-blocks",
       "name": "unblockAddress",
       "id": "ip-blocks:unblockAddress"
@@ -566,6 +671,11 @@
       "module": "app/actions/join",
       "name": "revokeMemberInvite",
       "id": "join:revokeMemberInvite"
+    },
+    {
+      "module": "app/actions/login-methods",
+      "name": "saveLoginMethods",
+      "id": "login-methods:saveLoginMethods"
     },
     {
       "module": "app/actions/media",
@@ -648,6 +758,21 @@
       "id": "members:assignMemberRoles"
     },
     {
+      "module": "app/actions/oidc-providers",
+      "name": "saveOidcProvider",
+      "id": "oidc-providers:saveOidcProvider"
+    },
+    {
+      "module": "app/actions/oidc-providers",
+      "name": "deleteOidcProvider",
+      "id": "oidc-providers:deleteOidcProvider"
+    },
+    {
+      "module": "app/actions/oidc-providers",
+      "name": "testOidcProvider",
+      "id": "oidc-providers:testOidcProvider"
+    },
+    {
       "module": "app/actions/org-email",
       "name": "saveOrgEmailSettings",
       "id": "org-email:saveOrgEmailSettings"
@@ -666,6 +791,11 @@
       "module": "app/actions/org-invites",
       "name": "revokeOrgInvite",
       "id": "org-invites:revokeOrgInvite"
+    },
+    {
+      "module": "app/actions/org-web-telemetry",
+      "name": "saveOrgWebTelemetry",
+      "id": "org-web-telemetry:saveOrgWebTelemetry"
     },
     {
       "module": "app/actions/org",
@@ -701,6 +831,31 @@
       "module": "app/actions/ownership",
       "name": "acceptOwnershipTransfer",
       "id": "ownership:acceptOwnershipTransfer"
+    },
+    {
+      "module": "app/actions/passkey-sign-in",
+      "name": "beginPasskeySignIn",
+      "id": "passkey-sign-in:beginPasskeySignIn"
+    },
+    {
+      "module": "app/actions/passkeys",
+      "name": "beginPasskeyRegistration",
+      "id": "passkeys:beginPasskeyRegistration"
+    },
+    {
+      "module": "app/actions/passkeys",
+      "name": "finishPasskeyRegistration",
+      "id": "passkeys:finishPasskeyRegistration"
+    },
+    {
+      "module": "app/actions/passkeys",
+      "name": "renamePasskey",
+      "id": "passkeys:renamePasskey"
+    },
+    {
+      "module": "app/actions/passkeys",
+      "name": "removePasskey",
+      "id": "passkeys:removePasskey"
     },
     {
       "module": "app/actions/password-reset",
@@ -771,6 +926,21 @@
       "module": "app/actions/payments",
       "name": "clearFlag",
       "id": "payments:clearFlag"
+    },
+    {
+      "module": "app/actions/phone",
+      "name": "sendPhoneCode",
+      "id": "phone:sendPhoneCode"
+    },
+    {
+      "module": "app/actions/phone",
+      "name": "confirmPhoneCode",
+      "id": "phone:confirmPhoneCode"
+    },
+    {
+      "module": "app/actions/phone",
+      "name": "removePhoneNumber",
+      "id": "phone:removePhoneNumber"
     },
     {
       "module": "app/actions/plans",
@@ -868,6 +1038,11 @@
       "id": "public-page:uploadPublicPageImage"
     },
     {
+      "module": "app/actions/recovery-codes",
+      "name": "regenerateRecoveryCodes",
+      "id": "recovery-codes:regenerateRecoveryCodes"
+    },
+    {
       "module": "app/actions/refunds",
       "name": "refundPayment",
       "id": "refunds:refundPayment"
@@ -893,6 +1068,21 @@
       "id": "reports:sendRenewalReminders"
     },
     {
+      "module": "app/actions/saml-providers",
+      "name": "saveSamlProvider",
+      "id": "saml-providers:saveSamlProvider"
+    },
+    {
+      "module": "app/actions/saml-providers",
+      "name": "deleteSamlProvider",
+      "id": "saml-providers:deleteSamlProvider"
+    },
+    {
+      "module": "app/actions/saml-providers",
+      "name": "testSamlProvider",
+      "id": "saml-providers:testSamlProvider"
+    },
+    {
       "module": "app/actions/security",
       "name": "beginMfaEnrollment",
       "id": "security:beginMfaEnrollment"
@@ -911,6 +1101,21 @@
       "module": "app/actions/security",
       "name": "revokeAllSessions",
       "id": "security:revokeAllSessions"
+    },
+    {
+      "module": "app/actions/sessions",
+      "name": "revokeSession",
+      "id": "sessions:revokeSession"
+    },
+    {
+      "module": "app/actions/sign-in-methods",
+      "name": "beginLinkSignInMethod",
+      "id": "sign-in-methods:beginLinkSignInMethod"
+    },
+    {
+      "module": "app/actions/sign-in-methods",
+      "name": "unlinkSignInMethod",
+      "id": "sign-in-methods:unlinkSignInMethod"
     },
     {
       "module": "app/actions/sign-in-providers",
@@ -1026,6 +1231,11 @@
       "module": "app/actions/units",
       "name": "setUnitPaymentInstructions",
       "id": "units:setUnitPaymentInstructions"
+    },
+    {
+      "module": "app/actions/web-telemetry",
+      "name": "saveWebTelemetry",
+      "id": "web-telemetry:saveWebTelemetry"
     }
   ]
 }

@@ -37,8 +37,9 @@ const logoSizes = { sm: "size-8 rounded-[9px] text-xs", md: "size-10 rounded-[10
 
 /** Square organisation logo; falls back to initials on ink. */
 export function OrgLogo({ name, src, size = "md", className }: { name: string; src?: string | null; size?: keyof typeof logoSizes; className?: string }) {
+  // data-tenant-logo: route, stagger and reveal motion leave it still (tenant logos never animate, CR-MOTION-01).
   return (
-    <span className={cn("inline-flex shrink-0 items-center justify-center overflow-hidden border border-line font-semibold", logoSizes[size], src ? "bg-panel" : "bg-primary text-on-primary", className)}>
+    <span data-tenant-logo className={cn("inline-flex shrink-0 items-center justify-center overflow-hidden border border-line font-semibold", logoSizes[size], src ? "bg-panel" : "bg-primary text-on-primary", className)}>
       {src ? (
         // eslint-disable-next-line @next/next/no-img-element -- organisation logos are served by the app's own upload route
         <img src={src} alt="" className="size-full object-cover" />

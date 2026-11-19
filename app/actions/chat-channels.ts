@@ -61,6 +61,7 @@ export async function saveChatChannel(input: unknown): Promise<ActionResult<{ ch
     if (!checked.success) return { ok: false, error: checked.error.issues[0]?.message ?? "Check the connection details." };
     try {
       if (kind === "MATTERMOST") await assertPublicHost(new URL((checked.data as ChatConfig["MATTERMOST"]).webhookUrl).hostname);
+      if (kind === "WEBHOOK") await assertPublicHost(new URL((checked.data as ChatConfig["WEBHOOK"]).url).hostname);
       secret = { configEncrypted: encryptOrgSecret(JSON.stringify(checked.data), ctx.organisation.id, "chat"), target: describeTarget(kind, checked.data as ChatConfig[ChatKind]) };
     } catch (error) {
       if (error instanceof PrivateHostError || error instanceof PaymentSecretsUnavailable) return { ok: false, error: error.message };

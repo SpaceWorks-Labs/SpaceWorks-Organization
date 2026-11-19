@@ -73,7 +73,7 @@ function UnitItem({ unit, slug, levels, disabled }: { unit: UnitRow; slug: strin
 
   return (
     <li className="flex flex-col gap-2">
-      <div className={cn("flex min-h-12 flex-wrap items-center gap-3 rounded-xl px-3 py-2 hover:bg-subtle", unit.archivedAt && "opacity-60")} style={{ marginLeft: `${unit.level * 1.5}rem` }}>
+      <div className={cn("flex min-h-12 flex-wrap items-center gap-3 rounded-xl px-3 py-2 hover:bg-subtle", unit.archivedAt && "bg-surface")} style={{ marginLeft: `${unit.level * 1.5}rem` }}>
         {mode === "edit" ? (
           <form className="flex flex-1 flex-wrap items-center gap-2" onSubmit={(event) => { event.preventDefault(); run(() => updateUnit({ organisationSlug: slug, unitId: unit.id, name, code })); }}>
             <Input aria-label="Unit name" value={name} onChange={(event) => setName(event.target.value)} autoFocus className="min-h-9 min-w-40 flex-1" />

@@ -50,7 +50,7 @@ export default async function OrgReportsRenewalsPage({ params, searchParams }: P
           <div className="flex flex-wrap items-center gap-2">
             <nav aria-label="Worklist window" className="flex gap-1">
               {[7, 30, 60, 90].map((days) => (
-                <Link key={days} href={daysLink(days)} aria-current={view.worklist.days === days ? "page" : undefined} className={cn("inline-flex min-h-9 items-center rounded-full border px-3 text-sm", view.worklist.days === days ? "border-primary bg-primary font-semibold text-on-primary" : "border-line bg-panel text-ink hover:bg-muted")}>{days} days</Link>
+                <Link key={days} href={daysLink(days)} aria-current={view.worklist.days === days ? "page" : undefined} className={cn("inline-flex min-h-11 items-center rounded-control border px-3 text-sm", view.worklist.days === days ? "border-primary bg-primary font-semibold text-on-primary" : "border-line bg-panel text-ink hover:bg-muted")}>{days} days</Link>
               ))}
             </nav>
             {shell.canExport ? <ExportLink shell={shell} report="worklist" extra={`days=${view.worklist.days}`} /> : null}

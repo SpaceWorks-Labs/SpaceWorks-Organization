@@ -17,7 +17,7 @@ function Sparkline({ values, className }: { values: number[]; className?: string
   return (
     <svg aria-hidden width={w} height={h} className={cn("block shrink-0", className)}>
       <path d={d} fill="none" stroke="var(--chart-muted)" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
-      <circle cx={lx} cy={ly} r={3} fill="var(--chart-1)" stroke="var(--chart-surface)" strokeWidth={1.5} />
+      <circle cx={lx} cy={ly} r={3} fill="var(--chart-1)" stroke="var(--chart-edge)" strokeWidth={1} />
     </svg>
   );
 }
@@ -62,14 +62,14 @@ export function KpiTile({ label, value, format = "number", display, delta, trend
     <>
       <span className="block text-label text-ink-secondary">{label}</span>
       <span className="mt-1 flex flex-wrap items-end justify-between gap-x-3 gap-y-1">
-        <span className="whitespace-nowrap font-display text-[28px] font-extrabold leading-tight tracking-[-0.01em] text-ink">{display ?? formatValue(value, format)}</span>
+        <span className="whitespace-nowrap text-[28px] font-semibold leading-tight tracking-[-0.01em] tabular-nums text-ink">{display ?? formatValue(value, format)}</span>
         {trend ? <Sparkline values={trend} className="mb-1.5" /> : null}
       </span>
       {delta ? <span className="mt-1 block"><DeltaChip delta={delta} /></span> : null}
       {hint ? <span className="mt-1 block text-caption text-ink-muted">{hint}</span> : null}
     </>
   );
-  const classes = cn("block min-w-0 rounded-xl border border-line bg-panel p-4", href && "transition-colors duration-[120ms] hover:border-line-strong hover:bg-subtle", className);
+  const classes = cn("block min-w-0 rounded-xl border border-line bg-panel p-4", href && "transition-colors duration-(--sw-dur-fast) hover:border-line-strong hover:bg-subtle", className);
   return href ? (
     <Link href={href} className={classes} aria-label={`${label}: ${display ?? formatValue(value, format)}. See these members`}>
       {body}

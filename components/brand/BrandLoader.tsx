@@ -1,48 +1,19 @@
 import { cn } from "@/lib/cn";
-import { Patch } from "@/components/brand/Patch";
-
-/** Maker Teal, Workshop Orange and an ink dot (cream in dark mode), hopping left to right in turn. */
-const DOTS = [
-  { className: "bg-primary", delay: 0 },
-  { className: "bg-highlight", delay: 160 },
-  { className: "bg-ink", delay: 320 },
-] as const;
+import { LogoLoader } from "./LogoLoader";
 
 /**
- * Loading indicator: three brand dots that hop one after the other. `size`
- * is the overall width in px. Still under reduced motion. Announces `label`
- * politely to assistive technology.
+ * Loading indicator: the Space Works box loader (LogoLoader) at a compact size, inline. `size` is the overall width
+ * in px. The still, open logo under reduced motion. Compact, so `label` is announced politely but not printed.
  */
 export function BrandLoader({ size = 48, label = "Loading", className }: { size?: number; label?: string; className?: string }) {
-  const dot = size / 4.2;
-  return (
-    <span role="status" className={cn("inline-flex flex-col items-center", className)}>
-      <span aria-hidden="true" className="flex items-end" style={{ gap: dot * 0.6, height: dot * 1.8 }}>
-        {DOTS.map((item, index) => (
-          <span
-            key={index}
-            className={cn("sw-dot-loader-jump block shrink-0 rounded-full", item.className)}
-            style={{ width: dot, height: dot, animationDelay: `${item.delay}ms` }}
-          />
-        ))}
-      </span>
-      <span className="sr-only">{label}</span>
-    </span>
-  );
+  return <LogoLoader size={Math.round((size * 126) / 136)} label={label} showLabel={false} className={cn("inline-grid w-auto", className)} />;
 }
 
 /**
- * Route-level loading state, fixed in the centre of the viewport: Patch trots in place while the brand
- * dots hop beneath like footsteps. Both rest under reduced motion.
+ * Route-level loading state (every loading.tsx): the box loader centred in the content area, so the sidebar and
+ * top bar stay put while the page loads, with its status printed under the box. Patch never stands beside the box
+ * logo, so the loader is the box alone.
  */
-export function BrandPageLoader({ label }: { label?: string }) {
-  return (
-    <div className="pointer-events-none fixed inset-0 z-40 flex flex-col items-center justify-center">
-      {/* Patch's dark outline needs a light surface in dark mode (SpaceWorks-Design: Warm Cream works). */}
-      <span className="rounded-full dark:bg-sw-cream">
-        <Patch pose="walk" size={112} />
-      </span>
-      <BrandLoader size={36} label={label} />
-    </div>
-  );
+export function BrandPageLoader({ label = "Loading the page" }: { label?: string }) {
+  return <LogoLoader label={label} className="min-h-[50dvh] py-10" />;
 }

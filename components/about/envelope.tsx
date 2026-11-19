@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { cn } from "@/lib/cn";
-import { HAIRLINE, INK, LETTER, Lines, PAPER } from "./letter";
+import { HAIRLINE, INK, LETTER, Lines, MUTED_INK, PAPER } from "./letter";
 
 // An airmail envelope in Sky Blue, shaded only with brand cream and Deep Ink.
 const SKY = "var(--sw-brand-sky-blue)";
@@ -9,12 +9,14 @@ const SKY_DEEP = "color-mix(in srgb, var(--sw-brand-sky-blue) 76%, var(--sw-bran
 const ENVELOPE = `linear-gradient(160deg, ${SKY}, ${SKY_DEEP})`;
 const ENVELOPE_FLAP = `linear-gradient(172deg, ${SKY_LIGHT} 10%, ${SKY} 85%)`;
 const ENVELOPE_POCKET = `linear-gradient(12deg, ${SKY}, ${SKY_LIGHT})`;
-const ENVELOPE_SIDES = `linear-gradient(115deg, ${SKY}, ${SKY_DEEP})`;
-const FLAP_EDGE = "drop-shadow(0 1.5px 0 rgb(20 44 42 / 0.3))";
+// The side folds, a shade lighter than the body (opaque mixes, no alpha fills).
+const SKY_SIDE = "color-mix(in srgb, var(--sw-brand-sky-blue) 84%, var(--sw-brand-deep-ink))";
+const ENVELOPE_SIDES = `linear-gradient(115deg, ${SKY}, ${SKY_SIDE})`;
+const FLAP_EDGE = "drop-shadow(0 1.5px 0 color-mix(in srgb, var(--sw-brand-deep-ink) 30%, transparent))";
 // Airmail stripes in Maker Teal along the edge of the envelope.
 const AIRMAIL = "repeating-linear-gradient(-45deg, var(--sw-brand-maker-teal) 0 7px, var(--sw-brand-warm-cream) 7px 14px)";
 // The inside of the flap: Maker Teal with a Citron dot lining.
-const LINER = "radial-gradient(circle, rgb(223 255 143 / 0.6) 1.4px, transparent 1.6px) 0 0 / 11px 11px, var(--sw-brand-maker-teal)";
+const LINER = "radial-gradient(circle, color-mix(in srgb, var(--sw-brand-citron) 60%, var(--sw-brand-maker-teal)) 1.4px, transparent 1.6px) 0 0 / 11px 11px, var(--sw-brand-maker-teal)";
 const FLAP_CLIP = "polygon(0 0, 100% 0, 50% 100%)";
 const FLAP_BACK_CLIP = "polygon(0 100%, 100% 100%, 50% 0)";
 export const ENVELOPE_RATIO = 1.62;
@@ -23,8 +25,8 @@ function EnvelopeBody() {
   return (
     <>
       <span className="absolute inset-0 rounded-[10px]" style={{ background: ENVELOPE, boxShadow: `inset 0 0 0 1px ${HAIRLINE}` }} />
-      <span className="absolute inset-0 rounded-[10px] opacity-75" style={{ background: ENVELOPE_SIDES, clipPath: "polygon(0 0, 50% 54%, 0 100%)" }} />
-      <span className="absolute inset-0 rounded-[10px] opacity-75" style={{ background: ENVELOPE_SIDES, transform: "scaleX(-1)", clipPath: "polygon(0 0, 50% 54%, 0 100%)" }} />
+      <span className="absolute inset-0 rounded-[10px]" style={{ background: ENVELOPE_SIDES, clipPath: "polygon(0 0, 50% 54%, 0 100%)" }} />
+      <span className="absolute inset-0 rounded-[10px]" style={{ background: ENVELOPE_SIDES, transform: "scaleX(-1)", clipPath: "polygon(0 0, 50% 54%, 0 100%)" }} />
     </>
   );
 }
@@ -46,10 +48,10 @@ function Label() {
   return (
     <span className="absolute inset-x-5 bottom-4 flex items-end justify-between gap-3 text-left" style={{ color: INK }}>
       <span>
-        <span className="block text-[11px] font-semibold uppercase tracking-[0.16em] opacity-60">{LETTER.overline}</span>
+        <span className="block text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: MUTED_INK }}>{LETTER.overline}</span>
         <span className="mt-0.5 block font-accent text-[16px] font-medium leading-tight">{LETTER.title}</span>
       </span>
-      <span className="hidden shrink-0 text-[12px] font-semibold opacity-60 transition-opacity group-hover:opacity-100 sm:inline">Open the letter →</span>
+      <span className="hidden shrink-0 text-[12px] font-semibold text-(--note-muted) transition-colors duration-(--sw-dur-fast) group-hover:text-(--note-ink) sm:inline" style={{ ["--note-muted" as string]: MUTED_INK, ["--note-ink" as string]: INK }}>Open the letter →</span>
     </span>
   );
 }
@@ -84,14 +86,17 @@ function WaxSeal({ className, half, style }: { className?: string; half?: "left"
         ...style,
       }}
     >
-      <span className="grid size-[64%] place-items-center rounded-full border-[1.5px] border-[rgb(20_44_42/0.35)]">
+      <span className="grid size-[64%] place-items-center rounded-full border-[1.5px] border-[color-mix(in_srgb,var(--sw-brand-deep-ink)_35%,var(--sw-brand-workshop-orange))]">
         <BoxGlyph />
       </span>
     </span>
   );
 }
 
-/** The sealed envelope on the page. The flap lifts a little and the seal turns on hover. */
+/**
+ * The sealed envelope on the page. A delight moment (docs/DESIGN.md "Easter eggs"): on hover with a mouse or pen, and
+ * only without reduced motion, the flap lifts a little and the seal turns (slow token, enter curve).
+ */
 export function ClosedEnvelope() {
   return (
     <span className="relative block size-full">
@@ -101,10 +106,10 @@ export function ClosedEnvelope() {
       </Pocket>
       <span
         aria-hidden
-        className="absolute inset-x-0 top-0 h-[58%] origin-top rounded-t-[10px] transition-transform duration-500 ease-[cubic-bezier(.2,.8,.2,1)] [transform:perspective(900px)_rotateX(0deg)] group-hover:[transform:perspective(900px)_rotateX(16deg)] motion-reduce:transition-none"
+        className="absolute inset-x-0 top-0 h-[58%] origin-top rounded-t-[10px] transition-transform duration-(--sw-dur-slow) ease-sw-enter [transform:perspective(900px)_rotateX(0deg)] motion-safe:group-hover:[transform:perspective(900px)_rotateX(16deg)] motion-reduce:transition-none"
         style={{ background: ENVELOPE_FLAP, clipPath: FLAP_CLIP, filter: FLAP_EDGE }}
       />
-      <WaxSeal className="absolute left-1/2 top-[58%] size-[60px] -translate-x-1/2 -translate-y-1/2 transition-transform duration-500 group-hover:rotate-[-12deg] motion-reduce:transition-none" />
+      <WaxSeal className="absolute left-1/2 top-[58%] size-[60px] -translate-x-1/2 -translate-y-1/2 transition-transform duration-(--sw-dur-slow) ease-sw-enter motion-safe:group-hover:rotate-[-12deg] motion-reduce:transition-none" />
     </span>
   );
 }
@@ -123,7 +128,7 @@ export function OpeningScene({ width }: { width: number }) {
         <EnvelopeBody />
       </div>
       <div className="sw-note-sheet absolute overflow-hidden rounded-[3px] px-6 py-4" style={{ left: "7%", right: "7%", top: height * 0.08, height: panel, zIndex: 2, background: PAPER, color: INK, boxShadow: `inset 0 0 0 1px ${HAIRLINE}` }}>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-55">{LETTER.overline}</p>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: MUTED_INK }}>{LETTER.overline}</p>
         <p className="mt-1 font-accent text-[15px] font-medium leading-tight">{LETTER.title}</p>
         <span className="mt-3 block"><Lines count={3} /></span>
       </div>

@@ -4,6 +4,9 @@ import bcrypt from "bcryptjs";
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { addStaff } from "../helpers/staff";
 
+// Password reset by email needs an email service (product rules section 15, "Without email").
+process.env.SMTP_HOST ??= "smtp.example.test";
+
 const identity = vi.hoisted(() => ({ current: { id: "" } as { id: string } }));
 vi.mock("@/lib/auth", () => ({ auth: async () => (identity.current.id ? { user: identity.current } : null) }));
 vi.mock("next/headers", () => ({ headers: async () => new Headers({ "x-real-ip": "198.51.100.9" }), cookies: async () => ({ get: () => undefined, set: () => undefined }) }));

@@ -3,6 +3,7 @@ import { ArrowUpRight } from "lucide-react";
 import { describeDuration, describePrice, JOIN_MODE_LABELS } from "@/lib/membership/describe";
 import { buttonClasses } from "@/components/ui/button";
 import { Callout, EmptyState } from "@/components/ui/display";
+import { PlanGrid } from "./PlanGrid";
 
 export type PublicPlan = {
   id: string; name: string; slug: string; description: string; currency: string;
@@ -12,7 +13,7 @@ export type PublicPlan = {
   units: Array<{ unit: { name: string } }>;
 };
 
-/** The organisation's open plans, live from the database, each with its join button. */
+/** The organisation's open plans, live from the database, each with its join button. They rise in once (delight). */
 export function PlanCards({ org, plans, takingMembers, preview = false }: {
   org: { name: string; slug: string; locale: string | null; financialYearStartMonth: number };
   plans: PublicPlan[];
@@ -23,14 +24,14 @@ export function PlanCards({ org, plans, takingMembers, preview = false }: {
   return (
     <div className="flex flex-col gap-6">
       {!takingMembers ? <Callout tone="info">{org.name} isn&apos;t taking new members right now. Existing members can still sign in to see their membership.</Callout> : null}
-      {plans.length === 0 ? <EmptyState mood="sleepy">No membership plans are open yet.</EmptyState> : (
-        <ul className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+      {plans.length === 0 ? <EmptyState>No membership plans are open yet.</EmptyState> : (
+        <PlanGrid className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
           {plans.map((plan) => {
             const { price, extras } = describePrice(plan, org.locale);
             const joinable = takingMembers && plan.joinMode !== "CLOSED" && plan.joinMode !== "INVITE_ONLY";
             const label = plan.joinMode === "APPROVAL" ? "Apply to join" : "Join";
             return (
-              <li key={plan.id} className="flex flex-col gap-4 rounded-2xl border border-line bg-panel p-6">
+              <li key={plan.id} className="flex flex-col gap-4 rounded-xl border border-line bg-panel p-6">
                 <div className="flex flex-col gap-1">
                   <h3 className="text-h3 text-ink">{plan.name}</h3>
                   <p className="text-caption text-ink-muted">{describeDuration(plan, org.financialYearStartMonth)}</p>
@@ -59,7 +60,7 @@ export function PlanCards({ org, plans, takingMembers, preview = false }: {
               </li>
             );
           })}
-        </ul>
+        </PlanGrid>
       )}
     </div>
   );

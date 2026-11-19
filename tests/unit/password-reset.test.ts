@@ -10,6 +10,8 @@ const bcryptMock = vi.hoisted(() => ({ hash: vi.fn() }));
 
 vi.mock("@/lib/db", () => ({ prisma: prismaMock }));
 vi.mock("@/lib/actionRateLimit", () => ({ isActionRateLimited: rateLimitMock }));
+const emailMock = vi.hoisted(() => ({ configured: true }));
+vi.mock("@/lib/emailAvailability", () => ({ isEmailServiceConfigured: async () => emailMock.configured }));
 vi.mock("@/lib/ipBlock", () => ({ currentRequestBlocked: async () => false }));
 vi.mock("@/lib/outbox", () => ({ enqueuePasswordReset: enqueueResetMock }));
 vi.mock("bcryptjs", () => ({ default: bcryptMock }));
@@ -68,6 +70,19 @@ describe("confirmPasswordReset", () => {
       password: "new-password",
     })).resolves.toEqual({ ok: false, error: "Invalid or expired reset link." });
     expect(tx.user.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("requestPasswordReset without an email service", () => {
+  it("refuses with a clear message and sends nothing", async () => {
+    emailMock.configured = false;
+    try {
+      await expect(requestPasswordReset({ email: "person@example.com" })).resolves.toMatchObject({ ok: false, error: expect.stringContaining("isn't set up") });
+      expect(prismaMock.user.findUnique).not.toHaveBeenCalled();
+      expect(enqueueResetMock).not.toHaveBeenCalled();
+    } finally {
+      emailMock.configured = true;
+    }
   });
 });
 

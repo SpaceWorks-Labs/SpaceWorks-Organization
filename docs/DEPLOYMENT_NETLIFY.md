@@ -40,6 +40,8 @@ In the cloud topology set the same three values in `cloud.env` ([DEPLOYMENT_CLOU
 | `FRONTEND_GATEWAY_SECRET` | The same secret as on the backend |
 | `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | A stable base64 key of 16, 24 or 32 bytes (`openssl rand -base64 32`) |
 | `NEXT_PUBLIC_HOSTED_BY` | Optional footer credit, for example `Shaan Shoukath, Systems Engineer` |
+| `WEB_TELEMETRY_ALLOWED_ORIGINS` | Optional. Bare https origins approved for outside web analytics; set the same value on the backend. Leave unset to keep the strict policy. |
+| `WEB_TELEMETRY_MIXPANEL_TOKEN`, `WEB_TELEMETRY_MIXPANEL_API_HOST`, `WEB_TELEMETRY_MIXPANEL_SDK_HOST` | Optional Mixpanel project and hosts (see `docs/CONFIGURATION.md`); also set on the backend. |
 
 `FRONTEND_TRUSTED_IP_HEADER` and the Node version are already set in `frontend/netlify.toml`.
 
@@ -61,3 +63,13 @@ variables in the table above and `FRONTEND_TRUSTED_IP_HEADER=x-real-ip` behind a
 
 Answer **Website: 1) Yes** in the installer (`DEPLOYMENT_MODE` stays unset) and point your domain at the VPS; the same app then serves the landing
 page, dashboards and API together. `NEXT_PUBLIC_HOSTED_BY` works the same way there.
+
+## Sign-in options
+
+Set the sign-in variables in the settings file or the platform's environment (see `docs/CONFIGURATION.md`):
+`AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET`, `AUTH_GITHUB_ID`/`AUTH_GITHUB_SECRET`, `AUTH_APPLE_ID`, `AUTH_APPLE_TEAM_ID`,
+`AUTH_APPLE_KEY_ID`, `AUTH_APPLE_PRIVATE_KEY`, `AUTH_SUPABASE_URL`, `AUTH_SUPABASE_ANON_KEY`, `AUTH_SUPABASE_PROVIDERS`,
+`AUTH_FIREBASE_API_KEY`, `AUTH_FIREBASE_AUTH_DOMAIN`, `AUTH_FIREBASE_PROJECT_ID`, `AUTH_FIREBASE_APP_ID`,
+`AUTH_FIREBASE_PROVIDERS` and, to fix the list of methods, `LOGIN_METHODS`. On Netlify set the bridge variables and
+`LOGIN_METHODS` on the website too: its content security policy reads them there (the bridge pages get their
+configuration from the backend).

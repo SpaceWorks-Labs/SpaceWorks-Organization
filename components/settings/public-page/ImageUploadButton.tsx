@@ -34,7 +34,7 @@ export function ImageUploadButton({ slug, label, disabled, onUploaded }: { slug:
 
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={inputId} className={buttonClasses({ variant: "secondary", size: "sm", className: cn("w-fit focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2", disabled || busy ? "pointer-events-none opacity-60" : "cursor-pointer") })}>
+      <label htmlFor={inputId} aria-disabled={disabled || busy ? true : undefined} className={buttonClasses({ variant: "secondary", size: "sm", className: cn("w-fit focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2", disabled || busy ? "pointer-events-none cursor-not-allowed border-line bg-surface text-ink-muted" : "cursor-pointer") })}>
         {busy ? <Spinner className="size-4" /> : <ImagePlus aria-hidden className="size-4" />}
         {busy ? "Uploading…" : label}
         <input ref={input} id={inputId} type="file" accept={TYPES.join(",")} className="sr-only" disabled={disabled || busy} onChange={(event) => choose(event.target.files?.[0])} />

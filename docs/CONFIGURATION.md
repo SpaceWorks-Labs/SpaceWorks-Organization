@@ -20,6 +20,10 @@ a plain-text database or Redis connection, or mismatched public origins.
 | `NEXT_PUBLIC_BASE_URL` | production | The canonical origin for links in receipts, cards and email. Release images get it at start (placeholder replacement); your own builds compile it in. |
 | `ALLOW_PLAIN_HTTP` | no | `1` allows an `http://` origin, for a LAN or trial install on plain HTTP. Never on the internet. |
 | `NEXT_PUBLIC_HOSTED_BY` | no | Footer credit "Hosted by …". |
+| `LANDING_ENABLED` | no | `true` (default) shows the landing page at `/`. `false` makes `/` follow the data (product rules §12.2): the one public organisation, the organisations list when there are several, or sign-in when there are none. Runtime value; set it on the website (and the backend in split hosting). |
+| `WEB_TELEMETRY_ALLOWED_ORIGINS` | no | Comma-separated bare `https://` origins the operator approves for optional outside web analytics: collectors you host (Plausible, Umami, PostHog) and each vendor's script and collection hosts (see `docs/SECURITY.md`). Settings can only point at an origin listed here, and the Content Security Policy widens for these origins on public pages only. Runtime value, never `NEXT_PUBLIC_`; set it on the backend and the website. Empty keeps the strict default. |
+| `WEB_TELEMETRY_MIXPANEL_TOKEN` | no | Public Mixpanel project token. Off without it. While set, Mixpanel replaces the page-analytics provider (after consent) and its hosts are added to the policy on public pages. Never committed. |
+| `WEB_TELEMETRY_MIXPANEL_API_HOST`, `WEB_TELEMETRY_MIXPANEL_SDK_HOST` | no | Bare `https://` origins; default `https://api.mixpanel.com` (EU projects: `https://api-eu.mixpanel.com`) and `https://cdn.mxpnl.com`. The SDK host must not be this site's own origin. |
 | `ALLOWED_ACTION_ORIGINS` | no | Extra hostnames allowed to call Server Actions (a CDN in front). Build time only; release images refuse it. |
 | `TRUSTED_PROXY_IP_HEADER` | production | The client-IP header your edge overwrites: `x-real-ip` (bundled Caddy), `cf-connecting-ip` (Cloudflare) or `x-forwarded-for`. |
 | `TRUSTED_PROXY_HOPS` | no | With `x-forwarded-for`, how many trusted proxies append to it (default 1). |
@@ -32,8 +36,22 @@ a plain-text database or Redis connection, or mismatched public origins.
 | `SUPER_ADMIN_EMAIL` | yes | The first super admin. The installer creates it with the password you give; super admins are created, revoked and given passwords only on the server with `bash scripts/admin.sh`. An account with this address from before 0.7 is kept as super admin on upgrade. |
 | `PWNED_PASSWORDS_CHECK` | no | `1` (default) refuses new passwords found in known data breaches, using Have I Been Pwned with k-anonymity (only a 5-character SHA-1 prefix leaves the server). `0` turns it off, for installs without internet access. |
 | `EMAIL_FROM` | yes | Sender, `Name <address@verified-domain>`. Super admin → Settings overrides the email settings. |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` | yes | Relay host, port (587, or 465 with `SMTP_SECURE=true`). |
-| `SMTP_USER`, `SMTP_PASSWORD` | yes | Relay login. |
+| `EMAIL_PROVIDER` | no | `smtp` (default), `ses`, `resend` or `postmark`. Email stays off until the chosen provider is fully set up. Super admin → Settings overrides it. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` | with `smtp` | Relay host, port (587, or 465 with `SMTP_SECURE=true`). |
+| `SMTP_USER`, `SMTP_PASSWORD` | with `smtp` | Relay login. |
+| `AWS_SES_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | with `ses` | Amazon SES v2 region (`AWS_REGION` is used when empty) and an access key allowed to send. `AWS_SESSION_TOKEN` is optional for temporary keys; instance-role lookup is not supported. |
+| `SES_TOPIC_ARN` | no | The one SNS topic SES bounce and complaint reports may come from. Without it SES reports are refused. |
+| `RESEND_API_KEY` | with `resend` | Resend API key. |
+| `POSTMARK_SERVER_TOKEN`, `POSTMARK_MESSAGE_STREAM` | with `postmark` | Server token and message stream (`outbound`). |
+| `EMAIL_WEBHOOK_SECRET` | no | Resend's webhook signing secret (`whsec_…`) or the password Postmark's webhook sends as basic auth. |
+| `SMS_PROVIDER` | no | `twilio` or `msg91`: how phone sign-in codes are texted. Off until its fields are set; Super admin → Auth wins over these. |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` | with `twilio` | Account SID and auth token. The token also verifies delivery reports. |
+| `TWILIO_API_KEY_SID`, `TWILIO_API_KEY_SECRET` | no | An API key instead of the auth token for sending (delivery reports then need the auth token too). |
+| `TWILIO_FROM`, `TWILIO_MESSAGING_SERVICE_SID` | with `twilio` | The sending number with its country code, or a messaging service SID (used instead when both are set). |
+| `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID` | with `msg91` | Auth key and the approved (DLT) Flow template, which takes the variables `otp` and `brand`. |
+| `MSG91_SENDER_ID` | no | The registered sender id, when the template does not carry it. |
+| `SMS_WEBHOOK_SECRET` | no | The token MSG91's delivery report address carries (`?token=`). Twilio reports are checked by their signature. |
+| `SMS_DAILY_COUNTRY_CAP` | no | The most phone codes asked for numbers of one country calling code in a day, across the install. Default 500. |
 | `SMTP_SERVICE` | no | A Nodemailer well-known service instead of a host. |
 | `SMTP_ALLOW_UNAUTHENTICATED` | no | `1` only for a private relay without authentication. |
 | `S3_BUCKET`, `S3_REGION` | production | The private bucket. |
@@ -41,7 +59,10 @@ a plain-text database or Redis connection, or mismatched public origins.
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | no | Both or neither (an IAM role). |
 | `S3_FORCE_PATH_STYLE` | no | `1` for Silo, MinIO and R2. |
 | `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` | no | Google sign-in fallback (`GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` also read). Super admin → Settings overrides. |
-| `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` | no | GitHub sign-in fallback. |
+| `AUTH_GITHUB_ID`, `AUTH_GITHUB_SECRET` | no | GitHub sign-in fallback. Only a verified primary email can sign in. |
+| `LOGIN_METHODS` | no | The deployment's choice of sign-in methods: a comma list of `password`, `google`, `apple`, `github`, `oidc`, `saml`, `supabase`, `firebase` and `passkey` and `phone`. When set it wins over the Super admin switches (shown there as set by the server, read-only); a method still needs its own configuration (for `oidc` and `saml`, at least one enabled provider). Unset leaves the switches to Super admin, where only password is on by default. A provider configured only here (`AUTH_GOOGLE_ID` and the like) stays off until it is switched on. The installer sets it when you pick extra options. Super admins always sign in with a password. |
+| `AUTH_SUPABASE_URL`, `AUTH_SUPABASE_ANON_KEY`, `AUTH_SUPABASE_PROVIDERS` | no | Supabase Auth bridge: project URL, publishable (anon) key (public values) and a comma list of `email` and the OAuth providers the project enables (default `email`). The project must use asymmetric JWT signing keys; the legacy shared HS256 secret is refused. |
+| `AUTH_FIREBASE_API_KEY`, `AUTH_FIREBASE_AUTH_DOMAIN`, `AUTH_FIREBASE_PROJECT_ID`, `AUTH_FIREBASE_APP_ID`, `AUTH_FIREBASE_PROVIDERS` | no | Firebase Auth bridge: public web app values and a comma list from `google.com`, `microsoft.com`, `apple.com`, `github.com`, `facebook.com`, `twitter.com`, `yahoo.com`, `emailLink`, `password` (default `google.com`). `AUTH_FIREBASE_APP_ID` is optional. |
 | `AUTH_APPLE_ID`, `AUTH_APPLE_TEAM_ID`, `AUTH_APPLE_KEY_ID`, `AUTH_APPLE_PRIVATE_KEY` | no | Apple sign-in fallback: services ID, team ID, key ID and the `.p8` key with newlines as `\n`. |
 | `BACKUP_PROVIDER`, `BACKUP_LAST_SUCCESS_AT`, `BACKUP_RETENTION_DAYS` | no | Backup posture shown in Super admin → Operations. `BACKUP_RETENTION_DAYS` also sets how long scheduled dumps stay (14 in the bundled stack). |
 | `MIGRATE_ON_START` | no | `1` makes the backend role apply migrations before starting (Render). |
@@ -87,6 +108,7 @@ The application sends checksums only where S3 requires them, which R2 and Silo b
 | `DEPLOYMENT_MODE` | backend | `backend` serves only the API and Server Actions; `monolith` (default) serves everything. |
 | `FRONTEND_GATEWAY_SECRET` | both | 64 hex characters shared by the website and the backend. |
 | `BACKEND_ORIGIN`, `NEXT_PUBLIC_BACKEND_ORIGIN` | website | The backend's HTTPS origin. The frontend image gets it at start. |
+| `WEB_TELEMETRY_ALLOWED_ORIGINS`, `WEB_TELEMETRY_MIXPANEL_TOKEN`, `WEB_TELEMETRY_MIXPANEL_API_HOST`, `WEB_TELEMETRY_MIXPANEL_SDK_HOST` | both | Optional outside web analytics. The website's proxy builds the Content Security Policy from them (it never reads the database); the backend validates the saved settings against them. Set the same values on both. |
 | `FRONTEND_TRUSTED_IP_HEADER` | website | `x-nf-client-connection-ip` on Netlify, `x-real-ip` behind your own proxy. |
 
 ### Tests and demo data

@@ -41,7 +41,7 @@ export function PresetPicker({ value, onChange }: { value: CardPreset; onChange:
               title={CARD_PRESET_INFO[preset].hint}
               onClick={() => onChange(preset)}
               className={cn(
-                "flex min-h-11 flex-col items-center gap-1.5 rounded-2xl border bg-canvas p-2 text-center transition-colors duration-[120ms] hover:bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+                "flex min-h-11 flex-col items-center gap-1.5 rounded-2xl border bg-canvas p-2 text-center transition-colors duration-(--sw-dur-fast) hover:bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
                 active ? "border-primary shadow-[inset_0_0_0_1px_var(--color-primary)]" : "border-line",
               )}
             >

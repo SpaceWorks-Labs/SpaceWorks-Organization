@@ -21,8 +21,9 @@ const MOOD_TILES: Record<Mood, { icon: LucideIcon; fill: string }> = {
 /**
  * A decorative mood tile: Space Works' dot faces in
  * empty states, greetings and activity rows. `size` is the tile edge in px.
- * The icon gives a quick wiggle when the tile, or a surrounding `.group`
- * card, is hovered (mouse only; still under reduced motion).
+ * The icon gives a quick wiggle when the tile itself is hovered (a delight
+ * moment: mouse or pen only, never from the card around it, still under
+ * reduced motion).
  */
 export function MoodTile({ mood, size = 48, className }: { mood: Mood; size?: number; className?: string }) {
   const { icon: Icon, fill } = MOOD_TILES[mood];

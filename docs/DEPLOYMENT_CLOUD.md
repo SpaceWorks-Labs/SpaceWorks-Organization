@@ -119,3 +119,12 @@ listen on `JOBS_HEALTH_PORT` (3460) for `GET /health`, which a platform health c
 
 Set `DEPLOYMENT_MODE=backend` and `FRONTEND_GATEWAY_SECRET` here, and `PUBLIC_APP_BASE_URL` to the website's
 origin; see [DEPLOYMENT_NETLIFY.md](DEPLOYMENT_NETLIFY.md).
+
+## Sign-in options
+
+Set the sign-in variables in the settings file or the platform's environment (see `docs/CONFIGURATION.md`):
+`AUTH_GOOGLE_ID`/`AUTH_GOOGLE_SECRET`, `AUTH_GITHUB_ID`/`AUTH_GITHUB_SECRET`, `AUTH_APPLE_ID`, `AUTH_APPLE_TEAM_ID`,
+`AUTH_APPLE_KEY_ID`, `AUTH_APPLE_PRIVATE_KEY`, `AUTH_SUPABASE_URL`, `AUTH_SUPABASE_ANON_KEY`, `AUTH_SUPABASE_PROVIDERS`,
+`AUTH_FIREBASE_API_KEY`, `AUTH_FIREBASE_AUTH_DOMAIN`, `AUTH_FIREBASE_PROJECT_ID`, `AUTH_FIREBASE_APP_ID`,
+`AUTH_FIREBASE_PROVIDERS` and, to fix the list of methods, `LOGIN_METHODS`. On Netlify set the bridge variables on
+the website too: its bridge pages and content security policy read them there.

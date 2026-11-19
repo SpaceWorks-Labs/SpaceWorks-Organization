@@ -11,6 +11,7 @@ import { flattenZodErrors } from "./utils";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { enqueuePasswordReset } from "@/lib/outbox";
 import { currentRequestBlocked } from "@/lib/ipBlock";
+import { isEmailServiceConfigured } from "@/lib/emailAvailability";
 
 const TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
 
@@ -41,6 +42,10 @@ export async function requestPasswordReset(
   }
 
   const { email } = parsed.data;
+  // Without an email service there is nothing to send (product rules section 15): say so, the same for every address.
+  if (!(await isEmailServiceConfigured())) {
+    return { ok: false, error: "Password reset by email isn't set up on this site. Ask an administrator to reset your password." };
+  }
   if ((await currentRequestBlocked()) || (await isActionRateLimited("passwordReset", email))) {
     // Keep this indistinguishable from the usual non-enumerating response.
     return { ok: true, data: { sent: true } };

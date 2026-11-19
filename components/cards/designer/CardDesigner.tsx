@@ -180,7 +180,7 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
   const visible = itemVisibility(current, branding);
 
   return (
-    <div onKeyDown={onKeyDown} className="flex flex-col overflow-hidden rounded-2xl border border-line bg-panel">
+    <div onKeyDown={onKeyDown} className="flex flex-col overflow-hidden rounded-xl border border-line bg-panel">
       <CardFontFaces fonts="all" />
       <header className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3">
         <SegmentedControl<CardSide> ariaLabel="Card side" value={side} onValueChange={(next) => { setSide(next); setSelected(next === "front" ? "name" : "footer"); }} options={[{ value: "front", label: "Front" }, { value: "back", label: "Back" }]} />
