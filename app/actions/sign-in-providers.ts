@@ -5,6 +5,7 @@ import { importPKCS8 } from "jose";
 import { revalidatePath as nextRevalidatePath } from "next/cache";
 import { trackedRevalidation } from "@/lib/frontend/revalidation";
 import { prisma } from "@/lib/db";
+import { invalidateLoginMethodsCache } from "@/lib/loginMethods";
 import { INSTANCE_SETTINGS_ID } from "@/lib/instanceSettings";
 import { requireSuperAdmin } from "@/lib/permissions";
 import { recordAuditEvent } from "@/lib/audit";
@@ -74,6 +75,7 @@ export async function saveSignInProviders(input: unknown): Promise<ActionResult>
     targetId: INSTANCE_SETTINGS_ID,
     metadata: { google: Boolean(value.googleClientId), github: Boolean(value.githubClientId), apple: Boolean(value.appleClientId) },
   });
+  invalidateLoginMethodsCache();
   revalidatePath("/login");
   revalidatePath("/super-admin/settings");
   return { ok: true };

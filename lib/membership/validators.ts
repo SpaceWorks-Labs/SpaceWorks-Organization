@@ -4,6 +4,8 @@ import { validatePlanAnswers, validatePlanFieldDefinitions, type AnswerContext, 
 import { isIndianStateCode } from "@/lib/indianStates";
 import { isCurrencyCode, parseAmount, type CurrencyCode } from "@/lib/money/currencies";
 import { isReservedPlanSlug } from "@/lib/slug";
+import { PAYMENT_MODES, priceProblems } from "@/lib/payments/paymentMode";
+import { renewalPolicySchema } from "./renewalPolicy";
 
 /** The privacy notice version members agree to when they join. Bump it when the notice changes. */
 export const MEMBERSHIP_NOTICE_VERSION = "2026-10";
@@ -49,6 +51,9 @@ export const planSchema = z
     joinPhoto: z.enum(["OFF", "OPTIONAL", "REQUIRED"]).default("OFF"),
     joinFields: joinFieldsSchema.default(DEFAULT_JOIN_FIELDS),
     paymentTiming: z.enum(["PAY_THEN_ACTIVATE", "ACTIVATE_THEN_CHARGE"]).default("PAY_THEN_ACTIVATE"),
+    /** Left out, a plan with no price is free and any other is paid online or in hand. */
+    paymentMode: z.enum(PAYMENT_MODES).optional(),
+    renewalPolicy: renewalPolicySchema.prefault({}),
     allUnits: z.boolean().default(true),
     unitIds: z.array(id).max(500).default([]),
   })
@@ -57,6 +62,10 @@ export const planSchema = z
     if (value.durationType === "FIXED_END" && !value.fixedEndDate) ctx.addIssue({ code: "custom", path: ["fixedEndDate"], message: "Choose the last day" });
     if (value.rejoinFeeRule === "AFTER_LAPSE" && !value.rejoinAfterDays) ctx.addIssue({ code: "custom", path: ["rejoinAfterDays"], message: "After how many days?" });
     if (!value.allUnits && value.unitIds.length === 0) ctx.addIssue({ code: "custom", path: ["unitIds"], message: "Choose at least one unit, or open it to all" });
+    if (value.paymentMode && isCurrencyCode(value.currency)) {
+      const minor = (key: "priceNew" | "priceRenewal" | "joiningFee") => parseAmount(value[key] || "0", value.currency as CurrencyCode) ?? 0;
+      for (const issue of priceProblems(value.paymentMode, { priceNewMinor: minor("priceNew"), priceRenewalMinor: minor("priceRenewal"), joiningFeeMinor: minor("joiningFee") })) ctx.addIssue({ code: "custom", path: [issue.path], message: issue.message });
+    }
     for (const key of ["priceNew", "priceRenewal", "joiningFee"] as const) {
       if (isCurrencyCode(value.currency) && parseAmount(value[key] || "0", value.currency) === null) {
         ctx.addIssue({ code: "custom", path: [key], message: "Enter an amount like 1200 or 1200.50" });
@@ -65,12 +74,16 @@ export const planSchema = z
   })
   .transform((value) => {
     const currency = value.currency as CurrencyCode;
+    const priceNewMinor = parseAmount(value.priceNew || "0", currency) ?? 0;
+    const priceRenewalMinor = parseAmount(value.priceRenewal || "0", currency) ?? 0;
+    const joiningFeeMinor = parseAmount(value.joiningFee || "0", currency) ?? 0;
     return {
       ...value,
       currency,
-      priceNewMinor: parseAmount(value.priceNew || "0", currency) ?? 0,
-      priceRenewalMinor: parseAmount(value.priceRenewal || "0", currency) ?? 0,
-      joiningFeeMinor: parseAmount(value.joiningFee || "0", currency) ?? 0,
+      priceNewMinor,
+      priceRenewalMinor,
+      joiningFeeMinor,
+      paymentMode: value.paymentMode ?? (priceNewMinor + priceRenewalMinor + joiningFeeMinor === 0 ? ("FREE" as const) : ("ONLINE_OR_IN_HAND" as const)),
       durationMonths: value.durationType === "ROLLING" ? value.durationMonths ?? 12 : null,
       fixedEndDate: value.durationType === "FIXED_END" && value.fixedEndDate ? new Date(`${value.fixedEndDate}T00:00:00Z`) : null,
       rejoinAfterDays: value.rejoinFeeRule === "AFTER_LAPSE" ? value.rejoinAfterDays ?? 365 : null,
@@ -81,7 +94,8 @@ export const planFieldSchema = z.object({
   key: z.string().trim().regex(/^[a-z][a-z0-9_]{0,39}$/, "Keys are lowercase letters, numbers and underscores"),
   label: z.string().trim().min(1, "Label the question").max(120),
   helpText: z.string().trim().max(300).optional().default(""),
-  type: z.enum(["TEXT", "LONG_TEXT", "SELECT", "DATE", "EMAIL", "PHONE", "NUMBER", "CHECKBOX"]),
+  type: z.enum(["TEXT", "LONG_TEXT", "SELECT", "DATE", "EMAIL", "PHONE", "NUMBER", "CHECKBOX", "GROUPING"]),
+  groupingId: z.string().trim().min(1).max(64).nullable().optional().default(null),
   required: z.boolean().default(false),
   options: z.array(z.string().trim().min(1).max(80)).max(50).default([]),
   adminOnly: z.boolean().default(false),

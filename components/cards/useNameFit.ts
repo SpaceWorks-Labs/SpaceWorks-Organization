@@ -1,7 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { CARD_LINE_HEIGHT, nameBlockHeightMm, PT_TO_MM, type CardSideSettings } from "@/lib/cards/design/elements";
+import { CARD_LINE_HEIGHT, NAME_FLOOR_RATIO, nameBlockHeightMm, PT_TO_MM, type CardSideSettings } from "@/lib/cards/design/elements";
 import { cardFontCssName, DEFAULT_CARD_FONT } from "@/lib/cards/fontCatalog";
 import { wrapText } from "@/lib/cards/text";
 
@@ -35,7 +35,7 @@ export function useNameSizePt(settings: CardSideSettings, name: string, estimate
   const text = uppercase ? name.toLocaleUpperCase("en") : name;
   const segments = (value: string) => [...new Intl.Segmenter("en", { granularity: "grapheme" }).segment(value)].length;
   const room = nameBlockHeightMm(settings.elementTextSizes.name) + 0.01;
-  const floor = settings.elementTextSizes.name * 0.3;
+  const floor = settings.elementTextSizes.name * NAME_FLOOR_RATIO;
   let sizePt = estimatePt;
   for (;;) {
     const sizePx = sizePt * PT_TO_MM * PX_PER_MM;

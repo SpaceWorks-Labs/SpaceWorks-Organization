@@ -11,7 +11,7 @@ export type FontWeight = 400 | 700;
 
 export type TextMeasurer = {
   /** `font` is a card font id (lib/cards/fontCatalog.ts); Gilroy when omitted. */
-  widthMm(text: string, weight: FontWeight, sizePt: number, trackingEm?: number, font?: string): number;
+  widthMm(text: string, weight: FontWeight, sizePt: number, trackingEm?: number, font?: string, tabular?: boolean): number;
   /** Ascender and descender of the default face as fractions of the em (both positive). */
   ascent: number;
   descent: number;
@@ -25,9 +25,15 @@ export type CardTextOp = {
   kind: "text"; x: number; baseline: number; text: string; sizePt: number; weight: FontWeight; color: string; trackingEm: number;
   /** A card font id; Gilroy when omitted. */
   font?: string;
+  /** Figures of one width (card numbers). */
+  tabular?: boolean;
   /** Watermarks only: clockwise rotation about (x, baseline), and 0–1 opacity. */
   rotateDeg?: number;
   opacity?: number;
+  /** Layer text effects: an outline of `strokeWidth` mm in `stroke`; `noFill` draws the outline alone (hollow text). */
+  stroke?: string;
+  strokeWidth?: number;
+  noFill?: boolean;
 };
 
 /** Split a string into user-perceived characters, so a cut never lands inside a conjunct or a mark. */
@@ -37,7 +43,8 @@ function graphemes(text: string) {
 
 /** Break text into lines no wider than `maxMm`: at spaces, and inside words too long on their own. */
 export function wrapText(text: string, maxMm: number, measure: (value: string) => number): string[] {
-  const words = text.replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+  // Only ordinary spaces break a line; a no-break space keeps its neighbours together, as in CSS.
+  const words = text.replace(/[ \t\n\r\f\v]+/g, " ").trim().split(" ").filter(Boolean);
   const lines: string[] = [];
   let current = "";
   const pushWord = (word: string) => {
@@ -68,7 +75,7 @@ export function wrapText(text: string, maxMm: number, measure: (value: string) =
   return lines;
 }
 
-type TextStyle = { sizePt: number; weight: FontWeight; color: string; trackingEm?: number; lineHeight: number; font?: string };
+export type TextStyle = { sizePt: number; weight: FontWeight; color: string; trackingEm?: number; lineHeight: number; font?: string; tabular?: boolean };
 
 /**
  * Lay out a left-, centre- or right-aligned paragraph whose first line box starts at `top`, using CSS
@@ -77,7 +84,7 @@ type TextStyle = { sizePt: number; weight: FontWeight; color: string; trackingEm
 export function paragraph(measurer: TextMeasurer, raw: string, x: number, top: number, widthMm: number, style: TextStyle, align: "left" | "center" | "right" = "left") {
   const text = measurer.clean(raw);
   const tracking = style.trackingEm ?? 0;
-  const measure = (value: string) => measurer.widthMm(value, style.weight, style.sizePt, tracking, style.font);
+  const measure = (value: string) => measurer.widthMm(value, style.weight, style.sizePt, tracking, style.font, style.tabular);
   const lines = text ? wrapText(text, Math.max(1, widthMm), measure) : [];
   const size = style.sizePt * PT_TO_MM;
   const lineBox = size * style.lineHeight;
@@ -93,6 +100,28 @@ export function paragraph(measurer: TextMeasurer, raw: string, x: number, top: n
     color: style.color,
     trackingEm: tracking,
     ...(style.font ? { font: style.font } : {}),
+    ...(style.tabular ? { tabular: true } : {}),
   }));
   return { ops, bottom: top + lines.length * lineBox, lines };
+}
+
+/** `text` cut at a grapheme with an ellipsis so it measures no wider than `maxMm`. */
+export function ellipsize(text: string, maxMm: number, measure: (value: string) => number) {
+  if (measure(text) <= maxMm) return text;
+  const chars = graphemes(text.trim());
+  let keep = chars.length;
+  while (keep > 1 && measure(`${chars.slice(0, keep).join("").trimEnd()}…`) > maxMm) keep -= 1;
+  return `${chars.slice(0, keep).join("").trimEnd()}…`;
+}
+
+/**
+ * One line of text within `widthMm`: the full size if it fits, else shrunk to as little as `minRatio`
+ * of it, and only then cut short with an ellipsis.
+ */
+export function fitLine(measurer: TextMeasurer, raw: string, widthMm: number, style: TextStyle, minRatio = 0.75) {
+  const text = measurer.clean(raw).replace(/\s+/g, " ").trim();
+  const measure = (value: string, sizePt: number) => measurer.widthMm(value, style.weight, sizePt, style.trackingEm ?? 0, style.font, style.tabular);
+  const full = measure(text, style.sizePt);
+  const sizePt = full <= widthMm ? style.sizePt : Math.max(style.sizePt * minRatio, Math.floor(((style.sizePt * widthMm) / full) * 10) / 10);
+  return { text: measurer.clean(ellipsize(text, widthMm, (value) => measure(value, sizePt))), sizePt };
 }

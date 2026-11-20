@@ -6,12 +6,13 @@ type TooltipRow = { label: string; value: string; slot: number | "muted"; shape?
 
 /**
  * The single readout for a hovered or focused x position: the value leads, the series name follows, keyed
- * by a short stroke of the series colour. Text is rendered as text, never as HTML.
+ * by a short stroke of the series colour. Text is rendered as text, never as HTML. `announce` (keyboard focus only)
+ * makes it a polite status; on mouse hover it stays silent so moving across the chart does not flood screen readers.
  */
-export function ChartTooltip({ title, rows, x, width }: { title: string; rows: TooltipRow[]; x: number; width: number }) {
+export function ChartTooltip({ title, rows, x, width, announce = false }: { title: string; rows: TooltipRow[]; x: number; width: number; announce?: boolean }) {
   const left = Math.min(Math.max(8, x + 12), Math.max(8, width - 196));
   return (
-    <div role="status" aria-live="polite" className="pointer-events-none absolute top-1 z-10 w-[184px] rounded-lg border border-line bg-panel px-3 py-2 shadow-[var(--sw-ui-shadow-float)]" style={{ left }}>
+    <div role={announce ? "status" : undefined} aria-live={announce ? "polite" : "off"} className="pointer-events-none absolute top-1 z-10 w-[184px] rounded-lg border border-line bg-panel px-3 py-2 shadow-[var(--sw-ui-shadow-float)]" style={{ left }}>
       <p className="text-caption text-ink-muted">{title}</p>
       <ul className="mt-1 flex flex-col gap-1">
         {rows.map((row) => (

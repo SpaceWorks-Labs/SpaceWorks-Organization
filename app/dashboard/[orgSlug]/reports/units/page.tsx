@@ -3,6 +3,7 @@ import { loadOrgReportsUnits } from "@/lib/views/app__dashboard__orgSlug__report
 import type { ReportSearch } from "@/lib/reports/context";
 import { ReportShell } from "@/components/reports/ReportShell";
 import { UnitLevels } from "@/components/reports/UnitLevels";
+import { GroupingBreakdown } from "@/components/reports/GroupingBreakdown";
 
 export const metadata: Metadata = { title: "Unit reports", robots: { index: false, follow: false } };
 
@@ -13,6 +14,7 @@ export default async function OrgReportsUnitsPage({ params, searchParams }: Prop
   return (
     <ReportShell shell={view.shell} title="Units">
       <UnitLevels view={view} />
+      <GroupingBreakdown data={view.byGrouping} hrefFor={(groupingId) => `/dashboard/${view.shell.org.slug}/reports/units?grouping=${groupingId}`} />
     </ReportShell>
   );
 }

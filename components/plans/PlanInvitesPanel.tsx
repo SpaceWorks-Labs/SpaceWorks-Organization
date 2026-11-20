@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Copy } from "lucide-react";
 import { createMemberInvite, revokeMemberInvite } from "@/app/actions/join";
+import { useFocusFirstError } from "@/components/forms/focusFirstError";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/dialog";
 import { Callout, EmptyState } from "@/components/ui/display";
 import { Dropdown, Field, Input } from "@/components/ui/field";
 
@@ -40,18 +42,33 @@ export function PlanInvitesPanel({ slug, planId, planSlug, joinUrlBase, invites,
   const [maxUses, setMaxUses] = useState("25");
   const [unitId, setUnitId] = useState("");
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[] | undefined>>({});
   const [pending, startTransition] = useTransition();
+  const [revoking, setRevoking] = useState<InviteRow | null>(null);
+  const [revokeError, setRevokeError] = useState<string | null>(null);
+  const [revokePending, startRevoke] = useTransition();
+  const formRef = useRef<HTMLFormElement>(null);
+  useFocusFirstError(formRef, fieldErrors);
   const joinUrl = `${joinUrlBase}/o/${slug}/join/${planSlug}`;
 
   const create = () => startTransition(async () => {
     setStatus(null);
     const result = await createMemberInvite({ organisationSlug: slug, planId, email, unitId: unitId || null, maxUses: email ? 1 : maxUses });
+    setFieldErrors(result.ok ? {} : result.fieldErrors ?? {});
     if (!result.ok) setStatus({ ok: false, text: result.error });
     else {
       setStatus({ ok: true, text: email ? `Invitation emailed to ${email}.` : "Shared link created. Copy it below." });
       setEmail("");
       router.refresh();
     }
+  });
+
+  const revoke = (invite: InviteRow) => startRevoke(async () => {
+    setRevokeError(null);
+    const result = await revokeMemberInvite({ organisationSlug: slug, inviteId: invite.id });
+    setRevoking(null);
+    if (!result.ok) setRevokeError(result.error);
+    else router.refresh();
   });
 
   return (
@@ -61,15 +78,15 @@ export function PlanInvitesPanel({ slug, planId, planSlug, joinUrlBase, invites,
         <CopyButton text={joinUrl} label="Copy join link" />
       </div>
 
-      <form className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_9rem_minmax(0,12rem)_auto] sm:items-end" onSubmit={(event) => { event.preventDefault(); create(); }}>
-        <Field label="Invite by email" optional helperText="Leave empty for a shared link.">
+      <form ref={formRef} className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_9rem_minmax(0,12rem)_auto] sm:items-end" onSubmit={(event) => { event.preventDefault(); create(); }}>
+        <Field label="Invite by email" optional helperText="Leave empty for a shared link." error={fieldErrors.email?.[0]}>
           <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="off" />
         </Field>
-        <Field label="Uses">
+        <Field label="Uses" error={fieldErrors.maxUses?.[0]}>
           <Input inputMode="numeric" value={email ? "1" : maxUses} disabled={Boolean(email)} onChange={(event) => setMaxUses(event.target.value.replace(/\D/g, ""))} />
         </Field>
         {units.length ? (
-          <Field label="Unit" optional>
+          <Field label="Unit" optional error={fieldErrors.unitId?.[0]}>
             <Dropdown value={unitId} onChange={(event) => setUnitId(event.target.value)}>
               <option value="">Their choice</option>
               {units.map((unit) => <option key={unit.id} value={unit.id}>{`${"— ".repeat(unit.level)}${unit.name}`}</option>)}
@@ -80,6 +97,7 @@ export function PlanInvitesPanel({ slug, planId, planSlug, joinUrlBase, invites,
       </form>
       {status ? <Callout tone={status.ok ? "success" : "danger"} role={status.ok ? "status" : "alert"}>{status.text}</Callout> : null}
 
+      {revokeError ? <Callout tone="danger" role="alert">{revokeError}</Callout> : null}
       {invites.length === 0 ? <EmptyState mood="sleepy">No open invitations.</EmptyState> : (
         <ul className="flex flex-col divide-y divide-line">
           {invites.map((invite) => (
@@ -91,11 +109,22 @@ export function PlanInvitesPanel({ slug, planId, planSlug, joinUrlBase, invites,
                 </span>
               </span>
               {!invite.email ? <CopyButton text={`${joinUrl}?invite=${invite.token}`} label="Copy link" /> : null}
-              <Button size="sm" variant="dangerQuiet" onClick={() => startTransition(async () => { await revokeMemberInvite({ organisationSlug: slug, inviteId: invite.id }); router.refresh(); })}>Revoke</Button>
+              <Button size="sm" variant="dangerQuiet" disabled={revokePending} aria-label={`Revoke ${invite.email ? `the invitation for ${invite.email}` : "this shared link"}`} onClick={() => { setRevokeError(null); setRevoking(invite); }}>Revoke</Button>
             </li>
           ))}
         </ul>
       )}
+      <ConfirmDialog
+        open={revoking !== null}
+        title={revoking?.email ? `Revoke the invitation for ${revoking.email}?` : "Revoke this shared link?"}
+        message={revoking?.email
+          ? "The emailed link stops working straight away. If they have already joined, they keep their membership."
+          : `Anyone holding this link can no longer join with it${revoking && revoking.uses > 0 ? `. The ${revoking.uses === 1 ? "person" : `${revoking.uses} people`} who joined with it keep their membership` : ""}.`}
+        confirmLabel="Revoke invite"
+        loading={revokePending}
+        onConfirm={() => { if (revoking) revoke(revoking); }}
+        onCancel={() => setRevoking(null)}
+      />
     </div>
   );
 }

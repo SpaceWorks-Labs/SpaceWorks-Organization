@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { can, requireOrgCapability } from "@/lib/permissions";
+import { normalizeBrandKit } from "@/lib/cards/brandKit";
 type Props = { params: Promise<{ orgSlug: string; }>; };
 
 export async function loadOrgSettingsView({ params }: Props) {
@@ -16,5 +17,7 @@ export async function loadOrgSettingsView({ params }: Props) {
   if (!org) notFound();
 
   const canEdit = can(membership, "org.settings", { write: true });
-  return { org, organisation, canDelete: can(membership, "org.delete"), canEditProfile: canEdit, canEditPortal: canEdit };
+  // The card brand kit's colours, offered by the logo maker.
+  const brandKit = await prisma.cardBrandKit.findUnique({ where: { organisationId: organisation.id }, select: { kit: true } });
+  return { org, organisation, canDelete: can(membership, "org.delete"), canEditProfile: canEdit, canEditPortal: canEdit, brandColours: normalizeBrandKit(brandKit?.kit).colours };
 }

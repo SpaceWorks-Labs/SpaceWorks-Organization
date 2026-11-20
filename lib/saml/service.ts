@@ -25,10 +25,10 @@ export function samlUrls(slug: string) {
   return { acs: `${base}/acs`, metadata: `${base}/metadata`, login: `${base}/login` };
 }
 
-export const samlEntityId = (provider: Pick<SamlProviderConfig, "slug" | "spEntityId">) => provider.spEntityId || samlUrls(provider.slug).metadata;
+const samlEntityId = (provider: Pick<SamlProviderConfig, "slug" | "spEntityId">) => provider.spEntityId || samlUrls(provider.slug).metadata;
 
 /** A node-saml instance for one provider: signature, audience, time window and InResponseTo are checked by the library. */
-export function samlFor(provider: SamlProviderConfig, flow: SamlFlowBinding = {}) {
+function samlFor(provider: SamlProviderConfig, flow: SamlFlowBinding = {}) {
   const urls = samlUrls(provider.slug);
   return new SAML({
     callbackUrl: urls.acs,
@@ -81,7 +81,7 @@ function attribute(profile: Profile, names: string[]) {
 }
 
 /** The email and name an assertion carries: the NameID when it is an email address, else a mail attribute. */
-export function identityFromProfile(profile: Profile): SamlIdentity {
+function identityFromProfile(profile: Profile): SamlIdentity {
   const nameId = profile.nameID?.trim();
   const email = (profile.nameIDFormat === EMAIL_FORMAT && nameId?.includes("@") ? nameId : attribute(profile, EMAIL_ATTRIBUTES))?.toLowerCase() ?? "";
   if (!nameId) throw new SamlRefusal("no_subject");

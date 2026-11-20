@@ -4,7 +4,7 @@
 HOST_BUNDLE_FILES=(
   setup.sh install.sh setup.ps1 render.yaml .env.production.example
   docker-compose.prod.yml docker-compose.cloud.yml
-  docker/compose.build.yml docker/compose.tls.yml docker/compose.proxy.yml docker/compose.external-storage.yml
+  docker/compose.build.yml docker/compose.tls.yml docker/compose.proxy.yml docker/compose.cloudflared.yml docker/compose.external-storage.yml
   deploy/Caddyfile deploy/backup.sh deploy/certificates.sh deploy/createbuckets.sh deploy/init-database.sh
   deploy/pg_hba.conf deploy/postgres-start.sh deploy/redis-start.sh deploy/storage-policy.json
   scripts/admin.sh scripts/backup.sh scripts/install-host-bundle.sh scripts/install-owner.sh scripts/install-runner.sh

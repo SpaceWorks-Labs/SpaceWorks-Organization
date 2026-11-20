@@ -8,7 +8,7 @@ import { INSTANCE_SETTINGS_ID } from "@/lib/instanceSettings";
 import { requireSuperAdmin } from "@/lib/permissions";
 import { recordAuditEvent } from "@/lib/audit";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
-import { getLoginSwitches } from "@/lib/loginMethods";
+import { getLoginSwitches, invalidateLoginMethodsCache } from "@/lib/loginMethods";
 import { LOGIN_METHODS, LOGIN_SWITCH_FIELDS, loginMethodsFromEnv } from "@/lib/loginMethodsCore";
 import type { ActionResult } from "./org";
 
@@ -35,6 +35,7 @@ export async function saveLoginMethods(input: unknown): Promise<ActionResult> {
   if (changed.length) {
     await recordAuditEvent({ action: "LOGIN_METHODS_UPDATED", actorUserId: session.user.id, targetType: "InstanceSetting", targetId: INSTANCE_SETTINGS_ID, metadata: { changed: changed.join(",") } });
   }
+  invalidateLoginMethodsCache();
   revalidatePath("/login");
   revalidatePath("/super-admin/auth");
   return { ok: true };

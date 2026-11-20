@@ -34,7 +34,7 @@ export async function signUpWithPassword(
   if (!parsed.success) {
     return {
       ok: false,
-      error: "Invalid input.",
+      error: "Check the highlighted fields.",
       fieldErrors: flattenZodErrors(parsed.error),
     };
   }
@@ -42,6 +42,11 @@ export async function signUpWithPassword(
   const { name, email, password } = parsed.data;
   if (!(await availableLoginMethods()).includes("password")) return { ok: false, error: "Signing up with an email and password is switched off. Use one of the other sign-in options." };
   if (await currentRequestBlocked()) return { ok: false, error: "Too many failed sign-ins from your network. Try again in an hour." };
+  // Before any work that differs by whether the address is registered (hashing, lookups), so every request
+  // costs the same quota and gets the same answer. Per network address only.
+  if (await isActionRateLimited("signup")) {
+    return { ok: false, error: "Too many attempts. Try again later." };
+  }
 
   // A valid staff invite this browser started from lets an account be created even while sign-ups are off,
   // and sends the verification link back to that invite.
@@ -64,12 +69,6 @@ export async function signUpWithPassword(
     return { ok: true, data: { email } };
   }
 
-  // A double-submit or network retry can arrive just after the first request
-  // created the account. Check for that case before consuming the creation
-  // quota so a real account creation is never presented as a rate-limit error.
-  if (await isActionRateLimited("signup", email)) {
-    return { ok: false, error: "Too many attempts. Please try again later." };
-  }
   // While sign-ups are off, the invite creates one account only: claim it for this email now.
   if (!registrationOpen && !(await reserveInviteSignup(email))) {
     return { ok: false, error: "New account creation is currently unavailable." };
@@ -101,7 +100,7 @@ const verificationTokenSchema = z.object({
 export async function confirmEmailVerification(input: unknown): Promise<ActionResult<{ verified: true; next: string | null }>> {
   const parsed = verificationTokenSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "This verification link is invalid or has expired." };
-  if (await isActionRateLimited("auth")) return { ok: false, error: "Too many attempts. Please try again later." };
+  if (await isActionRateLimited("auth")) return { ok: false, error: "Too many attempts. Try again later." };
   const verified = await verifyEmail(parsed.data.token);
   if (!verified) return { ok: false, error: "This verification link is invalid or has expired." };
   return { ok: true, data: { verified: true, next: inviteReturnPath(parsed.data.next) } };

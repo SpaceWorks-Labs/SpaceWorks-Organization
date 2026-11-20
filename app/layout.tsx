@@ -8,7 +8,8 @@ import { WebTelemetry } from "@/components/telemetry/WebTelemetry";
 import { VisitBeacon } from "@/components/telemetry/VisitBeacon";
 import { RouteAnnouncer } from "@/components/motion/RouteAnnouncer";
 import { loadWebTelemetryView } from "@/lib/views/app__layout";
-import { COLOR_MODE_BOOT_SCRIPT, COLOR_MODE_COOKIE, THEME_COLOR, resolveColorMode, serverPaintedColorMode } from "@/lib/colorMode";
+import { sessionCookieName } from "@/lib/sessionCookie";
+import { COLOR_MODE_BOOT_SCRIPT, COLOR_MODE_COOKIE, THEME_COLOR, resolveColorMode } from "@/lib/colorMode";
 
 export const metadata: Metadata = {
   title: {
@@ -32,30 +33,36 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image", images: ["/brand/icons/og-1200x630.png"] },
 };
 
-/** Browser chrome follows the painted theme: Warm Cream, or black for a saved Dark (the boot script handles System). */
+/** Browser chrome follows the saved theme: Warm Cream, or black for Dark. */
 export async function generateViewport(): Promise<Viewport> {
   const mode = resolveColorMode((await cookies()).get(COLOR_MODE_COOKIE)?.value);
-  return { themeColor: THEME_COLOR[serverPaintedColorMode(mode) ?? "light"] };
+  return { themeColor: THEME_COLOR[mode] };
 }
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   // proxy.ts injects a per-request CSP nonce (lib/pageSecurity.ts, the x-nonce request header); waiting for the
   // request lets Next.js attach it to every framework script.
   await connection();
-  const mode = resolveColorMode((await cookies()).get(COLOR_MODE_COOKIE)?.value);
-  const painted = serverPaintedColorMode(mode);
-  const nonce = (await headers()).get("x-nonce") ?? undefined;
+  const [jar, requestHeaders] = await Promise.all([cookies(), headers()]);
+  const mode = resolveColorMode(jar.get(COLOR_MODE_COOKIE)?.value);
+  // No session cookie means signed out: tell the client provider so anonymous visitors never call /api/auth/session.
+  const sessionCookie = sessionCookieName();
+  const signedOut = !jar.getAll().some((cookie) => cookie.name.startsWith(sessionCookie));
+  const nonce = requestHeaders.get("x-nonce") ?? undefined;
   // Outside analytics (product rules §8.2): public config for signed-out visitors only, else null.
-  const telemetry = await loadWebTelemetryView();
+  // A signed-in visitor (session cookie present) never gets it, so skip the session and settings lookups for them.
+  const telemetry = signedOut ? await loadWebTelemetryView() : null;
 
   return (
-    <html lang="en-GB" className={painted === "dark" ? "dark" : undefined} style={painted ? { colorScheme: painted } : undefined} suppressHydrationWarning>
+    <html lang="en-GB" className={mode === "dark" ? "dark" : undefined} style={{ colorScheme: mode }} suppressHydrationWarning>
       <head>
-        {/* Pre-paint: applies a System choice (and re-checks the cookie) before anything is drawn. */}
+        <link rel="preload" href="/brand/fonts/Gilroy-ExtraBold.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <link rel="preload" href="/brand/fonts/Outfit-Variable.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        {/* Pre-paint: re-applies the saved choice (cookie, then the localStorage mirror) before anything is drawn. */}
         <script nonce={nonce} suppressHydrationWarning dangerouslySetInnerHTML={{ __html: COLOR_MODE_BOOT_SCRIPT }} />
       </head>
       <body className="flex min-h-dvh flex-col">
-        <Providers initialColorMode={mode}>
+        <Providers initialColorMode={mode} session={signedOut ? null : undefined}>
           <ChromeSwitch>{children}</ChromeSwitch>
           <WebTelemetry view={telemetry} />
           <VisitBeacon />

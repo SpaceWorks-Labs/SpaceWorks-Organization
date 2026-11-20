@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { safeEqual } from "@/lib/safeEqual";
 
 /**
  * Pure pieces of linking another sign-in method (product rules section 15, "One person, many identities"). A link
@@ -31,9 +32,7 @@ export function verifyLinkIntent(value: string | undefined, now = Date.now()): L
   const parts = value?.split(".");
   if (!parts || parts.length !== 2 || parts[0].length > 512) return null;
   const [body, signature] = parts;
-  const expected = Buffer.from(sign(body));
-  const given = Buffer.from(signature);
-  if (expected.length !== given.length || !crypto.timingSafeEqual(expected, given)) return null;
+  if (!safeEqual(sign(body), signature)) return null;
   try {
     const data = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as { u?: unknown; p?: unknown; e?: unknown };
     if (typeof data.u !== "string" || typeof data.p !== "string" || typeof data.e !== "number") return null;

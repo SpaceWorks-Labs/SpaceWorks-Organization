@@ -1,4 +1,4 @@
-export type FieldType = "TEXT" | "LONG_TEXT" | "SELECT" | "DATE" | "EMAIL" | "PHONE" | "NUMBER" | "CHECKBOX";
+export type FieldType = "TEXT" | "LONG_TEXT" | "SELECT" | "DATE" | "EMAIL" | "PHONE" | "NUMBER" | "CHECKBOX" | "GROUPING";
 
 export type QuestionValue = {
   key: string;
@@ -12,6 +12,8 @@ export type QuestionValue = {
   section: boolean;
   showIfKey: string | null;
   showIfValue: string | null;
+  /** For a grouping question: the grouping it asks about. */
+  groupingId: string | null;
 };
 
 /** What the editor offers. "Choose several" is stored as a long-text question with choices, a section as text. */
@@ -20,15 +22,17 @@ export type QuestionKind = FieldType | "MULTIPLE" | "SECTION";
 export const KINDS: Array<[QuestionKind, string]> = [
   ["TEXT", "Short answer"], ["LONG_TEXT", "Paragraph"], ["SELECT", "Choose one"], ["MULTIPLE", "Choose several"],
   ["DATE", "Date"], ["EMAIL", "Email"], ["PHONE", "Phone"], ["NUMBER", "Number"], ["CHECKBOX", "Tick box"],
-  ["SECTION", "Section heading"],
+  ["GROUPING", "Grouping"], ["SECTION", "Section heading"],
 ];
 
 export const kindOf = (field: QuestionValue): QuestionKind => (field.section ? "SECTION" : field.multiple ? "MULTIPLE" : field.type);
 
 export function kindPatch(kind: QuestionKind): Partial<QuestionValue> {
-  if (kind === "SECTION") return { type: "TEXT", section: true, multiple: false, required: false, showIfKey: null, showIfValue: null };
-  if (kind === "MULTIPLE") return { type: "LONG_TEXT", section: false, multiple: true };
-  return { type: kind, section: false, multiple: false };
+  if (kind === "SECTION") return { type: "TEXT", section: true, multiple: false, required: false, showIfKey: null, showIfValue: null, groupingId: null };
+  if (kind === "MULTIPLE") return { type: "LONG_TEXT", section: false, multiple: true, groupingId: null };
+  // A grouping question takes its choices (and whether several may be chosen) from the grouping.
+  if (kind === "GROUPING") return { type: "GROUPING", section: false, multiple: false, options: [], showIfKey: null, showIfValue: null };
+  return { type: kind, section: false, multiple: false, groupingId: null };
 }
 
 export const hasChoices = (field: QuestionValue) => field.type === "SELECT" || field.multiple;
@@ -45,5 +49,5 @@ export function keyFrom(label: string, taken: string[]) {
 
 export const blankQuestion = (taken: string[]): QuestionValue => ({
   key: keyFrom("question", taken), label: "", helpText: "", type: "TEXT", required: false, options: [], adminOnly: false,
-  multiple: false, section: false, showIfKey: null, showIfValue: null,
+  multiple: false, section: false, showIfKey: null, showIfValue: null, groupingId: null,
 });

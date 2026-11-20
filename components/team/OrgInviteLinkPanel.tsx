@@ -10,7 +10,7 @@ import { createOrgInvite, revokeOrgInvite } from "@/app/actions/org-invites";
 import { useToast } from "@/components/feedback/ToastProvider";
 import { ConfirmationDialog } from "@/components/feedback/ConfirmationDialog";
 import { Dropdown, Field } from "@/components/ui/field";
-import { leastPrivilegedRole, type TeamRoleOption, type TeamUnitOption } from "@/components/team/memberSummary";
+import { leastPrivilegedRole, type TeamGroupingOption, type TeamRoleOption, type TeamUnitOption } from "@/components/team/memberSummary";
 
 type OrgInviteRow = {
   id: string;
@@ -36,10 +36,13 @@ export function OrgInviteLinkPanel(props: {
   roleOptions: TeamRoleOption[];
   units: TeamUnitOption[];
   canGrantOrgWide: boolean;
+  /** Groupings the viewer may limit the invite to. */
+  groupings?: TeamGroupingOption[];
 }) {
-  const { organisationSlug, baseUrl, roleOptions, units, canGrantOrgWide } = props;
+  const { organisationSlug, baseUrl, roleOptions, units, canGrantOrgWide, groupings = [] } = props;
+  const [valueId, setValueId] = useState("");
   const [unitId, setUnitId] = useState(canGrantOrgWide ? "" : (units[0]?.id ?? ""));
-  const reachable = roleOptions.filter((option) => (unitId ? option.scoped : option.orgWide));
+  const reachable = roleOptions.filter((option) => (unitId || valueId ? option.scoped : option.orgWide));
   const [chosenRole, setChosenRole] = useState(() => leastPrivilegedRole(reachable));
   const roleId = reachable.some((option) => option.id === chosenRole) ? chosenRole : leastPrivilegedRole(reachable);
   const router = useRouter();
@@ -53,7 +56,7 @@ export function OrgInviteLinkPanel(props: {
 
   function createLink() {
     startTransition(async () => {
-      const res = await createOrgInvite({ organisationSlug, roleId, unitId: unitId || null });
+      const res = await createOrgInvite({ organisationSlug, roleId, unitId: unitId || null, valueIds: valueId ? [valueId] : [] });
       if (!res.ok) {
         showToast(res.error, "error");
         return;
@@ -61,7 +64,9 @@ export function OrgInviteLinkPanel(props: {
       const { inviteId, token } = res.data as { inviteId: string; token: string };
       const roleName = roleOptions.find((option) => option.id === roleId)?.name ?? "";
       const unitName = units.find((unit) => unit.id === unitId)?.name;
-      setInvites((prev) => [{ id: inviteId, token, createdLabel: "Just now", grantLabel: unitName ? `${roleName} · ${unitName}` : roleName }, ...prev]);
+      const valueName = groupings.flatMap((grouping) => grouping.values).find((value) => value.id === valueId)?.label;
+      const where = [unitName, valueName].filter(Boolean).join(" · ");
+      setInvites((prev) => [{ id: inviteId, token, createdLabel: "Just now", grantLabel: where ? `${roleName} · ${where}` : roleName }, ...prev]);
       showToast("Invite link created", "success");
       router.refresh();
     });
@@ -89,6 +94,14 @@ export function OrgInviteLinkPanel(props: {
             <Dropdown value={unitId} disabled={pending} onChange={(event) => setUnitId(event.target.value)}>
               {canGrantOrgWide ? <option value="">Whole organisation</option> : null}
               {units.map((unit) => <option key={unit.id} value={unit.id}>{`${"— ".repeat(unit.level)}${unit.name}`}</option>)}
+            </Dropdown>
+          </Field>
+        ) : null}
+        {groupings.some((grouping) => grouping.values.length > 0) ? (
+          <Field label="Limit to a grouping" optional helperText="They see only members with this value (and those under it).">
+            <Dropdown value={valueId} disabled={pending} onChange={(event) => setValueId(event.target.value)}>
+              <option value="">No grouping limit</option>
+              {groupings.map((grouping) => <optgroup key={grouping.id} label={grouping.name}>{grouping.values.map((value) => <option key={value.id} value={value.id}>{value.label}</option>)}</optgroup>)}
             </Dropdown>
           </Field>
         ) : null}

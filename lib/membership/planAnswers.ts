@@ -30,7 +30,8 @@ export function resolvePlanAnswers(plans: readonly QuestionPlan[], values: Recor
     changed = false;
     for (const fields of ordered) {
       for (const [index, field] of fields.entries()) {
-        if (visible.has(field) || field.section || !allowed.has(field.key) || (field.adminOnly && !byManager)) continue;
+        // Grouping questions are answered through lib/groupings/answers.ts, never stored in fieldValues.
+        if (visible.has(field) || field.section || field.type === "GROUPING" || !allowed.has(field.key) || (field.adminOnly && !byManager)) continue;
         if (field.showIfKey != null || field.showIfValue != null) {
           const parent = fields.slice(0, index).find((entry) => entry.key === field.showIfKey);
           if (!parent || parent.section || parent.multiple || !["SELECT", "CHECKBOX"].includes(parent.type)) continue;

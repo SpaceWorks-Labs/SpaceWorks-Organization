@@ -106,14 +106,58 @@
   .sw-land-record-step[data-new] .sw-land-record-proof { animation: sw-land-proof-in var(--sw-dur-slow) var(--sw-ease-enter) both; }
 }
 
+/* Sample member cards (CardShowcase, CardDeck): real renders from public/landing/cards, all SpaceWorks's own
+   samples. With reduced motion they stand still: a scroll-snap row on phones and tablets, a slightly fanned row
+   from 1024px. Otherwise they drift sideways in a seamless loop (the set twice, moved by half the track,
+   transform only): the one loop outside a loader, an owner decision of 2026-11-19 (docs/DESIGN.md). CardDeck
+   pauses it (data-motion="paused") for its Pause button, a pointer or focus on the cards, off screen and a hidden
+   tab. Corners follow the CR80 card (3.18 mm on 85.6 mm); a hairline keeps cream cards on cream and dark cards
+   on black. */
+.sw-land-cards { --sw-card-long: min(78vw, 340px); margin-inline: -16px; overflow-x: auto; overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory; scroll-padding-inline: 16px; }
+.sw-land-cards:focus-visible { outline: 2px solid rgb(var(--sw-ui-focus)); outline-offset: 2px; }
+.sw-land-cards-row { display: flex; align-items: center; gap: 16px; width: max-content; padding: 8px 16px 16px; }
+.sw-land-card { flex: none; scroll-snap-align: center; }
+.sw-land-card img { display: block; width: var(--sw-card-long); height: auto; border: 1px solid rgb(var(--sw-ui-line-strong));
+  border-radius: calc(var(--sw-card-long) * 0.037); }
+.sw-land-card[data-orientation="portrait"] img { width: calc(var(--sw-card-long) * 0.631); }
+@media (min-width: 768px) { .sw-land-cards { margin-inline: -32px; scroll-padding-inline: 32px; } .sw-land-cards-row { padding-inline: 32px; } }
+@media (min-width: 1024px) {
+  .sw-land-cards { --sw-card-long: min(238px, calc((100vw - 64px) / 5)); margin-inline: 0; overflow: visible; scroll-snap-type: none; }
+  .sw-land-cards-row { width: auto; justify-content: center; gap: 0; padding: 24px 0 32px; }
+  .sw-land-card { transform: translateY(var(--sw-card-lift)) rotate(var(--sw-card-turn)); }
+  .sw-land-card + .sw-land-card { margin-left: calc(var(--sw-card-long) * -0.06); }
+  .sw-land-card:nth-child(1) { --sw-card-turn: -3deg; --sw-card-lift: 10px; }
+  .sw-land-card:nth-child(2) { --sw-card-turn: 2deg; --sw-card-lift: -6px; }
+  .sw-land-card:nth-child(3) { --sw-card-turn: -1.5deg; --sw-card-lift: 4px; }
+  .sw-land-card:nth-child(4) { --sw-card-turn: 2.5deg; --sw-card-lift: -8px; }
+  .sw-land-card:nth-child(5) { --sw-card-turn: -2deg; --sw-card-lift: 6px; }
+  .sw-land-card:nth-child(6) { --sw-card-turn: 3deg; --sw-card-lift: -2px; }
+}
+.sw-land-cards-track { display: flex; width: max-content; }
+.sw-land-cards-row[data-copy] { display: none; }
+.sw-land-cards-controls { display: flex; justify-content: flex-end; margin-top: 4px; }
+@media (prefers-reduced-motion: reduce) { .sw-land-cards-controls { display: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  .sw-land-cards[data-motion] { overflow: hidden; scroll-snap-type: none;
+    mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent); }
+  .sw-land-cards[data-motion] .sw-land-cards-row { display: flex; width: max-content; justify-content: flex-start; gap: 20px; padding-inline: 0 20px; }
+  .sw-land-cards[data-motion] .sw-land-card + .sw-land-card { margin-left: 0; }
+  .sw-land-cards[data-motion] .sw-land-cards-track { animation: sw-land-drift var(--sw-card-drift, 54s) linear infinite; }
+  .sw-land-cards[data-motion="paused"] .sw-land-cards-track { animation-play-state: paused; }
+}
+@keyframes sw-land-drift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-50%, 0, 0); } }
+
 /* Reveal on scroll: components/motion/RevealRoot.tsx, styled in app/styles/motion-route.css. */
 
 /* Cold-load splash (LandingSplash): the box opens once (the kit's `once` artwork, CR-MOTION-01's named 1600 ms
-   exception), then the layer fades on the exit curve. Never takes input; nothing under reduced motion. */
+   exception), then splashFlight.ts flies it into the header mark (transform only) while the canvas ground fades.
+   Without JavaScript the layer fades on the exit curve instead. Never takes input; nothing under reduced motion. */
 .sw-splash { --sw-splash-open: 1600ms; position: fixed; inset: 0; z-index: 60; display: grid; place-items: center;
-  pointer-events: none; background: rgb(var(--sw-ui-canvas));
+  pointer-events: none;
   animation: sw-splash-out var(--sw-dur-slow) var(--sw-ease-exit) calc(var(--sw-splash-open) + var(--sw-dur-fast)) forwards; }
-.sw-splash-mark { display: block; }
+.sw-splash-ground { position: absolute; inset: 0; background: rgb(var(--sw-ui-canvas)); }
+.sw-splash-mark { position: relative; display: block; transform-origin: 0 0; will-change: transform; }
 @keyframes sw-splash-out { to { opacity: 0; visibility: hidden; } }
 @media (prefers-reduced-motion: reduce) { .sw-splash { display: none; } }
 

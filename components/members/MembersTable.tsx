@@ -12,6 +12,8 @@ import { Callout } from "@/components/ui/display";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { Field, Textarea } from "@/components/ui/field";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
+import { BulkGroupingBar } from "@/components/members/BulkGroupingBar";
+import type { PickerGroupingView } from "@/components/members/GroupingPicker";
 import type { TermStatus } from "@/lib/membership/lifecycle";
 
 type MemberRowData = {
@@ -25,10 +27,12 @@ type MemberRowData = {
 };
 
 /** Members, with bulk verify (approve) and decline for applications and imports waiting on a decision. */
-export function MembersTable({ slug, rows, canManage, showUnit, validUntil }: { slug: string; rows: MemberRowData[]; canManage: boolean; showUnit: boolean; validUntil: Record<string, string> }) {
+export function MembersTable({ slug, rows, canManage, showUnit, validUntil, groupings = [] }: { slug: string; rows: MemberRowData[]; canManage: boolean; showUnit: boolean; validUntil: Record<string, string>; groupings?: PickerGroupingView[] }) {
   const router = useRouter();
   const pending = useMemo(() => rows.flatMap((row) => row.standings.filter((s) => s.pendingTermId).map((s) => s.pendingTermId!)), [rows]);
   const [selected, setSelected] = useState<string[]>([]);
+  const [chosen, setChosen] = useState<string[]>([]);
+  const grouped = canManage && groupings.some((grouping) => grouping.values.length > 0);
   const [declining, setDeclining] = useState(false);
   const [reason, setReason] = useState("");
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
@@ -54,12 +58,18 @@ export function MembersTable({ slug, rows, canManage, showUnit, validUntil }: { 
           <Button size="sm" variant="ghost" onClick={() => setSelected([])}>Clear</Button>
         </div>
       ) : null}
+      {grouped && chosen.length ? <BulkGroupingBar slug={slug} groupings={groupings} memberIds={chosen} onDone={() => setChosen([])} /> : null}
       <Table label="Members">
         <THead>
           <tr>
             {canManage && pending.length ? (
               <TH className="w-10">
                 <Checkbox aria-label="Select every application on this page" checked={selected.length > 0 && selected.length === pending.length} onCheckedChange={(checked) => setSelected(checked === true ? pending : [])} />
+              </TH>
+            ) : null}
+            {grouped ? (
+              <TH className="w-10">
+                <Checkbox aria-label="Select every member on this page to set a grouping" checked={chosen.length > 0 && chosen.length === rows.length} onCheckedChange={(checked) => setChosen(checked === true ? rows.map((row) => row.id) : [])} />
               </TH>
             ) : null}
             <TH>Member</TH>
@@ -79,6 +89,11 @@ export function MembersTable({ slug, rows, canManage, showUnit, validUntil }: { 
                     {termIds.length ? (
                       <Checkbox aria-label={`Select ${row.name}'s application`} checked={checked} onCheckedChange={(value) => setSelected((current) => (value === true ? [...new Set([...current, ...termIds])] : current.filter((id) => !termIds.includes(id))))} />
                     ) : null}
+                  </TD>
+                ) : null}
+                {grouped ? (
+                  <TD className="align-top">
+                    <Checkbox aria-label={`Select ${row.name} to set a grouping`} checked={chosen.includes(row.id)} onCheckedChange={(value) => setChosen((current) => (value === true ? [...new Set([...current, row.id])] : current.filter((id) => id !== row.id)))} />
                   </TD>
                 ) : null}
                 <TD className="align-top">

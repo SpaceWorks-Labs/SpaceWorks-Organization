@@ -35,7 +35,7 @@ function SampleCard({ name, plan, number, until, className }: { name: string; pl
 function SampleRow({ title, meta, className }: { title: string; meta: string; className?: string }) {
   return (
     <div className={`flex items-center gap-3.5 rounded-xl border border-line bg-panel p-4 ${className ?? ""}`}>
-      <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-sw-sky text-label font-semibold text-sw-ink">AR</span>
+      <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-sw-sky text-label font-semibold text-sw-ink">MC</span>
       <span className="flex min-w-0 flex-col">
         <span className="truncate text-label text-ink">{title}</span>
         <span className="truncate text-caption text-ink-muted">{meta}</span>
@@ -73,7 +73,7 @@ export default async function LoginPage() {
         </main>
       </div>
 
-      {/* Brand panel: the stacked lockup, the accent phrase and a few sample product objects (invented names). The box facets open and the
+      {/* Brand panel: the stacked lockup, the accent phrase and a few sample product objects (named after the SpaceWorks team). The box facets open and the
           objects rise once as the page loads (never on hover; still under reduced motion). */}
       <aside aria-hidden className="relative hidden overflow-hidden p-4 md:block">
         <div className="relative flex h-full flex-col justify-between gap-10 overflow-hidden rounded-xl bg-surface p-12">
@@ -83,11 +83,11 @@ export default async function LoginPage() {
           <div className={`relative flex flex-col gap-4 py-6 ${styles.showcase}`}>
             <span className="absolute -right-16 -top-10 size-44 rounded-full bg-sw-citron" />
             <span className="absolute -bottom-2 right-20 size-20 rounded-xl bg-sw-sky" />
-            <SampleCard name="Meera Nair" plan="Annual membership · Riverside Cycling Club" number="RCC-2026-0001" until="31 Mar 2027" className="relative -rotate-2" />
-            <SampleRow title="Arjun Rao renewed for 2026–27" meta="₹1,200 · UPI · Receipt RCC/26-27/0002" className="relative ml-12 max-w-[340px] rotate-1" />
+            <SampleCard name="Shaan Shoukath" plan="Annual membership · SpaceWorks" number="SWK-0001" until="31 Mar 2027" className="relative -rotate-2" />
+            <SampleRow title="Midlaj C renewed for 2026–27" meta="₹1,200 · UPI · Receipt SWK/26-27/0002" className="relative ml-12 max-w-[340px] rotate-1" />
             <span className="relative ml-4 inline-flex items-center gap-2 self-start rounded-full bg-sw-citron px-4 py-2 text-label text-sw-ink">
               <Check className="size-4" />
-              Priya Das approved
+              Ajzal P approved
             </span>
           </div>
           <p className="relative flex items-end justify-between gap-6">

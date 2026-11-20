@@ -3,6 +3,7 @@
 The bundled deployment runs the whole platform on one Linux server with Docker Compose, exactly like a
 standalone SpaceWorks install: the curl installer, `setup.sh`, `scripts/update.sh` and
 `scripts/spaceworks-compose.sh bundled`. Assume a dedicated server: the installer's Caddy takes ports 80 and 443.
+For a free setup behind Cloudflare with no open ports, see [DEPLOYMENT_CLOUDFLARE.md](DEPLOYMENT_CLOUDFLARE.md).
 
 ## Install
 
@@ -59,6 +60,7 @@ project name `sworg`, and the overlays the settings select:
 | `SWO_LAYER='none'` | none | Caddy serves `http://<host>` on port 80 (plain HTTP, LAN or trial). |
 | `SWO_LAYER='tls'` | `docker/compose.tls.yml` | Caddy obtains Let's Encrypt certificates and also serves 443 (TCP and QUIC). |
 | `SWO_LAYER='proxy'` | `docker/compose.proxy.yml` | No Caddy; the app listens on `127.0.0.1:8080` for your proxy. |
+| `SWO_LAYER='cloudflared'` | `docker/compose.cloudflared.yml` | No Caddy and no published ports; a `cloudflared` connector dials out to Cloudflare. See [DEPLOYMENT_CLOUDFLARE.md](DEPLOYMENT_CLOUDFLARE.md). |
 | `SWO_STORAGE='external'` | `docker/compose.external-storage.yml` | No Silo; files go to the `S3_*` bucket. |
 | `SWO_COMPOSE_BUILD_LAYER=1` (shell) | `docker/compose.build.yml` | Builds the backend image from the checkout. |
 

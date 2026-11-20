@@ -1,69 +1,43 @@
 "use client";
 
-import { useRef, type RefObject } from "react";
-import { Monitor, Moon, Sun } from "lucide-react";
+import type { RefObject } from "react";
+import { Moon, Sun } from "lucide-react";
 import { useAppColorMode } from "@/components/providers";
 import { IconButton } from "@/components/ui/button";
-import { Menu, MenuContent, MenuLabel, MenuRadioGroup, MenuRadioItem, MenuTrigger } from "@/components/ui/menu";
-import { isColorMode, type ColorMode } from "@/lib/colorMode";
-
-/** The three choices (CR-THEME-01), in the kit's order. */
-export const COLOR_MODE_OPTIONS = [
-  { value: "light", label: "Light", icon: <Sun aria-hidden /> },
-  { value: "dark", label: "Dark", icon: <Moon aria-hidden /> },
-  { value: "system", label: "System", icon: <Monitor aria-hidden /> },
-] as const satisfies ReadonlyArray<{ value: ColorMode; label: string; icon: React.ReactNode }>;
-
-const LABEL: Record<ColorMode, string> = { light: "Light", dark: "Dark", system: "System" };
-
-/** The centre of an element, where the new mode's reveal starts. */
-export function originOf(element: Element | null | undefined) {
-  const rect = element?.getBoundingClientRect();
-  return rect ? { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } : undefined;
-}
+import { MenuCheckboxItem } from "@/components/ui/menu";
 
 /**
- * Light, Dark and System as radio items, for a menu that is already open (the account menus in the app shell
- * and the super-admin bar). The reveal starts from `originRef`, the menu's trigger.
+ * "Dark theme" as one checkbox item, for a menu that is already open (the account menus in the app shell and the
+ * super-admin bar). Light and Dark only (owner decision 2026-11-19). The reveal grows from `originRef`, the trigger.
  */
-export function ColorModeMenuItems({ originRef }: { originRef?: RefObject<Element | null> }) {
-  const { preference, setColorMode } = useAppColorMode();
+export function ColorModeMenuItem({ originRef }: { originRef?: RefObject<Element | null> }) {
+  const { mode, setColorMode } = useAppColorMode();
   return (
-    <>
-      <MenuLabel>Appearance</MenuLabel>
-      <MenuRadioGroup value={preference} onValueChange={(next) => isColorMode(next) && setColorMode(next, originOf(originRef?.current))}>
-        {COLOR_MODE_OPTIONS.map((option) => (
-          <MenuRadioItem key={option.value} value={option.value} icon={option.icon}>
-            {option.label}
-          </MenuRadioItem>
-        ))}
-      </MenuRadioGroup>
-    </>
+    <MenuCheckboxItem checked={mode === "dark"} onCheckedChange={(on) => setColorMode(on ? "dark" : "light", originRef?.current)} icon={<Moon aria-hidden />}>
+      Dark theme
+    </MenuCheckboxItem>
   );
 }
 
 /**
- * The colour-mode picker for headers (site header, organisation pages): an icon button showing the painted mode,
- * or a screen for System, that opens Light, Dark and System. Kept under its old name so callers need no change.
+ * The light/dark toggle for headers (site header, organisation pages), after the kit's theme toggle (v2.5.1): one
+ * treatment in both themes (panel fill, control-outline boundary, ink icon, ink boundary on hover, the global focus
+ * ring), the sun or moon showing the theme that is on, and `aria-pressed` saying whether Dark is on. Clicking plays
+ * the theme reveal from the button (instant under reduced motion).
  */
-export function ColorModeToggle({ variant = "quiet", size = "md" }: { variant?: "quiet" | "secondary"; size?: "sm" | "md" }) {
-  const { mode, preference } = useAppColorMode();
-  const triggerRef = useRef<HTMLButtonElement>(null);
+export function ColorModeToggle({ size = "md" }: { size?: "sm" | "md" }) {
+  const { mode, toggleColorMode } = useAppColorMode();
+  const dark = mode === "dark";
   return (
-    <Menu>
-      <MenuTrigger asChild>
-        <IconButton ref={triggerRef} label={`Appearance: ${LABEL[preference]}`} variant={variant} size={size}>
-          {/* The icons stay mounted and cross-rotate, so a change reads as one motion. */}
-          <span aria-hidden className="relative inline-flex size-[18px]">
-            <Sun className={`sw-mode-icon absolute inset-0 ${preference !== "system" && mode === "light" ? "rotate-0 scale-100 opacity-100" : "-rotate-90 scale-50 opacity-0"}`} />
-            <Moon className={`sw-mode-icon absolute inset-0 ${preference !== "system" && mode === "dark" ? "rotate-0 scale-100 opacity-100" : "rotate-90 scale-50 opacity-0"}`} />
-            <Monitor className={`sw-mode-icon absolute inset-0 ${preference === "system" ? "rotate-0 scale-100 opacity-100" : "rotate-90 scale-50 opacity-0"}`} />
-          </span>
-        </IconButton>
-      </MenuTrigger>
-      <MenuContent align="end" className="min-w-[200px]">
-        <ColorModeMenuItems originRef={triggerRef} />
-      </MenuContent>
-    </Menu>
+    <IconButton
+      label="Dark theme"
+      aria-pressed={dark}
+      variant="secondary"
+      size={size}
+      className="border-line-strong hover:border-ink hover:bg-panel"
+      onClick={(event) => toggleColorMode(event.currentTarget)}
+    >
+      {dark ? <Moon aria-hidden /> : <Sun aria-hidden />}
+    </IconButton>
   );
 }

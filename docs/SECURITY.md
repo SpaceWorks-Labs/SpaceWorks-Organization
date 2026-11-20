@@ -188,6 +188,7 @@ public issue.
   proxy forwards `svix-id`, `svix-timestamp`, `svix-signature`, `x-twilio-signature` and `x-amz-sns-*` (`authorization`
   is already forwarded for Postmark). The backend verifies every one. The Twilio signature is computed over
   `NEXT_PUBLIC_BASE_URL` + path + query, the address Twilio called.
+- **Messaging webhooks.** `/api/messaging/webhooks/<telegram|slack|discord|mattermost|whatsapp-meta|twilio>?scope=<platform or organisation id>` is exempt from the Origin check and forwards only `x-hub-signature-256`, `x-telegram-bot-api-secret-token`, `x-slack-signature`, `x-slack-request-timestamp`, `x-signature-ed25519`, `x-signature-timestamp` and `x-twilio-signature`. Each handler verifies before it reads the body: Meta HMAC-SHA256 of the raw body with the app secret, Telegram the secret token set with `setWebhook`, Slack `v0:<timestamp>:<body>` with the signing secret (five-minute window), Discord Ed25519 over timestamp and body with the application public key, Mattermost the slash command token, Twilio as above. Comparisons are constant-time; bodies are capped at 256 KB; answers never repeat a code, a number or an address. Linking codes are 14 characters, keyed-hashed, 15 minutes, once and five tries per code; endpoint addresses are encrypted with a keyed digest for uniqueness. The stop link (`/api/messaging/stop/<token>`) is a signed token that can only end consent, and changes nothing on GET. Member message logs hold no text, number or address.
 - **Pre-registered accounts.** Google, Apple and GitHub link by verified email, but not into an existing account that has
   no password and whose identities are all single sign-on (SAML, OpenID Connect) or bridge accounts: `link_from_account`.
   The inbox's owner signs in the original way and links the provider from the security page.
@@ -324,3 +325,44 @@ The policy is built per request in `lib/pageSecurity.ts` from the environment on
   per-address rate limit only (Redis, `apiRead`). Tokens and private routes have no template and are dropped, as are
   unknown or inactive organisations and obvious bots by user agent. The answer is always 204, so a caller learns
   nothing about why a visit was or was not counted.
+
+## Audit hardening (2026-11)
+
+- **Password reset.** Requesting a reset keeps its own limit (`passwordReset`: 5 an hour per address and per client).
+  Confirming a link has a separate bucket (`passwordResetConfirm`: 10 an hour) keyed by the hash of the link and the
+  client address, so someone else asking for an address's resets cannot block its valid confirmation, and guessing
+  links is still throttled. A reset link issued less than 60 seconds ago is kept and no new mail is queued, with the
+  same generic answer, so a flood of requests cannot keep replacing a link the person is about to use.
+- **Sign-up ordering.** `signUpWithPassword` takes the per-address `signup` limit (and the address block) first,
+  before the breached-password check, hashing or the lookup. An address that already has an account and a new one
+  consume the same quota and get the same answer.
+- **Member payments and receipts follow the member-accounts switch.** `/account/payments` and the member's own copy
+  of a receipt (`/api/documents/<id>`) require `Organisation.memberPortal` and a portal organisation status, like the
+  rest of the portal. Staff access to documents is unchanged.
+- **Frontend backstop.** `assertSafeView` (`lib/frontend/handler.ts`) refuses, at any depth, listed secret fields and
+  any key ending in `Encrypted`, `Hash`, `Hashes`, `Secret` or `PrivateKey`, or named like an access, refresh, id or
+  verify token, unless the value is a boolean (`hasSecret`). A plain `token` is allowed: invite, join and pay links
+  are shown to the people they belong to.
+- **Audit of platform access.** `deleteOrganisation` and `resubmitOrganisationApplication` write
+  `SUPER_ADMIN_ORG_ACTION` when a super admin acts through platform access, like every other organisation action.
+- **Structure lock.** `updateUnit` and `setUnitPaymentInstructions` take `lockOrganisationStructure` first, like the
+  other unit actions.
+- **Provider test fetches.** "Test connection" for OIDC and the SAML metadata test refuse hosts that resolve to
+  private, loopback or link-local addresses (`assertPublicHost`; development allows local hosts), never follow
+  redirects and time out after 8 seconds. An identity provider on an internal address cannot be tested from the
+  settings page; there is no allow-list.
+- **Member photos.** `/api/uploads` serves keys under `organisations/<org>/members/` (and the older
+  `member-id-photos/`) with `Cache-Control: private, no-store`, so no CDN or shared cache keeps a copy past an
+  erasure. They still need only the unguessable key. Page images and logos stay public and immutable.
+- **Small fixes.** The collection sheet logs a failed row's message and code only. `POST /api/visits` refuses a body
+  over 1 KB by `Content-Length` and while streaming it. Public organisation pages are `noindex` unless the
+  organisation is both listed and active.
+
+### Known gaps
+
+- **Resolve once, connect later.** Outbound requests to hosts an organisation or operator types in (chat webhooks,
+  SMTP relays, the provider test fetches) check the host with `assertPublicHost`, which resolves the name once, and
+  the connection then resolves it again. A DNS server controlled by an attacker can answer with a public address
+  for the check and a private one for the connection (DNS rebinding). Planned fix: resolve once, refuse private
+  results, and connect to that pinned IP address with the original host name kept for TLS and the `Host` header
+  (a custom `lookup` on the HTTP agent and the SMTP and chat transports), so there is no second resolution.

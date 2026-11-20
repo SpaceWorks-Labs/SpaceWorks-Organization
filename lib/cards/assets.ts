@@ -5,6 +5,8 @@ import path from "node:path";
 import QRCode from "qrcode";
 import sharp from "sharp";
 import { downloadFile } from "@/lib/storage";
+import { prepareArtImage } from "./artPrepare";
+import { isPlainArt, type ImageArt } from "./imageArt";
 import { managedImageKey } from "./imageUrl";
 import type { CardSymbolVariant } from "./palette";
 import { MM_PER_INCH } from "./sheet";
@@ -46,13 +48,14 @@ async function roundCorners(png: Buffer, widthPx: number, heightPx: number, radi
  */
 export async function prepareCardImage(
   url: string,
-  box: { wMm: number; hMm: number; fit: "contain" | "cover"; shape: "none" | "circle" | "rounded"; grayscale: boolean; background: string; alpha?: boolean; radiusMm?: number },
+  box: { wMm: number; hMm: number; fit: "contain" | "cover"; shape: "none" | "circle" | "rounded"; grayscale: boolean; background: string; alpha?: boolean; radiusMm?: number; art?: ImageArt },
 ): Promise<PreparedImage | null> {
   const key = managedImageKey(url);
   if (!key) return null;
   try {
     const file = await downloadFile(key);
     if (!file) return null;
+    if (box.alpha && box.art && !isPlainArt(box.art)) return await prepareArtImage(Buffer.from(file.body), { ...box, radiusMm: box.radiusMm ?? 0, art: box.art }, pxFor);
     let image = sharp(Buffer.from(file.body), { failOn: "error", limitInputPixels: 40_000_000 }).rotate();
     if (box.grayscale) image = image.grayscale();
     if (box.alpha) {

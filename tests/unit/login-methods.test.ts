@@ -50,7 +50,7 @@ describe("login method resolution", () => {
 });
 
 describe("loadLoginMethods", () => {
-  beforeEach(() => { mocks.row = null; mocks.oauth = { google: null, github: null, apple: null }; mocks.oidc = []; mocks.saml = []; mocks.email = true; });
+  beforeEach(async () => { (await import("@/lib/loginMethods")).invalidateLoginMethodsCache(); mocks.row = null; mocks.oauth = { google: null, github: null, apple: null }; mocks.oidc = []; mocks.saml = []; mocks.email = true; }, 30_000);
   afterEach(() => vi.unstubAllEnvs());
 
   it("defaults every switch but password off: configured methods stay hidden until switched on", async () => {
@@ -60,6 +60,7 @@ describe("loadLoginMethods", () => {
     vi.stubEnv("AUTH_SUPABASE_ANON_KEY", "anon");
     expect(await availableLoginMethods()).toEqual(["password"]);
     mocks.row = { ...none, googleSignIn: true, supabaseSignIn: true, passwordSignIn: true } as never;
+    (await import("@/lib/loginMethods")).invalidateLoginMethodsCache();
     expect(await availableLoginMethods()).toEqual(["password", "google", "supabase"]);
   });
   it("lists enabled OIDC and SAML providers for the login page, and hides them when the method is off", async () => {
@@ -68,6 +69,7 @@ describe("loadLoginMethods", () => {
     mocks.saml = [{ id: "s1", slug: "campus", name: "Campus" }];
     expect((await loginPageMethods()).singleSignOn).toEqual([]);
     mocks.row = { passwordSignIn: true, oidcSignIn: true, samlSignIn: true } as never;
+    (await import("@/lib/loginMethods")).invalidateLoginMethodsCache();
     const page = await loginPageMethods();
     expect(page.singleSignOn).toEqual([{ kind: "oidc", id: "o1", slug: "work", name: "Work" }, { kind: "saml", id: "s1", slug: "campus", name: "Campus" }]);
     expect(JSON.stringify(page)).not.toContain("clientSecret");

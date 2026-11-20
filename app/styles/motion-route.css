@@ -4,14 +4,14 @@
  */
 
 /* Route transition (components/motion/RouteTransition.tsx, each shell's template.tsx): the content region fades in
-   with an 8px upward settle over slow on the enter curve, a quarter of fast after the swap. */
+   with an 8px upward settle over base (180ms) on the enter curve, starting at once so it never delays content. */
 @keyframes sw-route-in { from { opacity: 0; transform: translateY(var(--sw-enter-y)); } }
 @media (prefers-reduced-motion: no-preference) {
-  .sw-route-enter { animation: sw-route-in var(--sw-dur-slow) var(--sw-ease-enter) calc(var(--sw-dur-fast) / 4) backwards; }
+  .sw-route-enter { animation: sw-route-in var(--sw-dur-base) var(--sw-ease-enter) backwards; }
   /* Tenant logos stay still (CR-MOTION-01): a region holding one enters only its parts without a logo. */
   .sw-route-enter:has([data-tenant-logo]) { animation: none; }
   .sw-route-enter:has([data-tenant-logo]) > :not(:has([data-tenant-logo])) {
-    animation: sw-route-in var(--sw-dur-slow) var(--sw-ease-enter) calc(var(--sw-dur-fast) / 4) backwards;
+    animation: sw-route-in var(--sw-dur-base) var(--sw-ease-enter) backwards;
   }
 }
 /* Focus moves to the new page's heading for keyboard and screen-reader users; it is not a control, so no ring. */

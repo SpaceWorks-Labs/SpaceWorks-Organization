@@ -89,7 +89,7 @@ sends anything. PostgreSQL is the source of truth; Redis only ever carries row i
 
 ### Wording of member emails
 
-Settings → Email → **Wording of member emails** lets an organisation write two member emails in its own words:
+Settings → Email → **Wording of member emails** lets an organisation write its member messages in its own words (all seventeen kinds are listed under "Member messages on every channel" below; the first two are):
 
 | Kind | Email |
 |---|---|
@@ -204,3 +204,76 @@ WhatsApp only ever post to their own provider's address; nothing follows redirec
 
 Code: `lib/chat/*` (`events.ts`, `config.ts`, `send.ts`, `message.ts`, `notify.ts`); `queueChatAlerts` is called
 where each event happens.
+
+## Member messages on every channel
+
+Every member-facing message is one of seventeen **kinds** (`lib/messages/kinds.ts`): application received, approved and
+declined; payment due and received; membership started, renewed, revoked and left; renewal due, ends today, grace
+started, grace ending and lapsed; payment being checked; card issued; refund decided. Each goes to a member **once**, on the first
+channel the organisation's routing lists that the member can be reached on, with the later ones only as a fallback.
+
+| Channel | Connection | Member links by |
+|---|---|---|
+| Email | the email providers above | nothing: their address |
+| Text message | Twilio or MSG91 | a number verified by a code texted to it |
+| WhatsApp | Twilio WhatsApp sender, or Meta WhatsApp Cloud API (phone number id, access token, app secret, verify token) | a number verified by a code (the phone-code limits apply) |
+| Telegram | a bot token (a webhook secret is made and sent with `setWebhook`) | `https://t.me/<bot>?start=<code>` |
+| Slack | a Slack app: bot token and signing secret | a direct message to the app carrying the code |
+| Discord | a bot: token, application id, public key | the `/link code:<code>` command |
+| Mattermost | server address, bot access token, slash command token | `/link <code>` |
+
+**Two levels.** The super admin sets up the platform's channels (Super admin → Messaging; the platform's text-message
+provider stays under Auth, because it also carries phone codes) and decides whether organisations may use them. An
+organisation's Owner may bring its own (Settings → Messaging). Resolution is the organisation's own connection, then the
+platform's when allowed, then off. Secrets are write-only and encrypted (the organisation's with the `messaging`
+purpose of `encryptOrgSecret`, the platform's with the instance key), a saved secret is not reused with another account,
+each channel has a **Test it** action (a bot's own identity check, an account fetch, a text to a number typed once), and
+a channel whose last test failed reads **Unavailable** and sends nothing until a test goes through. A Mattermost server
+must be a public host unless `MESSAGING_MATTERMOST_HOSTS` lists it. Changes are audited by field name only.
+
+**Personal endpoints.** From `/account → Notifications` a member links a channel (`NotificationEndpoint`: the address
+encrypted, a keyed digest for uniqueness, revocable). Chat codes are `XXXXXXXX-YYYYYY` (15 minutes, once, five tries, a
+keyed hash only; `NotificationEndpointChallenge`); a code made for one connection never links another. An address
+belongs to one person per connection. Endpoints sit under the connection that reaches them (an organisation's own bot, or
+the platform's), so one link serves every organisation using that bot.
+
+**Consent.** Opt-in, per organisation and channel (`MessagingConsent`), chosen on the same page after linking. A STOP
+or UNSUBSCRIBE reply on WhatsApp or SMS (Twilio inbound and Meta webhooks, verified), `/link stop` or `/stop` in chat,
+and the **stop link** at the end of every message (`/api/messaging/stop/<token>`: a signed page with one button, so a
+link opened by a preview does nothing) all end it at once. A WhatsApp template should end with the `stopLink` variable.
+Email messages say where to choose, and are never held back.
+
+**Quiet hours.** An organisation may set a daily window in its own timezone. Texts and chat messages queued inside it
+wait in the outbox until it ends.
+
+**Routing.** Settings → Messaging chooses, per kind, an ordered list of up to four channels. A channel the member has not
+linked or agreed to, that is not connected, that is in quiet hours, or (WhatsApp) has no template for the kind, is
+skipped. One that refuses for good (a blocked bot, a bad number) is remembered on the log row and the next is tried; an
+outage throws, so the queue retries the same channel with backoff. Exactly one message is delivered.
+
+**WhatsApp templates.** A business may only start a WhatsApp conversation with an approved template, so each kind and
+language is mapped to one (`WhatsAppTemplate`: a Twilio content SID or a Meta template name, and the ordered
+placeholders that fill its variables). The organisation maps its own; the super admin maps the platform sender's.
+Session-window replies are not used.
+
+**Delivery.** `queueMemberMessage(tx, { organisationId, memberId, kind, values, dedupeKey })` (`lib/notify/send.ts`)
+writes a `MemberMessageLog` row (unique per organisation, member and dedupe key) and a `member-message` outbox row in
+the caller's transaction; `deliverMemberMessage` (`lib/notify/deliver.ts`) sends it. The membership notices, receipt,
+card and refund emails call `deliverMemberMessage` from their own handlers, so they follow the same routing with the PDF
+on email. Provider delivery states (Meta statuses, Twilio status callbacks) land on the log row. The log keeps the kind,
+channel and state, never the text, a number or an address, and is purged after `MESSAGE_LOG_RETENTION_DAYS` (90).
+
+**Reminders.** The membership sweep queues, each once per term through `ReminderLog`: renewal due (the plan's days
+before) and ends today, the plan's reminders after the end (as "lapsed"), grace started, grace ending (the last three
+days of grace), lapsed, and a payment claim the team has not confirmed after a day (the member is told, and the
+`payment-to-confirm` chat alert goes out). Plans on in-hand payment only never carry a pay link: the message carries the
+payment instructions and the account link. A daily **reminders digest** chat alert (8 in the morning, organisation time)
+tells chat destinations how many messages went out.
+
+### Custom wording for every kind
+
+Settings → Email → **Wording of member emails** lists all seventeen kinds. Each has a subject, a heading and a body for
+email, and a **short text** (up to 1,000 characters) for text messages and chat apps, with a segment counter. Placeholders:
+`{name}`, `{organisation}`, `{plan}`, `{unit}`, `{cardNumber}`, `{validUntil}`, `{amount}`, `{dueDate}`, `{payLink}`,
+`{graceUntil}` and `{paymentInstructions}`. Plain text, escaped, never HTML; empty short text uses the standard one. The
+preview uses sample values. Code: `lib/email/templates.ts`, `lib/messages/standard.ts`.

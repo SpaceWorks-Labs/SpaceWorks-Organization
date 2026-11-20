@@ -50,6 +50,12 @@ export async function chatMessage(organisationId: string, event: ChatEvent, refs
     if (!request) return null;
     return line(`member no. ${request.member.memberNumber} asked to erase their details. Review it:`, `${base}/members/${request.member.id}`);
   }
+  if (event === "reminders-digest") {
+    const logs = await prisma.memberMessageLog.groupBy({ by: ["status"], where: { organisationId, createdAt: { gt: new Date(Date.now() - 86_400_000) } }, _count: true });
+    const count = (status: string) => logs.find((row) => row.status === status)?._count ?? 0;
+    if (count("SENT") + count("FAILED") === 0) return null;
+    return line(`${count("SENT")} reminders and messages went out to members in the last day${count("FAILED") ? `; ${count("FAILED")} could not be sent to anyone` : ""}.`, `${base}/members`);
+  }
   if (event === "monthly-summary" && refs.month) {
     const [year, month] = refs.month.split("-").map(Number);
     if (!year || !month) return null;

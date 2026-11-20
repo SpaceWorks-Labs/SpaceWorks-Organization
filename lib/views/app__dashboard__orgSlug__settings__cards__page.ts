@@ -7,6 +7,7 @@ import { brandingFor, designFor, loadCardOrgContext, loadRoleCardRows, organisat
 import { normalizeCardDesign, withOwnArtwork } from "@/lib/cards/design/presets";
 import { draftDiffers, readDraft } from "@/lib/cards/draft";
 import { DEFAULT_NUMBER_FORMAT } from "@/lib/cards/numbering";
+import { loadCardBrandKit } from "@/lib/cards/brandKitData";
 
 /**
  * The card designer for the organisation default, one plan or one member role: the draft waiting for
@@ -22,7 +23,7 @@ export async function loadOrgCardSettingsView({ params, searchParams }: { params
     prisma.membershipPlan.findMany({ where: { organisationId: organisation.id, archivedAt: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
     prisma.memberRole.findMany({ where: { organisationId: organisation.id, archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true } }),
     prisma.cardDesign.findMany({ where: { organisationId: organisation.id }, select: { planId: true, roleId: true, design: true, draft: true, numberPrefix: true, numberFormat: true, watermarkUrl: true, draftUpdatedAt: true, approvedAt: true } }),
-    prisma.memberCard.count({ where: { organisationId: organisation.id, revokedAt: null, member: memberWhere(await teamScope(organisation.id, membership.unitId)) } }),
+    prisma.memberCard.count({ where: { organisationId: organisation.id, revokedAt: null, member: memberWhere(await teamScope(organisation.id, membership)) } }),
   ]);
   const plan = planParam && !roleParam ? plans.find((item) => item.id === planParam) ?? null : null;
   const role = roleParam ? roles.find((item) => item.id === roleParam) ?? null : null;
@@ -68,5 +69,7 @@ export async function loadOrgCardSettingsView({ params, searchParams }: { params
     unitLevels: ctx.organisation.unitLevels,
     // Which member roles carry their own card, for the people who design them (counts are organisation-wide).
     roleCards: can(membership, "cards.design", { write: true }) ? await loadRoleCardRows(organisation.id) : [],
+    // The brand kit: logos, colours and fonts the designer offers first (brandKitSaved is what the kit editor changes).
+    ...(await loadCardBrandKit(organisation.id, ctx.organisation.logoUrl)),
   };
 }

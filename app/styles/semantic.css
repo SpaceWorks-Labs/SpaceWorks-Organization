@@ -5,12 +5,17 @@
  * A handful of roles have no token of their own in the kit. They are integer mixes of brand
  * neutrals (ui-brand-spec.md §A), marked "mix" below, and keep WCAG AA for every text pair.
  *
- * Colour mode (CR-THEME-01): the class "dark" on <html>, chosen as Light, Dark or System (lib/colorMode.ts).
+ * Colour mode (CR-THEME-01): the class "dark" on <html>, chosen as Light or Dark (lib/colorMode.ts; owner decision 2026-11-19).
  * Light is the fallback. Dark is one neutral black family (CR-DARK-01): page #000, surface #0B0B0B,
  * panel #141414, hover #1C1C1C, line #2C2C2C; the bright brand fills stay the same in both themes.
+ *
+ * The public-page editor's preview frame (`.sw-preview-light` / `.sw-preview-dark`) sets its own kit colours, so the
+ * role names are declared on it again here and resolve against them (components/settings/public-page/preview.module.css).
  */
 
-:root {
+:root,
+.sw-preview-light,
+.sw-preview-dark {
   color-scheme: light;
 
   --sw-ui-canvas: var(--sw-color-bg);
@@ -92,7 +97,9 @@
  * on an already dark page it rejoins the black family, so it is scoped to light pages only (CR-DARK-01).
  */
 :root.dark,
-:root:not(.dark) .sw-dark-band {
+.sw-preview-dark,
+:root:not(.dark) .sw-dark-band:not(.sw-preview-dark *),
+.sw-preview-light .sw-dark-band {
   color-scheme: dark;
 
   --sw-ui-emphasis: 36 36 36; /* mix: the neutral step between hover #1C1C1C and line #2C2C2C */
@@ -114,7 +121,8 @@
 }
 
 /* A light page's Deep Ink island also needs the dark kit values, not only the derived roles. */
-:root:not(.dark) .sw-dark-band {
+:root:not(.dark) .sw-dark-band:not(.sw-preview-dark *),
+.sw-preview-light .sw-dark-band {
   --sw-ui-emphasis: 43 87 81; /* mix: Ink + 30% Teal */
   --sw-ui-ink-secondary: 227 220 209; /* mix: Cream + 12% Ink */
   --sw-color-bg: 20 44 42;
@@ -143,4 +151,9 @@
   --sw-ui-ink-muted: var(--sw-color-muted);
   --sw-ui-ink-disabled: var(--sw-color-outline);
   --sw-ui-focus: var(--sw-color-focus);
+  /* An organisation's accent takes its dark pair (accentStyle checks it against black); elsewhere, the kit's. */
+  --sw-accent: var(--sw-accent-dark, rgb(var(--sw-color-accent)));
+  --sw-accent-soft: var(--sw-accent-soft-dark, rgb(var(--sw-color-accent-soft)));
+  --sw-on-accent: var(--sw-on-accent-dark, rgb(var(--sw-color-on-accent)));
+  --sw-accent-text: var(--sw-accent-text-dark, rgb(var(--sw-color-accent-ink)));
 }

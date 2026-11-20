@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { savePlanFields } from "@/app/actions/plans";
@@ -12,14 +12,29 @@ import { blankQuestion, keyFrom, type QuestionValue } from "./planQuestionState"
 type Item = QuestionValue & { uid: number };
 let nextUid = 0;
 const withUid = (field: QuestionValue): Item => ({ ...field, uid: (nextUid += 1) });
+const nameOf = (field: QuestionValue, index: number) => field.label.trim() || `${field.section ? "heading" : "question"} ${index + 1}`;
+const rowId = (uid: number) => `plan-question-${uid}`;
 
 /** The extra questions, section headings and conditions on this plan's join form. */
-export function PlanFieldsEditor({ slug, planId, initial, conflicts, disabled }: { slug: string; planId: string; initial: QuestionValue[]; conflicts: string[]; disabled: boolean }) {
+export function PlanFieldsEditor({ slug, planId, initial, conflicts, disabled, groupings }: { slug: string; planId: string; initial: QuestionValue[]; conflicts: string[]; disabled: boolean; groupings: Array<{ id: string; name: string }> }) {
   const router = useRouter();
   const [fields, setFields] = useState(() => initial.map(withUid));
   const [errors, setErrors] = useState<Record<string, string[] | undefined>>({});
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
+  const [announcement, setAnnouncement] = useState("");
+  const addRef = useRef<HTMLButtonElement>(null);
+  // Where the keyboard goes once a move or removal has rendered.
+  const focusAfter = useRef<{ uid: number; move?: "up" | "down" } | "add" | null>(null);
+  useEffect(() => {
+    const target = focusAfter.current;
+    if (!target) return;
+    focusAfter.current = null;
+    if (target === "add") return addRef.current?.focus();
+    const row = document.getElementById(rowId(target.uid));
+    const again = target.move ? row?.querySelector<HTMLButtonElement>(`[data-move="${target.move}"]`) : null;
+    (again && !again.disabled ? again : row?.querySelector<HTMLElement>("[data-question-label]"))?.focus();
+  }, [fields]);
   const update = (index: number, patch: Partial<QuestionValue>) => setFields((current) => {
     const oldKey = current[index].key;
     return current.map((field, i) => {
@@ -33,12 +48,22 @@ export function PlanFieldsEditor({ slug, planId, initial, conflicts, disabled }:
     const saved = initial.some((q) => q.key === field.key);
     update(index, { label, ...(saved ? {} : { key: keyFrom(label, fields.filter((_, i) => i !== index).map((q) => q.key)) }) });
   };
-  const move = (index: number, by: number) => setFields((current) => {
-    const next = [...current];
+  const move = (index: number, by: number) => {
+    const to = index + by;
+    if (to < 0 || to >= fields.length) return;
+    const next = [...fields];
     const [item] = next.splice(index, 1);
-    next.splice(index + by, 0, item);
-    return next;
-  });
+    next.splice(to, 0, item);
+    focusAfter.current = { uid: item.uid, move: by < 0 ? "up" : "down" };
+    setFields(next);
+    setAnnouncement(`Moved ${nameOf(item, index)} to position ${to + 1} of ${fields.length}.`);
+  };
+  const remove = (index: number) => {
+    const neighbour = fields[index + 1] ?? fields[index - 1];
+    focusAfter.current = neighbour ? { uid: neighbour.uid } : "add";
+    setFields(fields.filter((_, i) => i !== index));
+    setAnnouncement(`Removed ${nameOf(fields[index], index)}.`);
+  };
   const labelled = (key: string) => {
     const field = fields.find((entry) => entry.key === key);
     return field?.label ? `${field.label} (${key})` : key;
@@ -46,6 +71,7 @@ export function PlanFieldsEditor({ slug, planId, initial, conflicts, disabled }:
 
   return (
     <div className="flex flex-col gap-4">
+      <p role="status" aria-live="polite" className="sr-only">{announcement}</p>
       {status ? <Callout tone={status.ok ? "success" : "danger"} role={status.ok ? "status" : "alert"}>{status.text}</Callout> : null}
       {conflicts.length ? (
         <Callout tone="warning" title="Keys used differently across plans">
@@ -56,6 +82,9 @@ export function PlanFieldsEditor({ slug, planId, initial, conflicts, disabled }:
       <ol className="flex flex-col gap-3">
         {fields.map((field, index) => (
           <PlanQuestionCard
+            rowId={rowId(field.uid)}
+            name={nameOf(field, index)}
+            groupings={groupings}
             key={field.uid}
             field={field}
             index={index}
@@ -67,13 +96,13 @@ export function PlanFieldsEditor({ slug, planId, initial, conflicts, disabled }:
             onLabel={(label) => relabel(index, label)}
             onChange={(patch) => update(index, patch)}
             onMove={(by) => move(index, by)}
-            onRemove={() => setFields((current) => current.filter((_, i) => i !== index))}
+            onRemove={() => remove(index)}
           />
         ))}
       </ol>
       {!disabled ? (
         <div className="flex flex-wrap gap-3">
-          <Button type="button" variant="secondary" disabled={fields.length >= 40} onClick={() => setFields((current) => [...current, withUid(blankQuestion(current.map((q) => q.key)))])}>
+          <Button ref={addRef} type="button" variant="secondary" disabled={fields.length >= 40} onClick={() => setFields((current) => [...current, withUid(blankQuestion(current.map((q) => q.key)))])}>
             <Plus aria-hidden className="size-4" />
             Add a question
           </Button>

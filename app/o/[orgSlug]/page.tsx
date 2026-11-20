@@ -7,21 +7,22 @@ import { RevealRoot } from "@/components/motion/RevealRoot";
 import { Chip, OrgLogo } from "@/components/ui/display";
 
 export default async function PublicOrganisationPage({ params }: { params: Promise<{ orgSlug: string }> }) {
-  const { org, plans, takingMembers, page, units } = await loadPublicOrgPage({ params });
+  const { org, plans, takingMembers, page, units, counts, sampleCard } = await loadPublicOrgPage({ params });
 
   // The tenant logo never animates: its block stays still and only `data-route-enter` parts move (template.tsx).
-  // A published custom page (Settings → Public page) replaces the plain one.
+  // A published custom page (Settings → Public page) replaces the plain one. Sections lay out by their container
+  // (@container), so the editor's phone and desktop previews reflow exactly as the page does.
   if (page) {
     return (
-      <RevealRoot className="mx-auto w-full max-w-[1120px] px-4 py-10 sm:px-6 lg:py-16">
-        <PageSections document={page} org={org} plans={plans} units={units} takingMembers={takingMembers} preview={false} />
+      <RevealRoot className="@container mx-auto w-full max-w-[1120px] px-4 py-10 sm:px-6 lg:py-16">
+        <PageSections document={page} org={org} plans={plans} units={units} takingMembers={takingMembers} counts={counts} sampleCard={sampleCard} preview={false} />
       </RevealRoot>
     );
   }
 
   const place = [org.city, indianStateName(org.stateCode)].filter(Boolean).join(", ");
   return (
-    <div className="mx-auto flex w-full max-w-[1120px] flex-col gap-12 px-4 py-10 sm:px-6 lg:py-16">
+    <div className="@container mx-auto flex w-full max-w-[1120px] flex-col gap-12 px-4 py-10 sm:px-6 lg:py-16">
       <section aria-labelledby="org-name" className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex max-w-[720px] flex-col gap-5">
           <div data-tenant-logo className="w-fit"><OrgLogo name={org.name} src={org.logoUrl} size="xl" /></div>

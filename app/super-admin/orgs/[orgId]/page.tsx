@@ -78,8 +78,8 @@ export default async function SuperAdminOrgDetailPage({ params }: Props) {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="grid grid-cols-2 content-start gap-3">
-          <StatTile className="rounded-xl" label="Team" value={org._count.teamMembers.toLocaleString("en-IN")} />
-          <StatTile className="rounded-xl" label="Stored files" value={assetStats._count._all.toLocaleString("en-IN")} hint={formatBytes(assetStats._sum.byteSize == null ? 0 : Number(assetStats._sum.byteSize))} />
+          <StatTile label="Team" value={org._count.teamMembers.toLocaleString("en-IN")} />
+          <StatTile label="Stored files" value={assetStats._count._all.toLocaleString("en-IN")} hint={formatBytes(assetStats._sum.byteSize == null ? 0 : Number(assetStats._sum.byteSize))} />
         </div>
         <div className="flex flex-col gap-6">
           <OrganisationVisibilityToggle organisationId={org.id} visibility={org.visibility} active={org.status === "ACTIVE"} />

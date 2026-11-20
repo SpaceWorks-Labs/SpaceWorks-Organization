@@ -102,7 +102,7 @@ export function LoginForm({ accountCreationEnabled, providers, singleSignOn = []
     }
     setLoading(null);
     if (!r) {
-      setError("Unexpected error. Please try again.");
+      setError("We couldn't sign you in. Try again.");
       return;
     }
     if (r.error) {

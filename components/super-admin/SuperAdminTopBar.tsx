@@ -7,7 +7,7 @@ import { signOut } from "next-auth/react";
 import { ArrowLeft, LogOut, UserRound } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { BrandHomeLink } from "@/components/chrome/SiteHeader";
-import { ColorModeMenuItems } from "@/components/chrome/ColorModeToggle";
+import { ColorModeMenuItem } from "@/components/chrome/ColorModeToggle";
 import { Avatar } from "@/components/ui/display";
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 
@@ -18,6 +18,7 @@ const sections = [
   { label: "Analytics", href: "/super-admin/analytics" },
   { label: "Users", href: "/super-admin/users" },
   { label: "Email", href: "/super-admin/email" },
+  { label: "Messaging", href: "/super-admin/messaging" },
   { label: "Audit log", href: "/super-admin/audit" },
   { label: "Monitoring", href: "/super-admin/monitoring" },
   { label: "Operations", href: "/super-admin/operations" },
@@ -39,7 +40,7 @@ function activeSection(pathname: string): string | null {
 
 type SuperAdminUser = { name: string | null; email: string | null; image: string | null };
 
-/** The person's menu: account settings, appearance (Light, Dark, System) and sign out (same items as the app shell). */
+/** The person's menu: account settings, the Dark theme switch and sign out (same items as the app shell). */
 function AccountMenu({ user }: { user: SuperAdminUser }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const name = user.name ?? user.email ?? "Account";
@@ -58,7 +59,7 @@ function AccountMenu({ user }: { user: SuperAdminUser }) {
           <Link href="/account">Account settings</Link>
         </MenuItem>
         <MenuSeparator />
-        <ColorModeMenuItems originRef={triggerRef} />
+        <ColorModeMenuItem originRef={triggerRef} />
         <MenuSeparator />
         <MenuItem icon={<LogOut />} onSelect={() => void signOut({ callbackUrl: "/" })}>
           Sign out

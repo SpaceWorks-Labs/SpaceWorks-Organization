@@ -1,0 +1,96 @@
+/*
+ * The editor's live preview in a chosen theme, whatever the app's own (lib/colorMode.ts). The frame carries
+ * `sw-preview-light` or `sw-preview-dark`: here it gets every kit colour that differs between the modes (copied from
+ * app/styles/tokens.css :root and :root.dark), app/styles/semantic.css re-resolves the role names on it, and the
+ * Tailwind `dark:` variant (app/globals.css) skips a light frame inside the dark app. A Deep Ink island
+ * (`.sw-dark-band`) is an island in a light frame and rejoins the black family in a dark one, as on a real page.
+ * The organisation accent picks its contrast-checked pair from accentStyle() (lib/theme/accent.ts).
+ */
+
+.frame[data-mode="light"] {
+  color-scheme: light;
+  --sw-color-bg: 255 244 232;
+  --sw-color-surface: 246 236 224;
+  --sw-color-panel: 255 255 255;
+  --sw-color-hover: 239 230 219;
+  --sw-color-line: 213 208 198;
+  --sw-color-outline: 130 138 131;
+  --sw-color-ink: 20 44 42;
+  --sw-color-muted: 91 104 99;
+  --sw-color-focus: 0 110 99;
+  --sw-color-accent-soft: 224 238 236;
+  --sw-color-accent-ink: 0 110 99;
+  --sw-color-brand-soft: 224 238 236;
+  --sw-color-brand-ink: 0 110 99;
+  --sw-color-brand-boundary: 0 110 99;
+  --sw-color-emphasis-soft: 255 238 233;
+  --sw-color-success-soft: 251 255 242;
+  --sw-color-success-ink: 83 109 73;
+  --sw-color-warn-soft: 255 250 233;
+  --sw-color-warn-ink: 105 104 52;
+  --sw-color-info-soft: 246 249 255;
+  --sw-color-info-ink: 81 105 123;
+  --sw-color-danger: 185 28 28;
+  --sw-color-danger-hover: 153 27 27;
+  --sw-color-danger-active: 133 30 29;
+  --sw-color-on-danger: 255 244 232;
+  --sw-color-danger-line: 252 165 165;
+  --sw-color-sidebar: 223 255 143;
+  --sw-color-sidebar-hover: 242 255 210;
+  --sw-color-scrim: 20 44 42;
+  --sw-chart-edge: 20 44 42;
+  --sw-accent: var(--sw-accent-light);
+  --sw-accent-soft: var(--sw-accent-soft-light);
+  --sw-on-accent: var(--sw-on-accent-light);
+  --sw-accent-text: var(--sw-accent-text-light);
+}
+
+.frame[data-mode="dark"] {
+  color-scheme: dark;
+  --sw-color-bg: 0 0 0;
+  --sw-color-surface: 11 11 11;
+  --sw-color-panel: 20 20 20;
+  --sw-color-hover: 28 28 28;
+  --sw-color-line: 44 44 44;
+  --sw-color-outline: 120 120 120;
+  --sw-color-ink: 255 244 232;
+  --sw-color-muted: 172 172 172;
+  --sw-color-focus: 223 255 143;
+  --sw-color-accent-soft: 18 29 28;
+  --sw-color-accent-ink: 128 177 166;
+  --sw-color-brand-soft: 18 29 28;
+  --sw-color-brand-ink: 128 177 166;
+  --sw-color-brand-boundary: 128 177 166;
+  --sw-color-emphasis-soft: 34 26 23;
+  --sw-color-success-soft: 32 34 27;
+  --sw-color-success-ink: 233 252 170;
+  --sw-color-warn-soft: 34 32 23;
+  --sw-color-warn-ink: 255 222 119;
+  --sw-color-info-soft: 30 31 34;
+  --sw-color-info-ink: 203 217 248;
+  --sw-color-danger: 252 165 165;
+  --sw-color-danger-hover: 253 185 182;
+  --sw-color-danger-active: 253 201 195;
+  --sw-color-on-danger: 20 44 42;
+  --sw-color-danger-line: 124 98 97;
+  --sw-color-sidebar: 11 11 11;
+  --sw-color-sidebar-hover: 28 28 28;
+  --sw-color-scrim: 0 0 0;
+  --sw-chart-edge: 255 244 232;
+  --sw-accent: var(--sw-accent-dark);
+  --sw-accent-soft: var(--sw-accent-soft-dark);
+  --sw-on-accent: var(--sw-on-accent-dark);
+  --sw-accent-text: var(--sw-accent-text-dark);
+}
+
+.frame[data-mode] {
+  background-color: rgb(var(--sw-ui-canvas));
+  color: rgb(var(--sw-ui-ink));
+}
+
+/* Phone width: the house 375px breakpoint, centred in the pane. */
+.phone {
+  width: 375px;
+  max-width: 100%;
+  margin-inline: auto;
+}

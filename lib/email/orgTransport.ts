@@ -18,7 +18,7 @@ export function senderAddress(from: string) {
 }
 
 /** A transport for the organisation's own SMTP settings. Throws when the host isn't public. */
-export async function organisationSmtpTransport(settings: { smtpHost: string; smtpPort: number; smtpSecure: boolean; smtpUser: string | null; password: string | null }) {
+async function organisationSmtpTransport(settings: { smtpHost: string; smtpPort: number; smtpSecure: boolean; smtpUser: string | null; password: string | null }) {
   await assertPublicHost(settings.smtpHost);
   const production = process.env.NODE_ENV === "production";
   return nodemailer.createTransport({

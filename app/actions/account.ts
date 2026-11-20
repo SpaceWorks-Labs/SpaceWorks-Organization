@@ -48,14 +48,14 @@ export async function updateAccountProfile(
 ): Promise<ActionResult<{ name: string; profileImageUrl: string | null; }>> {
   const session = await requireAuth();
   if (await isActionRateLimited("action", session.user.id)) {
-    return { ok: false, error: "Too many updates. Please try again later." };
+    return { ok: false, error: "Too many updates. Try again later." };
   }
 
   const parsed = updateProfileSchema.safeParse(input);
   if (!parsed.success) {
     return {
       ok: false,
-      error: "Invalid input.",
+      error: "Check the highlighted fields.",
       fieldErrors: flattenZodErrors(parsed.error),
     };
   }
@@ -89,14 +89,14 @@ export async function updateAccountPassword(
 ): Promise<ActionResult<{ passwordSet: true; }>> {
   const session = await requireAuth();
   if (await isActionRateLimited("auth", session.user.id)) {
-    return { ok: false, error: "Too many attempts. Please try again later." };
+    return { ok: false, error: "Too many attempts. Try again later." };
   }
 
   const parsed = updatePasswordSchema.safeParse(input);
   if (!parsed.success) {
     return {
       ok: false,
-      error: "Invalid input.",
+      error: "Check the highlighted fields.",
       fieldErrors: flattenZodErrors(parsed.error),
     };
   }

@@ -25,7 +25,7 @@ question() {
       [[ "$default" =~ ^[Yy] ]] && hint=Y/n || hint=y/N
     fi
     printf '%s [%s]: ' "$label" "$hint"
-    if [[ "$rule" == secret || "$rule" == password ]]; then
+    if [[ "$rule" == secret || "$rule" == password || "$rule" == tunneltoken ]]; then
       IFS= read -r -s -u 3 value || return 1
       echo
     else
@@ -63,18 +63,19 @@ question() {
       port) [[ "$value" =~ ^[0-9]{1,5}$ ]] && ((10#$value >= 1 && 10#$value <= 65535)) || { echo 'Use a port from 1 to 65535.'; continue; } ;;
       google) [[ -z "$value" || "$value" == *.apps.googleusercontent.com ]] || { echo 'A Google client ID ends in .apps.googleusercontent.com.'; continue; } ;;
       secret) [[ -n "$value" || "$key" != SMTP_PASSWORD ]] || { echo 'A value is required.'; continue; } ;;
+      tunneltoken) [[ "$value" =~ ^[A-Za-z0-9+/=_-]{40,}$ ]] || { echo 'Paste the connector token from the Cloudflare tunnel page (a long string of letters and digits).'; continue; } ;;
       password) ((${#value} >= 12 && $(printf '%s' "$value" | LC_ALL=C wc -c) <= 72)) || { echo 'Use 12 to 72 characters.'; continue; } ;;
       optional) ;;
       text) [[ -n "$value" ]] || { echo 'A value is required.'; continue; } ;;
     esac
     [[ "$value" != *$'\r'* && "$value" != *$'\n'* ]] || { echo 'Use a single line.'; continue; }
-    [[ "$rule" == secret || "$rule" == password || ! "$value" =~ [[:cntrl:]] ]] || { echo 'Use text without control characters.'; continue; }
+    [[ "$rule" == secret || "$rule" == password || "$rule" == tunneltoken || ! "$value" =~ [[:cntrl:]] ]] || { echo 'Use text without control characters.'; continue; }
     printf -v "$key" '%s' "$value"
     return 0
   done
 }
 
-SETUP_ANSWER_KEYS=(RUN_FRONTEND SITE_ORIGIN HTTPS_MODE PUBLIC_DOMAIN TLS_EMAIL WEBHOST STORAGE
+SETUP_ANSWER_KEYS=(RUN_FRONTEND SITE_ORIGIN HTTPS_MODE PUBLIC_DOMAIN TLS_EMAIL CLOUDFLARE_TUNNEL_TOKEN WEBHOST STORAGE
   S3_ENDPOINT S3_REGION S3_BUCKET S3_ACCESS_KEY S3_SECRET_KEY SUPER_ADMIN_EMAIL SUPER_ADMIN_PASSWORD
   EMAIL_FROM SMTP_HOST SMTP_PORT SMTP_USER SMTP_PASSWORD SETUP_SOCIAL_PROVIDERS
   GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET

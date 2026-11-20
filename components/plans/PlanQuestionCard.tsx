@@ -8,6 +8,11 @@ import { Dropdown, Field, Input } from "@/components/ui/field";
 import { canLeadTo, hasChoices, KINDS, kindOf, kindPatch, type QuestionKind, type QuestionValue } from "./planQuestionState";
 
 type Props = {
+  /** The row's element id, so the list can return focus to it after a move. */
+  rowId: string;
+  /** What the move and remove buttons call it, e.g. "Email" or "question 3". */
+  name: string;
+  groupings: Array<{ id: string; name: string }>;
   field: QuestionValue;
   index: number;
   count: number;
@@ -32,16 +37,16 @@ function ChoicesInput({ options, disabled, error, onChange }: { options: string[
 }
 
 /** One question, section heading or condition on the plan's join form. */
-export function PlanQuestionCard({ field, index, count, earlier, errors, conflict, disabled, onLabel, onChange, onMove, onRemove }: Props) {
+export function PlanQuestionCard({ rowId, name, groupings, field, index, count, earlier, errors, conflict, disabled, onLabel, onChange, onMove, onRemove }: Props) {
   const error = (name: string) => errors[`fields.${index}.${name}`]?.[0];
   const parents = earlier.filter(canLeadTo);
   const parent = parents.find((entry) => entry.key === field.showIfKey);
   const semicolon = field.multiple && field.options.some((option) => option.includes(";")) ? "Choices cannot contain semicolons" : undefined;
   return (
-    <li className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-4">
+    <li id={rowId} className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-[minmax(0,1fr)_12rem]">
         <Field label={field.section ? `Heading ${index + 1}` : `Question ${index + 1}`} error={error("label") ?? error("key") ?? (conflict ? "Another plan uses this key differently" : undefined)}>
-          <Input value={field.label} disabled={disabled} maxLength={120} onChange={(event) => onLabel(event.target.value)} />
+          <Input data-question-label value={field.label} disabled={disabled} maxLength={120} onChange={(event) => onLabel(event.target.value)} />
         </Field>
         <Field label="Answer type" error={error("section") ?? error("multiple")}>
           <Dropdown value={kindOf(field)} disabled={disabled} onChange={(event) => onChange(kindPatch(event.target.value as QuestionKind))}>
@@ -49,11 +54,19 @@ export function PlanQuestionCard({ field, index, count, earlier, errors, conflic
           </Dropdown>
         </Field>
       </div>
+      {field.type === "GROUPING" ? (
+        <Field label="Grouping" helperText="The choices come from the grouping under Settings, Groupings. Answers are saved on the member." error={error("groupingId")}>
+          <Dropdown value={field.groupingId ?? ""} disabled={disabled} onChange={(event) => onChange({ groupingId: event.target.value || null })}>
+            <option value="" disabled>Choose a grouping</option>
+            {groupings.map((grouping) => <option key={grouping.id} value={grouping.id}>{grouping.name}</option>)}
+          </Dropdown>
+        </Field>
+      ) : null}
       {hasChoices(field) ? <ChoicesInput options={field.options} disabled={disabled} error={semicolon ?? error("options")} onChange={(options) => onChange({ options })} /> : null}
       <Field label={field.section ? "Text under the heading" : "Hint"} optional>
         <Input value={field.helpText} disabled={disabled} maxLength={300} onChange={(event) => onChange({ helpText: event.target.value })} />
       </Field>
-      {!field.section && (parents.length > 0 || field.showIfKey) ? (
+      {!field.section && field.type !== "GROUPING" && (parents.length > 0 || field.showIfKey) ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Show only when" error={error("showIfKey")}>
             <Dropdown value={field.showIfKey ?? ""} disabled={disabled} onChange={(event) => onChange({ showIfKey: event.target.value || null, showIfValue: null })}>
@@ -77,9 +90,9 @@ export function PlanQuestionCard({ field, index, count, earlier, errors, conflic
         <CheckboxField checked={field.adminOnly} disabled={disabled} onCheckedChange={(checked) => onChange({ adminOnly: checked === true })} label="Managers only" description="Hidden from the public form." />
         {!disabled ? (
           <span className="ml-auto flex gap-1">
-            <IconButton label="Move up" size="sm" disabled={index === 0} onClick={() => onMove(-1)}><ArrowUp aria-hidden className="size-4" /></IconButton>
-            <IconButton label="Move down" size="sm" disabled={index === count - 1} onClick={() => onMove(1)}><ArrowDown aria-hidden className="size-4" /></IconButton>
-            <IconButton label={`Remove ${field.label || "question"}`} size="sm" variant="danger" onClick={onRemove}><Trash2 aria-hidden className="size-4" /></IconButton>
+            <IconButton label={`Move ${name} up`} data-move="up" size="sm" disabled={index === 0} onClick={() => onMove(-1)}><ArrowUp aria-hidden className="size-4" /></IconButton>
+            <IconButton label={`Move ${name} down`} data-move="down" size="sm" disabled={index === count - 1} onClick={() => onMove(1)}><ArrowDown aria-hidden className="size-4" /></IconButton>
+            <IconButton label={`Remove ${name}`} size="sm" variant="danger" onClick={onRemove}><Trash2 aria-hidden className="size-4" /></IconButton>
           </span>
         ) : null}
       </div>

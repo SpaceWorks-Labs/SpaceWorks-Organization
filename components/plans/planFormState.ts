@@ -1,5 +1,7 @@
 import { isCurrencyCode, toInputValue } from "@/lib/money/currencies";
 import { DEFAULT_JOIN_FIELDS, joinFieldsSchema, type JoinFields } from "@/lib/membership/joinFields";
+import { isPaymentMode, type PaymentMode } from "@/lib/payments/paymentMode";
+import { EMPTY_RENEWAL, renewalToPayload, renewalToValues, type RenewalFormValues } from "./planRenewalState";
 
 /** The plan editor's values, all as the person types them. */
 export type PlanFormValues = {
@@ -24,6 +26,8 @@ export type PlanFormValues = {
   joinPhoto: "OFF" | "OPTIONAL" | "REQUIRED";
   joinFields: JoinFields;
   paymentTiming: "PAY_THEN_ACTIVATE" | "ACTIVATE_THEN_CHARGE";
+  paymentMode: PaymentMode;
+  renewal: RenewalFormValues;
   allUnits: boolean;
   unitIds: string[];
 };
@@ -51,12 +55,16 @@ export function emptyPlan(currency: string): PlanFormValues {
     joinPhoto: "OFF",
     joinFields: DEFAULT_JOIN_FIELDS,
     paymentTiming: "PAY_THEN_ACTIVATE",
+    paymentMode: "ONLINE_OR_IN_HAND",
+    renewal: EMPTY_RENEWAL,
     allUnits: true,
     unitIds: [],
   };
 }
 
-type StoredPlan = Omit<PlanFormValues, "joinPhoto" | "joinFields" | "durationMonths" | "fixedEndDate" | "priceNew" | "priceRenewal" | "joiningFee" | "rejoinAfterDays" | "graceDays" | "renewalWindowDays" | "reminderDaysBefore" | "reminderDaysAfter" | "unitIds"> & {
+type StoredPlan = Omit<PlanFormValues, "joinPhoto" | "joinFields" | "durationMonths" | "fixedEndDate" | "priceNew" | "priceRenewal" | "joiningFee" | "rejoinAfterDays" | "graceDays" | "renewalWindowDays" | "reminderDaysBefore" | "reminderDaysAfter" | "unitIds" | "paymentMode" | "renewal"> & {
+  paymentMode: string;
+  renewalPolicy: unknown;
   durationMonths: number | null;
   fixedEndDate: Date | null;
   priceNewMinor: number;
@@ -97,6 +105,8 @@ export function planToValues(plan: StoredPlan): PlanFormValues {
     joinPhoto: plan.joinPhoto === "OPTIONAL" || plan.joinPhoto === "REQUIRED" ? plan.joinPhoto : "OFF",
     joinFields: joinFieldsSchema.safeParse(plan.joinFields).data ?? DEFAULT_JOIN_FIELDS,
     paymentTiming: plan.paymentTiming,
+    paymentMode: isPaymentMode(plan.paymentMode) ? plan.paymentMode : "ONLINE_OR_IN_HAND",
+    renewal: renewalToValues(plan.renewalPolicy),
     allUnits: plan.allUnits,
     unitIds: plan.units.map((unit) => unit.unitId),
   };
@@ -106,11 +116,14 @@ const dayList = (text: string) => text.split(/[\s,]+/).filter(Boolean).map(Numbe
 
 /** What the plan actions expect. An empty renewal price means "same as joining". */
 export function valuesToPayload(values: PlanFormValues) {
+  const free = values.paymentMode === "FREE";
+  const { renewal, ...rest } = values;
   return {
-    ...values,
-    priceNew: values.priceNew || "0",
-    priceRenewal: values.priceRenewal || values.priceNew || "0",
-    joiningFee: values.joiningFee || "0",
+    ...rest,
+    renewalPolicy: renewalToPayload(renewal),
+    priceNew: free ? "0" : values.priceNew || "0",
+    priceRenewal: free ? "0" : values.priceRenewal || values.priceNew || "0",
+    joiningFee: free ? "0" : values.joiningFee || "0",
     durationMonths: values.durationType === "ROLLING" ? values.durationMonths : null,
     fixedEndDate: values.durationType === "FIXED_END" ? values.fixedEndDate : null,
     rejoinAfterDays: values.rejoinFeeRule === "AFTER_LAPSE" ? values.rejoinAfterDays : null,

@@ -1,12 +1,14 @@
 import "server-only";
 
+import { assertPublicHost, PrivateHostError } from "@/lib/net/publicHost";
+
 export type OidcTestResult = { ok: true; endpoints: string[] } | { ok: false; error: string };
 
 const REQUIRED = ["authorization_endpoint", "token_endpoint", "jwks_uri"] as const;
 const MAX_BYTES = 256 * 1024;
 
 /** The discovery document address for an issuer (RFC 8414 / OpenID Connect Discovery). */
-export const discoveryUrl = (issuer: string) => `${issuer.replace(/\/+$/, "")}/.well-known/openid-configuration`;
+const discoveryUrl = (issuer: string) => `${issuer.replace(/\/+$/, "")}/.well-known/openid-configuration`;
 
 /**
  * "Test connection": fetch the issuer's discovery document over TLS and check that the issuer it names is exactly the
@@ -21,6 +23,13 @@ export async function testOidcConnection(issuer: string, fetchImpl: typeof fetch
     return { ok: false, error: "The issuer isn't a valid address." };
   }
   if (url.protocol !== "https:") return { ok: false, error: "The issuer must start with https://." };
+  // The server fetches whatever address is typed here, so it must be a public host (resolved again by the fetch; see SECURITY.md).
+  try {
+    await assertPublicHost(url.hostname);
+  } catch (error) {
+    if (error instanceof PrivateHostError) return { ok: false, error: error.message };
+    throw error;
+  }
   let document: Record<string, unknown>;
   try {
     const response = await fetchImpl(discoveryUrl(issuer), { headers: { Accept: "application/json" }, redirect: "error", signal: AbortSignal.timeout(8_000) });

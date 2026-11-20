@@ -11,16 +11,17 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/choice";
 import { Chip } from "@/components/ui/display";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
+import { formatDayMonth } from "@/lib/format/datetime";
 
 type WorklistItem = { termId: string; memberId: string; memberNumber: number; name: string; email: string; phone: string; planName: string; validUntil: string; daysLeft: number; inGrace: boolean; lastReminder: Date | null; remindedToday: boolean };
 
-const when = (date: Date | null) => (date ? new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" }).format(new Date(date)) : "Never");
-
 /**
  * B3 renewal worklist. Managers pick rows and send a reminder through the renewal-reminder email; the
- * server re-checks scope and skips anything already reminded today, renewed or no longer renewable.
+ * server re-checks scope and skips anything already reminded today, renewed or no longer renewable. Reminder days are
+ * shown in the organisation's `timeZone`.
  */
-export function RenewalWorklist({ slug, rows, canRemind }: { slug: string; rows: WorklistItem[]; canRemind: boolean }) {
+export function RenewalWorklist({ slug, rows, canRemind, timeZone = "UTC" }: { slug: string; rows: WorklistItem[]; canRemind: boolean; timeZone?: string }) {
+  const when = (date: Date | null) => (date ? formatDayMonth(date, timeZone) : "Never");
   const router = useRouter();
   const { showToast } = useToast();
   const [selected, setSelected] = useState<Set<string>>(new Set());

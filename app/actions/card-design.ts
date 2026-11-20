@@ -7,14 +7,16 @@ import { trackedRevalidation } from "@/lib/frontend/revalidation";
 import { prisma } from "@/lib/db";
 import { recordAuditEvent, recordThrottledAuditEvent } from "@/lib/audit";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
-import { orgActionAccess } from "@/lib/permissions";
+import { isScopedActor, orgActionAccess } from "@/lib/permissions";
 import type { Capability } from "@/lib/permissionRoles";
 import { createSafeWebpDerivative } from "@/lib/imageValidation";
 import { getPublicUrl, uploadFile } from "@/lib/storage";
 import { approveCardDraft } from "@/lib/cards/approval";
+import { invalidateOrg } from "@/lib/cache";
 import { CARD_PREFIX_PATTERN, deriveCardPrefix } from "@/lib/cards/core";
 import { CARD_DESIGN_MAX_BYTES, defaultCardDesign, normalizeCardDesign, withOwnArtwork } from "@/lib/cards/design/presets";
 import { readDraft, type CardDraft } from "@/lib/cards/draft";
+import { recordDraftVersion } from "@/lib/cards/versions";
 import { DEFAULT_NUMBER_FORMAT, normalizeNumberFormat, numberFormatError } from "@/lib/cards/numbering";
 import type { ActionResult } from "./org";
 
@@ -29,7 +31,7 @@ const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 async function access(slug: unknown, capability: Capability = "cards.design") {
   const result = await orgActionAccess(slug, capability);
   if (!result.ok) return result;
-  if (result.membership.unitId) return { ok: false as const, error: "Only organisation-wide managers can change card designs." };
+  if (isScopedActor(result.membership)) return { ok: false as const, error: "Only organisation-wide managers can change card designs." };
   if (await isActionRateLimited("action", result.userId)) return { ok: false as const, error: "Too many requests. Try again shortly." };
   return result;
 }
@@ -78,10 +80,14 @@ async function designRow(organisation: { id: string; name: string }, scope: Scop
 async function saveDraft(organisation: { id: string; name: string }, scope: Scope, userId: string, patch: (draft: CardDraft) => CardDraft) {
   const row = await designRow(organisation, scope, userId);
   const draft = patch(readDraft(row, contextFor(organisation, scope)));
-  return prisma.cardDesign.update({
+  const design = withOwnArtwork(draft.design, organisation.id);
+  const saved = await prisma.cardDesign.update({
     where: { id: row.id },
-    data: { draft: { ...draft, design: withOwnArtwork(draft.design, organisation.id) } as unknown as Prisma.InputJsonValue, draftUpdatedById: userId, draftUpdatedAt: new Date(), updatedById: userId },
+    data: { draft: { ...draft, design } as unknown as Prisma.InputJsonValue, draftUpdatedById: userId, draftUpdatedAt: new Date(), updatedById: userId },
   });
+  // Version history: one draft version per ten minutes per design (lib/cards/versions.ts).
+  await recordDraftVersion({ organisationId: organisation.id, cardDesignId: row.id, design, numberPrefix: draft.numberPrefix, numberFormat: draft.numberFormat, createdById: userId });
+  return saved;
 }
 
 const scopeIds = {
@@ -140,6 +146,8 @@ export async function approveCardDesign(input: unknown): Promise<ActionResult> {
   const row = await prisma.cardDesign.findFirst({ where: rowWhere(ctx.organisation.id, found.scope), select: { id: true } });
   const approved = row ? await prisma.$transaction((tx) => approveCardDraft(tx, { organisationId: ctx.organisation.id, rowId: row.id, actorUserId: ctx.userId, context: contextFor(ctx.organisation, found.scope) })) : false;
   if (!approved) return { ok: false, error: "There are no changes waiting for approval." };
+  // The public page draws sample cards from the live design.
+  await invalidateOrg(ctx.organisation.id, "public-page");
   revalidatePath(`/dashboard/${ctx.organisation.slug}/settings/cards`);
   return { ok: true };
 }
@@ -193,7 +201,7 @@ async function storeImage(organisationId: string, category: "member-id-watermark
 export async function uploadCardWatermark(formData: FormData): Promise<ActionResult<{ url: string | null }>> {
   const ctx = await access(String(formData.get("organisationSlug") ?? ""));
   if (!ctx.ok) return ctx;
-  if (await isActionRateLimited("upload", ctx.userId)) return { ok: false, error: "Too many uploads. Please try again later." };
+  if (await isActionRateLimited("upload", ctx.userId)) return { ok: false, error: "Too many uploads. Try again later." };
   const found = await scopeFor(ctx.organisation.id, String(formData.get("planId") ?? "") || null, String(formData.get("roleId") ?? "") || null);
   if (!found.ok) return found;
   let url: string | null = null;
@@ -211,7 +219,7 @@ export async function uploadCardWatermark(formData: FormData): Promise<ActionRes
 export async function uploadCardArtwork(formData: FormData): Promise<ActionResult<{ url: string }>> {
   const ctx = await access(String(formData.get("organisationSlug") ?? ""));
   if (!ctx.ok) return ctx;
-  if (await isActionRateLimited("upload", ctx.userId)) return { ok: false, error: "Too many uploads. Please try again later." };
+  if (await isActionRateLimited("upload", ctx.userId)) return { ok: false, error: "Too many uploads. Try again later." };
   const stored = await storeImage(ctx.organisation.id, "member-id-artwork", formData.get("file"), 2000);
   if (!stored.ok) return stored;
   await recordThrottledAuditEvent({ action: "CARD_ARTWORK_UPLOADED", actorUserId: ctx.userId, organisationId: ctx.organisation.id, targetType: "Organisation", targetId: ctx.organisation.id, windowMs: 30 * 60_000 });

@@ -6,6 +6,7 @@ import { deriveStatus } from "@/lib/membership/lifecycle";
 import { planOffersUnit } from "@/lib/membership/planUnits";
 import { DEFAULT_JOIN_FIELDS, joinFieldsSchema } from "@/lib/membership/joinFields";
 import { answerablePlans } from "@/lib/membership/profileQuestions";
+import { groupingChoices } from "@/lib/groupings/joinQuestions";
 
 type Search = { invite?: string; unit?: string };
 
@@ -44,9 +45,12 @@ export async function loadJoinView({ params, searchParams }: { params: Promise<{
   // Public questions only, without keys that are admin-only or shaped differently on any plan (archived ones too).
   const organisationPlans = await prisma.membershipPlan.findMany({ where: { organisationId: org.id }, select: { id: true, fields: { orderBy: { sortOrder: "asc" } } } });
   const own = organisationPlans.find((entry) => entry.id === plan.id)!;
-  const questions = answerablePlans(organisationPlans, [own], false)[0].fields.map(({ key, label, helpText, type, required, options, adminOnly, multiple, section, showIfKey, showIfValue, sortOrder }) => (
-    { key, label, helpText, type, required, options, adminOnly, multiple, section, showIfKey, showIfValue, sortOrder }
+  const baseQuestions = answerablePlans(organisationPlans, [own], false)[0].fields.map(({ key, label, helpText, type, required, options, adminOnly, multiple, section, showIfKey, showIfValue, sortOrder, groupingId }) => (
+    { key, label, helpText, type, required, options, adminOnly, multiple, section, showIfKey, showIfValue, sortOrder, groupingId }
   ));
+  // Grouping questions carry the live values to choose from; one whose grouping is gone is left out.
+  const choices = await groupingChoices(org.id, baseQuestions.flatMap((question) => (question.groupingId ? [question.groupingId] : [])));
+  const questions = baseQuestions.flatMap((question) => (question.type !== "GROUPING" ? [question] : choices.has(question.groupingId ?? "") ? [{ ...question, ...choices.get(question.groupingId!)! }] : []));
 
   // A plan limited to units is offered to everything under them too.
   const planUnitPaths = plan.units.map((entry) => entry.unit.path);

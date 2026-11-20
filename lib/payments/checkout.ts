@@ -4,8 +4,10 @@ import { prisma } from "@/lib/db";
 import { getRequestOrigin } from "@/lib/publicUrl";
 import { createTermPayment, ORG_FOR_PAYMENTS, PaymentError } from "./charges";
 import { gatewayTakes, loadGateway } from "./config";
+import { allowsGateway } from "./paymentMode";
 import { GatewayError, type CheckoutResult } from "./gateway";
 import { verifyCheckoutSignature } from "./razorpay";
+import { membershipChanged } from "@/lib/membership/afterChange";
 import { failPayment, settlePayment } from "./settle";
 
 /**
@@ -17,8 +19,9 @@ export async function startCheckout(args: { organisationId: string; termId: stri
   if (org.status !== "ACTIVE") throw new PaymentError(`${org.name} isn't taking online payments right now.`);
   const live = await loadGateway(org.id);
   if (!live) throw new PaymentError("Online payment isn't set up for this organisation. Use the other ways to pay below.");
-  const term = await prisma.membershipTerm.findFirst({ where: { id: args.termId, organisationId: org.id }, select: { currency: true, plan: { select: { name: true } } } });
+  const term = await prisma.membershipTerm.findFirst({ where: { id: args.termId, organisationId: org.id }, select: { currency: true, plan: { select: { name: true, paymentMode: true } } } });
   if (!term) throw new PaymentError("Membership not found.");
+  if (!allowsGateway(term.plan.paymentMode)) throw new PaymentError(term.plan.paymentMode === "FREE" ? "There is nothing to pay for this membership." : "This membership is paid in hand. Use the instructions on this page, then tell us you've paid.");
   if (!gatewayTakes(live.provider, term.currency)) throw new PaymentError(`Online payment doesn't take ${term.currency}. Use the other ways to pay below.`);
 
   const origin = await getRequestOrigin();
@@ -59,6 +62,7 @@ export async function refreshGatewayPayment(organisationId: string, paymentId: s
   const org = await prisma.organisation.findUniqueOrThrow({ where: { id: organisationId }, select: ORG_FOR_PAYMENTS });
   if (fetched.status === "paid") {
     const { payment: settled } = await prisma.$transaction((tx) => settlePayment(tx, { org, paymentId: payment.id, capture: { gatewayPaymentId: fetched.gatewayPaymentId, amountMinor: fetched.amountMinor, currency: fetched.currency, method: fetched.method } }));
+    await membershipChanged(org.id);
     return settled.status;
   }
   if (fetched.status === "failed" && payment.status === "PENDING") {

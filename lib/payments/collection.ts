@@ -58,7 +58,7 @@ function rowFailure(error: unknown): string {
     return paymentFailure(error).error;
   } catch {
     // An unexpected failure on one row is reported, not thrown, so the rest of the sheet still stands.
-    console.error("[collection] row failed", error);
+    console.error("[collection] row failed", error instanceof Error ? error.message : "unknown error", (error as { code?: unknown } | null)?.code ?? "");
     return "Couldn't record this one. Try it again on its own.";
   }
 }

@@ -128,7 +128,7 @@ describe.sequential("a North-limited manager sees North's people only", () => {
 
   it("downloads, opens and scans North's cards only", async () => {
     as("northLead");
-    const where = exportCardsWhere(await teamScope(org.id, units.north!.id), parseExportFilter({}), { contact: true });
+    const where = exportCardsWhere(await teamScope(org.id, { id: "scope-test", unitId: units.north!.id, scopes: [] }), parseExportFilter({}), { contact: true });
     expect((await prisma.memberCard.findMany({ where, select: { memberId: true } })).map((card) => card.memberId)).toEqual(expect.arrayContaining([people.nina!.id]));
     expect(await prisma.memberCard.count({ where: { AND: [where, { memberId: people.sam!.id }] } })).toBe(0);
     expect(await authorizeCardAccess(people.nina!.cardId)).toMatchObject({ as: "team" });

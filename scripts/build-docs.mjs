@@ -1,71 +1,46 @@
-// Builds lib/docs/content.ts from docs/features/*.md and an allow-list of operator docs, so the /docs viewer
-// needs no filesystem at runtime (split hosting copies only app, components, lib and public).
+// Builds the /docs viewer's data so it needs no filesystem at runtime (split hosting copies only app, components,
+// lib and public): lib/docs/content.ts (every page, its section, summary, source and last update) and
+// lib/docs/search-index.ts (the search palette's index). Two reference pages are generated from the code.
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import { renderAuditPage } from "./docs/audit.mjs";
+import { renderEnvPage } from "./docs/env.mjs";
+import { lastUpdated } from "./docs/git.mjs";
+import { OPERATOR_DOCS, SECTIONS, orderDocs, publishedSources } from "./docs/manifest.mjs";
+import { describe, withoutTitle } from "./docs/markdown.mjs";
+import { buildSearchIndex, renderSearchModule } from "./docs/search.mjs";
 
-/** Operator docs shown at /docs. Never docs/plans or docs/readme. */
-export const OPERATOR_DOCS = [
-  ["ARCHITECTURE", "architecture"],
-  ["CONFIGURATION", "configuration"],
-  ["DEPLOYMENT_VPS", "deployment-vps"],
-  ["DEPLOYMENT_CLOUD", "deployment-cloud"],
-  ["DEPLOYMENT_NETLIFY", "deployment-netlify"],
-  ["SECURITY", "security"],
-  ["PAYMENTS", "payments-operators"],
-  ["GST", "gst"],
-  ["NOTIFICATIONS", "notifications-operators"],
-  ["REPORTS", "reports"],
+export { describe, OPERATOR_DOCS, SECTIONS };
+
+/** Pages written by this script from the code, each at a virtual path so its relative links resolve. */
+const GENERATED = [
+  { slug: "audit-actions", source: "docs/reference/audit-actions.md", render: renderAuditPage },
+  { slug: "environment-variables", source: "docs/reference/environment-variables.md", render: renderEnvPage },
 ];
 
-const SUMMARY_MAX = 180;
-
-function plain(text) {
-  return text
-    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
-    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-    .replace(/[`*_]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+function entry(root, { slug, section, source, markdown, generated, updated }) {
+  const text = markdown.replace(/\r\n/g, "\n").trim();
+  const { title, summary } = describe(text, slug);
+  return { slug, section, title, summary, body: withoutTitle(text), source, generated, updated: updated ?? null };
 }
 
-/** First h1 as the title, first plain paragraph (outside code, lists, tables and headings) as the summary. */
-export function describe(markdown, fallbackTitle) {
-  const lines = markdown.replace(/\r\n/g, "\n").split("\n");
-  let title = fallbackTitle;
-  let fence = false;
-  let seenTitle = false;
-  let paragraph = [];
-  let summary = "";
-  for (const line of lines) {
-    if (/^```/.test(line)) { fence = !fence; continue; }
-    if (fence) continue;
-    const h1 = /^#\s+(.+)$/.exec(line);
-    if (h1 && !seenTitle) { title = plain(h1[1]); seenTitle = true; continue; }
-    if (!seenTitle || summary) continue;
-    if (line.trim() === "") {
-      if (paragraph.length) summary = plain(paragraph.join(" "));
-      paragraph = [];
-    } else if (/^(#|[-*+]\s|\d+\.\s|\||>|<|!\[)/.test(line)) {
-      paragraph = [];
-    } else paragraph.push(line.trim());
+/** Every published page in reading order. `git: false` leaves out the last-updated dates. */
+export function collectDocs(root, { git = true } = {}) {
+  const dates = git ? lastUpdated(root, ["docs", "CHANGELOG.md"]) : new Map();
+  const docs = publishedSources(root).map((source) => entry(root, {
+    ...source,
+    markdown: readFileSync(join(root, ...source.source.split("/")), "utf8"),
+    generated: false,
+    updated: dates.get(source.source),
+  }));
+  for (const page of GENERATED) docs.push(entry(root, { slug: page.slug, section: "reference", source: page.source, markdown: page.render(root), generated: true }));
+  const seen = new Set();
+  for (const doc of docs) {
+    if (seen.has(doc.slug)) throw new Error(`build-docs: two pages share the slug ${doc.slug}`);
+    seen.add(doc.slug);
   }
-  if (!summary && paragraph.length) summary = plain(paragraph.join(" "));
-  if (summary.length > SUMMARY_MAX) summary = `${summary.slice(0, SUMMARY_MAX - 1).replace(/\s+\S*$/, "")}…`;
-  return { title, summary };
-}
-
-export function collectDocs(root) {
-  const entries = [];
-  const featuresDir = join(root, "docs", "features");
-  const names = existsSync(featuresDir) ? readdirSync(featuresDir).filter((name) => name.endsWith(".md")).sort() : [];
-  for (const name of names) entries.push({ slug: name.slice(0, -3), section: "features", file: join(featuresDir, name) });
-  for (const [file, slug] of OPERATOR_DOCS) entries.push({ slug, section: "operators", file: join(root, "docs", `${file}.md`) });
-  return entries.map((entry) => {
-    const body = readFileSync(entry.file, "utf8").replace(/\r\n/g, "\n").trim();
-    const { title, summary } = describe(body, entry.slug);
-    return { slug: entry.slug, section: entry.section, title, summary, body };
-  });
+  return orderDocs(docs, root);
 }
 
 /** Screenshot files that exist in public/screens, so the viewer shows only images that are really there. */
@@ -75,11 +50,16 @@ export function collectScreens(root) {
 }
 
 export function render(docs, screens) {
-  const rows = docs.map((doc) => `  { slug: ${JSON.stringify(doc.slug)}, section: ${JSON.stringify(doc.section)}, title: ${JSON.stringify(doc.title)}, summary: ${JSON.stringify(doc.summary)}, body: ${JSON.stringify(doc.body)} },`);
+  const keys = SECTIONS.map((section) => JSON.stringify(section.key)).join(" | ");
+  const fields = ["slug", "section", "title", "summary", "source", "generated", "updated", "body"];
+  const rows = docs.map((doc) => `  { ${fields.map((field) => `${field}: ${JSON.stringify(doc[field])}`).join(", ")} },`);
   return [
-    "// Generated by scripts/build-docs.mjs from docs/features and the operator docs. Generated: do not edit.",
-    "export type DocSection = \"features\" | \"operators\";",
-    "export type DocEntry = { slug: string; section: DocSection; title: string; summary: string; body: string };",
+    "// Generated by scripts/build-docs.mjs from docs/ (see scripts/docs/manifest.mjs). Generated: do not edit.",
+    `export type DocSection = ${keys};`,
+    "/** source: repository path of the Markdown (a virtual path when generated); updated: last commit date, if known. */",
+    "export type DocEntry = { slug: string; section: DocSection; title: string; summary: string; source: string; generated: boolean; updated: string | null; body: string };",
+    "",
+    `export const DOC_SECTIONS: readonly { key: DocSection; title: string; blurb: string }[] = ${JSON.stringify(SECTIONS)};`,
     "",
     "export const DOCS: readonly DocEntry[] = [",
     ...rows,
@@ -91,13 +71,17 @@ export function render(docs, screens) {
   ].join("\n");
 }
 
-export function buildDocs(root) {
-  return render(collectDocs(root), collectScreens(root));
+/** Both generated modules, as text: { content, search }. */
+export function buildDocs(root, options) {
+  const docs = collectDocs(root, options);
+  return { content: render(docs, collectScreens(root)), search: renderSearchModule(buildSearchIndex(docs, SECTIONS)) };
 }
 
 const here = dirname(fileURLToPath(import.meta.url));
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const root = join(here, "..");
-  writeFileSync(join(root, "lib", "docs", "content.ts"), buildDocs(root));
-  console.log("docs: wrote lib/docs/content.ts");
+  const { content, search } = buildDocs(root);
+  writeFileSync(join(root, "lib", "docs", "content.ts"), content);
+  writeFileSync(join(root, "lib", "docs", "search-index.ts"), search);
+  console.log("docs: wrote lib/docs/content.ts and lib/docs/search-index.ts");
 }

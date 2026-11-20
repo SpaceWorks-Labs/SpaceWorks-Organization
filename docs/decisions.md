@@ -54,3 +54,21 @@ verification flags and the signature, and has typed JSON shapes that match what 
 - Tests use a software authenticator (`tests/helpers/softPasskey.ts`) that builds real attestations and assertions
   with an ES256 key, so the library's checks run for real. Upgrading the library means re-running
   `tests/unit/passkey-verify.test.ts`.
+
+## 2026-11-19: WhatsApp as a member channel, pending a design-system decision
+
+**Context.** Product rules section 16 lists chat destinations (Slack, Discord, Mattermost, Telegram, a signed webhook) and
+text messages (Twilio, MSG91), and says a new provider is added there, with a decision, before any product uses it. It does not
+list WhatsApp. Release 0.10.0 sends member reminders on WhatsApp, as SpaceWorks does, and the owner asked for it.
+
+**Decision.** Ship WhatsApp for members through two providers: a Twilio WhatsApp sender, and the Meta WhatsApp Cloud API. Both
+send approved templates only (no session-window replies), verify their webhooks (Twilio by `X-Twilio-Signature`, Meta by
+`X-Hub-Signature-256` with the app secret) and keep their secrets encrypted and write-only. This stays a decision of this
+repository until the design system lists WhatsApp; the design-system repository has not been changed.
+
+**Consequences.**
+- The design system needs a matching entry in section 16 (providers, what they carry, the template rule) so the other products
+  can reuse it; until then WhatsApp here is documented only in `docs/NOTIFICATIONS.md`.
+- A member's WhatsApp number is verified with the text-message code path, so linking needs a text-message provider.
+- Telegram, Slack, Discord and Mattermost, already in section 16 as team chat destinations, are also member channels now:
+  direct messages from a bot, linked by a one-time code.

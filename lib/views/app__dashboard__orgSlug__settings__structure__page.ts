@@ -9,7 +9,7 @@ import { can, requireOrgCapability } from "@/lib/permissions";
 export async function loadOrgStructureView({ params }: { params: Promise<{ orgSlug: string }> }) {
   const { orgSlug } = await params;
   const { organisation, membership } = await requireOrgCapability(orgSlug, "structure.manage");
-  const scope = await teamScope(organisation.id, membership.unitId);
+  const scope = await teamScope(organisation.id, membership);
   const [org, allUnits, roles, unitCounts, roleCounts] = await Promise.all([
     prisma.organisation.findUniqueOrThrow({ where: { id: organisation.id }, select: { name: true, slug: true, logoUrl: true, unitLevels: true } }),
     prisma.orgUnit.findMany({ where: { organisationId: organisation.id }, orderBy: [{ path: "asc" }], select: { id: true, name: true, slug: true, code: true, level: true, path: true, parentId: true, archivedAt: true } }),

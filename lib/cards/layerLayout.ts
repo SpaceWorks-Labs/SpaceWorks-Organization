@@ -1,14 +1,18 @@
 import type { CardSideSettings } from "./design/elements";
-import { fillLayerText, type CardLayer } from "./design/layers";
+import { canFlip, type CardLayer } from "./design/layers";
+import { layerOutline } from "./design/shapes";
+import { barcodeOps, iconOps, imageOps, lineOps, photoOps, qrOps } from "./layerOps/markOps";
+import { paintOps, plainPaint } from "./layerOps/paintOps";
+import { textLayerOps } from "./layerOps/textOps";
 import { relativeLuminance } from "./palette";
-import { paragraph, type TextMeasurer } from "./text";
+import type { TextMeasurer } from "./text";
 import type { CardHolder } from "./types";
 import type { CardOp } from "./layout";
 
 /*
  * Drawing ops for a side's own layers and background (lib/cards/design/layers.ts). Each layer is
- * one group, turned about its centre and faded as a whole, exactly as the browser canvas draws it
- * with a CSS transform and opacity.
+ * one group, turned about its centre and mirrored when flipped; its opacity fades each part it draws
+ * (the PDF, the PNG and the browser canvas all fade parts, so overlapping parts look the same).
  */
 
 /** Print economy: layer colours become black or white, whichever is nearer. */
@@ -21,18 +25,17 @@ export function layerOps(layer: CardLayer, holder: CardHolder, measurer: TextMea
   const colour = (hex: string) => (mono ? monoColour(hex) : hex);
   const box = { x: layer.xMm, y: layer.yMm, w: layer.wMm, h: layer.hMm };
   let ops: CardOp[] = [];
-  if (layer.kind === "text") {
-    const filled = fillLayerText(layer.text, holder);
-    const text = layer.uppercase ? filled.toLocaleUpperCase("en") : filled;
-    ops = paragraph(measurer, text, box.x, box.y, box.w, { sizePt: layer.sizePt, weight: layer.bold ? 700 : 400, color: mono ? "#000000" : layer.color, trackingEm: layer.trackingEm, lineHeight: layer.lineHeight, font: layer.font }, layer.align).ops;
-  } else if (layer.kind === "image") {
-    // Corners round only a picture that fills its box, as the designer shows it.
-    ops = [{ kind: "image", url: layer.url, ...box, fit: layer.fit, shape: "none", grayscale: mono || layer.grayscale, radiusMm: layer.fit === "cover" ? layer.radiusMm : 0, alpha: true }];
-  } else if (layer.kind === "line") {
-    ops = [{ kind: "rect", ...box, radius: 0, fill: colour(layer.color) }];
-  } else {
-    // The fill stops inside the outline, so the two never overlap: a faded shape then looks the same in
-    // the PDF (which fades each part) as in the PNG and the browser (which fade the layer as a whole).
+  if (layer.kind === "text") ops = textLayerOps(layer, holder, measurer, mono);
+  else if (layer.kind === "image") ops = imageOps(layer, box, colour, mono);
+  else if (layer.kind === "line") ops = lineOps(layer, box, colour);
+  else if (layer.kind === "icon") ops = iconOps(layer, box, colour);
+  else if (layer.kind === "qr") ops = qrOps(layer, box, holder, colour);
+  else if (layer.kind === "barcode") ops = barcodeOps(layer, box, holder, measurer, colour);
+  else if (layer.kind === "photo") ops = photoOps(layer, box, holder, measurer, colour, mono);
+  else if (layer.kind === "shape" || !plainPaint(layer)) ops = paintOps(layer, layerOutline(layer) ?? [], box, colour);
+  else {
+    // The fill stops inside the outline, so the two never overlap: a faded shape then looks the same
+    // whether a renderer fades each part or the layer as a whole.
     const stroke = layer.stroke && layer.strokeMm > 0 ? Math.min(layer.strokeMm, box.w / 2, box.h / 2) : 0;
     const inner = { x: box.x + stroke, y: box.y + stroke, w: box.w - 2 * stroke, h: box.h - 2 * stroke };
     const radius = Math.min(layer.radiusMm, box.w / 2, box.h / 2);
@@ -45,7 +48,8 @@ export function layerOps(layer: CardLayer, holder: CardHolder, measurer: TextMea
     }
   }
   if (ops.length === 0) return [];
-  return [{ kind: "group", rotateDeg: layer.rotationDeg, cx: box.x + box.w / 2, cy: box.y + box.h / 2, opacity: layer.opacityPct / 100, ops }];
+  const flip = canFlip(layer) ? { ...(layer.flipX ? { flipX: true } : {}), ...(layer.flipY ? { flipY: true } : {}) } : {};
+  return [{ kind: "group", rotateDeg: layer.rotationDeg, cx: box.x + box.w / 2, cy: box.y + box.h / 2, opacity: layer.opacityPct / 100, ...flip, ops }];
 }
 
 /** The background image, under the watermark and everything else. */

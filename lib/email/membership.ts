@@ -2,10 +2,13 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { formatMoney, isCurrencyCode } from "@/lib/money/currencies";
+import { money } from "@/lib/money/currencies";
 import { formatCalendarDate, lastValidDay } from "@/lib/membership/periods";
 import { absoluteUrl, sendBrandedEmail } from "./message";
 import { orgTemplateContent } from "./orgTemplates";
+import { deliverMemberMessage } from "@/lib/notify/deliver";
+import { termMessageValues } from "@/lib/notify/values";
+import { reminderKindFor, type MemberMessageKind } from "@/lib/messages/kinds";
 import { payLinkToken } from "@/lib/payments/payLink";
 import { loadPaymentGuidance } from "@/lib/payments/payGuidance";
 import { instructionParagraphs } from "@/lib/payments/unitInstructions";
@@ -23,6 +26,18 @@ const MEMBERSHIP_NOTICES = [
 ] as const;
 
 type MembershipNotice = (typeof MEMBERSHIP_NOTICES)[number];
+
+/** The message kind (wording and channels) each notice belongs to, so every notice is routed and logged. */
+const NOTICE_KIND: Partial<Record<MembershipNotice, MemberMessageKind>> = {
+  "application-received": "application-received",
+  "payment-requested": "payment-due",
+  "approved-pay-now": "application-approved",
+  activated: "membership-activated",
+  "renewal-confirmed": "membership-renewed",
+  rejected: "application-declined",
+  revoked: "membership-revoked",
+  left: "membership-left",
+};
 
 type NoticePayload = { termId: string; organisationId: string; notice: MembershipNotice };
 type ReminderPayload = { termId: string; organisationId: string; key: string };
@@ -49,20 +64,9 @@ async function loadTerm(termId: string, organisationId: string) {
     where: { id: termId, organisationId },
     include: {
       member: { select: { id: true, name: true, email: true, anonymisedAt: true, stateCode: true, unit: { select: { path: true, name: true } } } },
-      plan: { select: { name: true } },
+      plan: { select: { name: true, paymentMode: true } },
       organisation: { select: { name: true, slug: true, timezone: true, locale: true, status: true, memberPortal: true } },
     },
-  });
-}
-
-function money(minor: number, currency: string, locale: string | null) {
-  return isCurrencyCode(currency) ? formatMoney(minor, currency, locale ?? undefined) : `${currency} ${minor}`;
-}
-
-async function activatedTemplate(term: NonNullable<Awaited<ReturnType<typeof loadTerm>>>, organisation: string, until: string | null) {
-  const card = await prisma.memberCard.findFirst({ where: { organisationId: term.organisationId, memberId: term.member.id, planId: term.planId, revokedAt: null }, select: { cardNumber: true } });
-  return orgTemplateContent(term.organisationId, "membership-activated", {
-    name: term.member.name, organisation, plan: term.plan.name, unit: term.member.unit?.name ?? null, cardNumber: card?.cardNumber ?? null, validUntil: until,
   });
 }
 
@@ -82,7 +86,7 @@ export async function deliverMembershipNotice(payload: NoticePayload, messageId:
   const first = term.member.name.split(/\s+/)[0] || term.member.name;
   // Asking for money: say how to pay offline (the nearest unit's instructions, else the organisation's).
   const howToPay = payload.notice === "payment-requested" || payload.notice === "approved-pay-now"
-    ? instructionParagraphs(await loadPaymentGuidance(payload.organisationId, term.member.unit?.path, term.currency))
+    ? instructionParagraphs(await loadPaymentGuidance(payload.organisationId, term.member.unit?.path, term.currency, undefined, term.plan.paymentMode))
     : [];
   const content = {
     "application-received": {
@@ -134,10 +138,15 @@ export async function deliverMembershipNotice(payload: NoticePayload, messageId:
       action: { label: `Visit ${org.name}`, url: home },
     },
   }[payload.notice];
-  // An organisation's own wording for the activation notice replaces the subject, heading and text.
-  const own = payload.notice === "activated" ? await activatedTemplate(term, org.name, until) : null;
-  await sendBrandedEmail({ organisationId: payload.organisationId, to: term.member.email, messageId, ...content, ...own });
-  return "sent";
+  const kind = NOTICE_KIND[payload.notice];
+  if (!kind) {
+    await sendBrandedEmail({ organisationId: payload.organisationId, to: term.member.email, messageId, ...content });
+    return "sent";
+  }
+  // Through the organisation's routing (email by default): its own wording replaces the subject, heading and text.
+  const values = (await termMessageValues(term.id, payload.organisationId, { pay: kind === "application-approved" || kind === "payment-due" })) ?? {};
+  const own = await orgTemplateContent(payload.organisationId, kind, values);
+  return deliverMemberMessage({ organisationId: payload.organisationId, memberId: term.member.id, kind, values, dedupeKey: `notice:${messageId}` }, messageId, { email: { ...content, ...own } });
 }
 
 /** A renewal reminder before or after a term ends. Dropped once the member has renewed or the term changed. */
@@ -147,26 +156,10 @@ export async function deliverRenewalReminder(payload: ReminderPayload, messageId
   // Renewed, or rejoined with a new term that starts after this one.
   const renewed = await prisma.membershipTerm.count({ where: { OR: [{ renewedFromId: term.id, status: { notIn: ["CANCELLED", "EXPIRED", "REJECTED"] } }, { memberId: term.memberId, planId: term.planId, status: { in: ["UPCOMING", "ACTIVE", "GRACE"] }, startsAt: { gte: term.endsAt } }] } });
   if (renewed > 0) return "dropped";
-  const org = term.organisation;
-  const until = formatCalendarDate(lastValidDay(term.endsAt, org.timezone));
-  const after = payload.key.startsWith("after");
-  // Without a gateway that takes the currency the renewal is paid offline, so say how.
-  const guidance = await loadPaymentGuidance(payload.organisationId, term.member.unit?.path, term.currency);
-  const howToPay = guidance.offlineOnly ? instructionParagraphs(guidance) : [];
-  await sendBrandedEmail({ organisationId: payload.organisationId,
-    to: term.member.email,
-    messageId,
-    subject: after ? `Your ${org.name} membership has ended` : `Renew your ${org.name} membership`,
-    heading: after ? "Your membership has ended" : "Time to renew",
-    paragraphs: [
-      after
-        ? `Your ${term.plan.name} membership ended on ${until}. Renew now to keep your card valid.`
-        : `Your ${term.plan.name} membership is valid until ${until}. Renew now and the new year starts the day after.`,
-      ...howToPay,
-    ],
-    action: org.memberPortal ? { label: "Renew now", url: absoluteUrl("/account") } : { label: `Contact ${org.name} to renew`, url: absoluteUrl(`/o/${org.slug}`) },
-  });
-  return "sent";
+  // before-0 is the end date itself, before-N the days leading up to it, and after-N the chasers once it has passed.
+  const kind = reminderKindFor(payload.key);
+  const values = (await termMessageValues(term.id, payload.organisationId)) ?? {};
+  return deliverMemberMessage({ organisationId: payload.organisationId, memberId: term.memberId, kind, values, dedupeKey: `reminder:${term.id}:${payload.key}` }, messageId);
 }
 
 type InvitePayload = { inviteId: string; organisationId: string };

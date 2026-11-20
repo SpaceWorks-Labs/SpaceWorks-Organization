@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import type { Metadata } from "next";
 import { loadOrgUnitView } from "@/lib/views/app__dashboard__orgSlug__settings__structure__unitId__page";
 import { OrgPageHeader } from "@/components/dashboard/org/OrgPageHeader";
@@ -16,8 +17,13 @@ export default async function OrgUnitPage({ params }: { params: Promise<{ orgSlu
   const base = `/dashboard/${org.slug}/settings/structure`;
   return (
     <div className="flex flex-col gap-6">
+      <Link href={base} className="inline-flex min-h-11 w-fit items-center gap-1 text-sm text-ink-muted underline-offset-4 hover:text-ink hover:underline">
+        <ArrowLeft aria-hidden className="size-4" />
+        Units and roles
+      </Link>
       <OrgPageHeader organisation={org} title={unit.name} description={`${unit.levelName} · code ${unit.code} · ${view.members} ${view.members === 1 ? "member" : "members"} here and below`} />
       <SettingsTabs slug={org.slug} />
+      <p><Link href={`/dashboard/${org.slug}/members?unit=${unit.id}`} className="text-sm text-ink underline underline-offset-4">View members in this unit</Link></p>
       <nav aria-label="Where this unit sits" className="flex flex-wrap items-center gap-1.5 text-sm text-ink-muted">
         <Link href={base} className="underline-offset-4 hover:underline">Units and roles</Link>
         {view.trail.map((entry) => (

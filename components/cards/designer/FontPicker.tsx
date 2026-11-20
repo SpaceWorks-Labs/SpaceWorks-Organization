@@ -10,12 +10,17 @@ import { cardFontStack } from "../cardFonts";
 
 const CATEGORIES = Object.keys(CARD_FONT_CATEGORY_LABELS) as CardFontCategory[];
 
-/** Every card font, grouped and searchable, each name shown in its own face. */
-export function FontPicker({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+/** Every card font, grouped and searchable, each name shown in its own face; the brand kit's fonts first. */
+export function FontPicker({ value, onChange, brandFonts }: { value: string; onChange: (id: string) => void; brandFonts?: readonly string[] }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const current = cardFont(value);
   const matches = CARD_FONTS.filter((font) => font.label.toLowerCase().includes(query.trim().toLowerCase()));
+  const brand = (brandFonts ?? []).flatMap((id) => matches.filter((font) => font.id === id));
+  const groups = [
+    ...(brand.length ? [{ key: "brand-kit", label: "Brand kit", fonts: brand }] : []),
+    ...CATEGORIES.map((category) => ({ key: category, label: CARD_FONT_CATEGORY_LABELS[category], fonts: matches.filter((font) => font.category === category) })),
+  ];
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -27,19 +32,18 @@ export function FontPicker({ value, onChange }: { value: string; onChange: (id: 
       <PopoverContent aria-label="Fonts" className="flex w-[min(320px,calc(100vw-32px))] flex-col gap-2 p-3">
         <SearchInput aria-label="Find a font" placeholder="Find a font" value={query} onChange={(event) => setQuery(event.target.value)} onClear={() => setQuery("")} />
         <div className="max-h-[360px] overflow-y-auto pr-1">
-          {CATEGORIES.map((category) => {
-            const fonts = matches.filter((font) => font.category === category);
+          {groups.map(({ key, label, fonts }) => {
             if (!fonts.length) return null;
             return (
-              <div key={category} role="group" aria-label={CARD_FONT_CATEGORY_LABELS[category]} className="flex flex-col py-1">
-                <p className="px-2 py-1 text-caption font-semibold text-ink-muted">{CARD_FONT_CATEGORY_LABELS[category]}</p>
+              <div key={key} role="group" aria-label={label} className="flex flex-col py-1">
+                <p className="px-2 py-1 text-caption font-semibold text-ink-muted">{label}</p>
                 {fonts.map((font) => (
                   <button
                     key={font.id}
                     type="button"
                     aria-pressed={font.id === current.id}
                     onClick={() => { onChange(font.id); setOpen(false); }}
-                    className={cn("rounded-lg px-2 py-1.5 text-left text-[17px] text-ink hover:bg-muted", font.id === current.id && "bg-subtle font-semibold")}
+                    className={cn("min-h-11 rounded-lg px-2 py-1.5 text-left text-[17px] text-ink hover:bg-muted", font.id === current.id && "bg-subtle font-semibold")}
                     style={{ fontFamily: cardFontStack(font.id) }}
                   >
                     {font.label}

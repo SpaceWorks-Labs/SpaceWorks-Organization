@@ -5,12 +5,12 @@ import { DOCS_SLUGS, FEATURE_AREAS, featureArea } from "@/lib/features/catalog";
 import { CAPABILITY_LIST } from "@/lib/permissionRoles";
 
 const EXPECTED = [
-  "organisations", "units", "staff-and-roles", "sign-in", "plans-and-join-forms", "renewals", "payments", "receipts-and-refunds",
+  "organisations", "units", "groupings", "staff-and-roles", "sign-in", "plans-and-join-forms", "renewals", "payments", "receipts-and-refunds",
   "member-cards", "member-portal", "public-page", "reports-and-analytics", "notifications", "web-analytics", "self-hosting",
 ];
 
 describe("feature catalogue", () => {
-  it("lists exactly the fifteen areas, in docs order, each once", () => {
+  it("lists exactly the sixteen areas, in docs order, each once", () => {
     expect([...DOCS_SLUGS]).toEqual(EXPECTED);
     expect(FEATURE_AREAS.map((area) => area.id)).toEqual(EXPECTED);
     expect(new Set(FEATURE_AREAS.map((area) => area.id)).size).toBe(FEATURE_AREAS.length);

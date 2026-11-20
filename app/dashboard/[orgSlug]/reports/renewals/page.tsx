@@ -5,6 +5,7 @@ import type { ReportSearch } from "@/lib/reports/context";
 import { formatValue } from "@/lib/reports/chartScale";
 import { ReportShell, ExportLink } from "@/components/reports/ReportShell";
 import { RenewalWorklist } from "@/components/reports/RenewalWorklist";
+import { timeZoneOf } from "@/lib/format/datetime";
 import { ChartFrame, HeatTable } from "@/components/reports/charts/ChartFrame";
 import { ColumnChart } from "@/components/reports/charts/ColumnChart";
 import { KpiTile } from "@/components/reports/charts/Figures";
@@ -56,7 +57,7 @@ export default async function OrgReportsRenewalsPage({ params, searchParams }: P
             {shell.canExport ? <ExportLink shell={shell} report="worklist" extra={`days=${view.worklist.days}`} /> : null}
           </div>
         </div>
-        {view.worklist.rows.length ? <RenewalWorklist slug={shell.org.slug} rows={view.worklist.rows} canRemind={view.canRemind} /> : <EmptyState mood="sleepy" title="Nothing due">No memberships end in this window, and nobody is in grace.</EmptyState>}
+        {view.worklist.rows.length ? <RenewalWorklist slug={shell.org.slug} rows={view.worklist.rows} canRemind={view.canRemind} timeZone={timeZoneOf(view)} /> : <EmptyState mood="sleepy" title="Nothing due">No memberships end in this window, and nobody is in grace.</EmptyState>}
       </section>
 
       <ChartFrame title="Cohort retention" description="Members by the month they first joined: the share still active at the end of each later month (0 is the joining month)." action={shell.canExport ? <ExportLink shell={shell} report="cohorts" /> : null}>

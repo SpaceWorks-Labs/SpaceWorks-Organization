@@ -6,6 +6,7 @@ import { trackedRevalidation } from "@/lib/frontend/revalidation";
 import { prisma } from "@/lib/db";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { recordAuditEvent } from "@/lib/audit";
+import { hasRecentAuthentication } from "@/lib/reauth";
 import { orgActionAccess, type StaffMembership } from "@/lib/permissions";
 import { fallbackTeamRole } from "@/lib/permissionRoles";
 import { archiveStaffRoleSchema, createStaffRoleSchema, reorderStaffRolesSchema, updateStaffRoleSchema } from "@/lib/validators";
@@ -87,6 +88,7 @@ export async function updateStaffRole(input: unknown): Promise<ActionResult> {
   if (!parsed.success) return { ok: false, error: "Check the highlighted fields.", fieldErrors: flattenZodErrors(parsed.error) };
   const access = await rolesAccess(parsed.data.organisationSlug);
   if (!access.ok) return access;
+  if (!(await hasRecentAuthentication())) return { ok: false, error: "For security, sign in again before changing a role." };
   const organisationId = access.organisation.id;
   try {
     const capabilities = checkedCapabilities(access.membership, parsed.data.capabilities);

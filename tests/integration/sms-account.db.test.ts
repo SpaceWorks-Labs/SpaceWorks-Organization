@@ -101,7 +101,8 @@ describe.sequential("sending through the outbox", () => {
   it("sends a code once, stores the provider id, deletes the row, and never sends again after acceptance", async () => {
     const number = indian();
     const user = await makeUser({}, number);
-    await prisma.outboxMessage.deleteMany({ where: { kind: "sms-code" } });
+    // Earlier files leave rows behind; a batch takes the oldest 20, so start from an empty outbox.
+    await prisma.outboxMessage.deleteMany({});
     await requestSmsCode({ purpose: "SIGN_IN", phone: phone(number), userId: user.id });
     const queued = (await queuedCode(number))!;
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ sid: "SMintegration1" }), { status: 201 }));

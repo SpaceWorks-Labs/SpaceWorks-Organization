@@ -1,6 +1,7 @@
 import "server-only";
 
 import NextAuth from "next-auth";
+import { cache } from "react";
 import { authAdapter } from "@/lib/authAdapter";
 import { prisma } from "@/lib/db";
 import { providerVerifiedEmail } from "@/lib/oauthProviders";
@@ -15,7 +16,7 @@ import { checkUserSession, startUserSession } from "@/lib/userSessions";
 import { activeLinkTarget, clearLinkIntent } from "@/lib/linkSession";
 import { oauthSessionGate } from "@/lib/authMethods/sessionGate";
 
-export const { handlers, auth } = NextAuth(async () => {
+const nextAuth = NextAuth(async () => {
   const context = await loadLoginMethods();
   const { providers, cookies } = buildAuthMethods(context);
   return {
@@ -117,3 +118,14 @@ export const { handlers, auth } = NextAuth(async () => {
   },
   };
 });
+
+export const { handlers } = nextAuth;
+
+const sessionForRequest = cache(() => nextAuth.auth());
+
+/**
+ * `auth()` with no arguments reads the session once per request (React cache), however many layouts, pages and
+ * guards ask. Called with a request or handler (route handlers, middleware wrapping), it is Auth.js's own `auth`.
+ */
+export const auth = ((...args: unknown[]) =>
+  args.length === 0 ? sessionForRequest() : (nextAuth.auth as (...inner: unknown[]) => unknown)(...args)) as typeof nextAuth.auth;

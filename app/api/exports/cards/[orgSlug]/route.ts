@@ -8,6 +8,7 @@ import { getMembership, hasAuthenticator, STAFF_AUTHENTICATOR_MESSAGE } from "@/
 import { teamScope } from "@/lib/membership/scope";
 import { cardExportLimit, cardsPdfStream, cardsZipStream } from "@/lib/cards/bulk";
 import { loadCardOrgContext } from "@/lib/cards/data";
+import { groupFilters } from "@/lib/groupings/filters";
 import { CARD_EXPORT_FORMATS, exportCardsWhere, parseExportFilter, type CardExportFormat } from "@/lib/cards/exportFilter";
 import { tryAcquireRenderSlot } from "@/lib/cards/renderSlot";
 
@@ -35,8 +36,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ orgS
   const format = url.searchParams.get("format") as CardExportFormat;
   if (!(CARD_EXPORT_FORMATS as readonly string[]).includes(format)) return jsonError(400, "Choose a file type.");
   if (!(await checkRateLimitById("reportExport", `user:${userId}`))) return jsonError(429, "Too many downloads. Try again later.");
-  const filter = parseExportFilter({ status: url.searchParams.get("status") || "all", planId: url.searchParams.get("plan"), unitId: url.searchParams.get("unit"), roleId: url.searchParams.get("role"), q: url.searchParams.get("q") ?? "" });
-  const where = exportCardsWhere(await teamScope(org.id, membership.unitId), filter, { contact: can(membership, "members.contact") });
+  const filter = parseExportFilter({ status: url.searchParams.get("status") || "all", planId: url.searchParams.get("plan"), unitId: url.searchParams.get("unit"), roleId: url.searchParams.get("role"), q: url.searchParams.get("q") ?? "", valueId: url.searchParams.get("gv"), smartGroupId: url.searchParams.get("sg") });
+  const extra = await groupFilters(org.id, { valueId: filter.valueId, smartGroupId: filter.smartGroupId });
+  const where = exportCardsWhere(await teamScope(org.id, membership), filter, { contact: can(membership, "members.contact"), extra });
   const count = await prisma.memberCard.count({ where });
   if (count === 0) return jsonError(404, "None of these members has a card yet.");
   const limit = cardExportLimit(format);

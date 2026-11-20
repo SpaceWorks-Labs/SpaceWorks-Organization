@@ -60,8 +60,10 @@ export function CollectionSheetForm({ slug, rows, today, maxRows, makerChecker }
 
   return (
     <div className="flex flex-col gap-5">
+      {/* One line for screen readers, always mounted so the change is heard; the list below is not live. */}
+      <p role="status" aria-live="polite" className="sr-only">{outcomes ? `Sheet saved: ${recorded} of ${outcomes.length} recorded.` : ""}</p>
       {outcomes ? (
-        <Card as="section" className="rounded-xl" aria-live="polite">
+        <Card as="section" className="rounded-xl">
           <CardHeader title="Last sheet" description={`${recorded} of ${outcomes.length} recorded.${makerChecker && recorded ? " They get receipt numbers once someone else confirms them." : ""}`} />
           <ul className="flex flex-col gap-2">
             {outcomes.map((entry) => (

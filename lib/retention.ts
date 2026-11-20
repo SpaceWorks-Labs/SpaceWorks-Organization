@@ -31,7 +31,15 @@ export async function purgeExpiredOperationalData(now = new Date()) {
     // Session records revoked or unused for 90 days: they can no longer sign anyone in.
     prisma.userSession.deleteMany({ where: { OR: [{ revokedAt: { lt: idleBefore } }, { lastSeenAt: { lt: idleBefore } }] } }),
   ]);
+  // Member message logs (no text, number or address, only what was sent and how) after their retention, and spent linking codes.
+  const messageDays = Math.min(Math.max(Number(process.env.MESSAGE_LOG_RETENTION_DAYS || 90), 7), 730);
+  const [messageLogs, linkCodes] = await prisma.$transaction([
+    prisma.memberMessageLog.deleteMany({ where: { createdAt: { lt: new Date(now.getTime() - messageDays * DAY_MS) } } }),
+    prisma.notificationEndpointChallenge.deleteMany({ where: { expiresAt: { lt: new Date(now.getTime() - DAY_MS) } } }),
+  ]);
   return {
+    messageLogs: messageLogs.count,
+    linkCodes: linkCodes.count,
     smsCodes: smsCodes.count,
     passkeyChallenges: passkeyChallenges.count,
     samlLoginStates: samlStates.count,

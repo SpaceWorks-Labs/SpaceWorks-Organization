@@ -169,6 +169,7 @@ export function defaultCardSideSettings(context: CardDesignContext): CardSideSet
     showRole: false,
     showPlan: false,
     showQr: true,
+    showQrCaption: false,
     showIdNumber: false,
     idNumberLabel: "No.",
     showValidUntil: false,
@@ -198,6 +199,8 @@ export function normalizeCardSide(value: unknown, context: CardDesignContext): C
     showPlan: bool(input.showPlan, fallback.showPlan),
     showIdNumber: bool(input.showIdNumber, fallback.showIdNumber),
     showValidUntil: bool(input.showValidUntil, fallback.showValidUntil),
+    // Designs saved before the caption existed print none.
+    showQrCaption: bool(input.showQrCaption, fallback.showQrCaption),
   };
   const defaults = geometryWithOptionalDefaults(template, widthMm, heightMm, flags);
   const sizes = elementSizes(input.elementSizes, defaults.sizes, widthMm);

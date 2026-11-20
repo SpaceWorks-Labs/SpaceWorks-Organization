@@ -13,7 +13,16 @@ describe("page security policy", () => {
       const policy = csp(path);
       expect(directive(policy, "connect-src"), path).toBe("connect-src 'self'");
       expect(directive(policy, "script-src"), path).toMatch(/^script-src 'self' 'nonce-[^']+' 'strict-dynamic'$/);
-      expect(directive(policy, "frame-src"), path).toBe("frame-src 'none'");
+      if (!path.startsWith("/o/")) expect(directive(policy, "frame-src"), path).toBe("frame-src 'none'");
+    }
+  });
+
+  it("lets organisation public pages frame exactly the privacy-enhanced YouTube player and Vimeo, nowhere else", () => {
+    for (const path of ["/o/acme", "/o/acme/join/annual"]) {
+      expect(directive(csp(path), "frame-src"), path).toBe("frame-src https://www.youtube-nocookie.com https://player.vimeo.com");
+    }
+    for (const path of ["/", "/organisations", "/dashboard/acme/settings/public-page", "/verify/abc", "/docs"]) {
+      expect(directive(csp(path), "frame-src"), path).toBe("frame-src 'none'");
     }
   });
 

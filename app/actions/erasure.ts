@@ -1,13 +1,14 @@
 "use server";
 
 import { z } from "zod";
+import { membershipChanged } from "@/lib/membership/afterChange";
 import { revalidatePath as nextRevalidatePath } from "next/cache";
 import { trackedRevalidation } from "@/lib/frontend/revalidation";
 import { prisma } from "@/lib/db";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { orgActionAccess } from "@/lib/permissions";
 import { enqueueOutbox } from "@/lib/outbox";
-import { teamScope, unitInScope } from "@/lib/membership/scope";
+import { memberWhere, teamScope } from "@/lib/membership/scope";
 import { MembershipError } from "@/lib/membership/service";
 import { decideErasure } from "@/lib/portal/erasure";
 import type { ActionResult } from "./org";
@@ -32,9 +33,9 @@ export async function decideErasureRequest(input: unknown): Promise<ActionResult
   if (!access.ok) return access;
   if (await isActionRateLimited("action", access.userId)) return { ok: false, error: "Too many requests. Try again shortly." };
   const org = await prisma.organisation.findUniqueOrThrow({ where: { id: access.organisation.id }, select: { id: true, slug: true, timezone: true, financialYearStartMonth: true } });
-  const request = await prisma.erasureRequest.findFirst({ where: { id: parsed.data.requestId, organisationId: org.id }, include: { member: { select: { unit: { select: { path: true } } } } } });
-  const scope = await teamScope(org.id, access.membership.unitId);
-  if (!request || !unitInScope(scope, request.member.unit?.path ?? null)) return { ok: false, error: "Request not found." };
+  const scope = await teamScope(org.id, access.membership);
+  const request = await prisma.erasureRequest.findFirst({ where: { id: parsed.data.requestId, organisationId: org.id, member: { is: memberWhere(scope) } } });
+  if (!request) return { ok: false, error: "Request not found." };
   try {
     const approve = parsed.data.decision === "approve";
     const result = await prisma.$transaction(async (tx) => {
@@ -44,6 +45,7 @@ export async function decideErasureRequest(input: unknown): Promise<ActionResult
       if (approve) await enqueueOutbox(tx, "member-photo-purge", { organisationId: org.id, memberId: decided.memberId, keys: decided.uploadKeys });
       return decided;
     });
+    await membershipChanged(org.id);
     revalidatePath(`/dashboard/${org.slug}/members/${result.memberId}`);
     revalidatePath(`/dashboard/${org.slug}/members`);
     return { ok: true };

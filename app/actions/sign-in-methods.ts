@@ -23,7 +23,7 @@ export async function beginLinkSignInMethod(input: unknown): Promise<ActionResul
   const session = await requireAuth();
   const parsed = providerSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "That sign-in method is not available." };
-  if (await isActionRateLimited("auth", session.user.id)) return { ok: false, error: "Too many attempts. Please try again later." };
+  if (await isActionRateLimited("auth", session.user.id)) return { ok: false, error: "Too many attempts. Try again later." };
   if (!(await hasRecentAuthentication())) return { ok: false, error: "Sign in again before adding a sign-in method." };
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { isSuperAdmin: true } });
   if (!user || user.isSuperAdmin) return { ok: false, error: "Super-admin accounts sign in with a password only." };
@@ -38,7 +38,7 @@ export async function unlinkSignInMethod(input: unknown): Promise<ActionResult> 
   const session = await requireAuth();
   const parsed = accountSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "That sign-in method could not be found." };
-  if (await isActionRateLimited("auth", session.user.id)) return { ok: false, error: "Too many attempts. Please try again later." };
+  if (await isActionRateLimited("auth", session.user.id)) return { ok: false, error: "Too many attempts. Try again later." };
   if (!(await hasRecentAuthentication())) return { ok: false, error: "Sign in again before removing a sign-in method." };
   const account = await prisma.account.findFirst({ where: { id: parsed.data.accountId, userId: session.user.id }, select: { id: true, provider: true } });
   if (!account) return { ok: false, error: "That sign-in method could not be found." };

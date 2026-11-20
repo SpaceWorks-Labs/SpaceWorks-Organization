@@ -8,6 +8,7 @@ import { AdminPanel } from "@/components/super-admin/AdminPanel";
 import { StatusPill } from "@/components/super-admin/StatusPill";
 import { Chip, EmptyState, PageHeader, StatTile } from "@/components/ui/display";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
+import { formatCount } from "@/lib/format/datetime";
 
 const WINDOW_DAYS = 14;
 
@@ -35,16 +36,16 @@ export default async function SuperAdminEmailPage() {
             <StatusPill state={!provider.setUp ? "not_set_up" : provider.lastError ? "unavailable" : "available"} />
             <span className="text-caption text-ink-muted">{!provider.setUp ? "No email is sent until it is set up." : provider.lastError ? `Last test failed: ${provider.lastError}` : provider.testedAt ? "Last test went through." : "Not tested yet."}</span>
           </div>
-          <p className="text-body-ui text-ink-secondary">Suppressed addresses: {provider.bounced.toLocaleString()} bounced, {provider.complained.toLocaleString()} complained. Sends skip them.</p>
+          <p className="text-body-ui text-ink-secondary">Suppressed addresses: {formatCount(provider.bounced)} bounced, {formatCount(provider.complained)} complained. Sends skip them.</p>
           <Link href="/super-admin/settings" className="inline-flex min-h-11 items-center self-start text-sm font-semibold text-ink underline underline-offset-4 hover:text-ink-secondary">Provider settings</Link>
         </div>
       </AdminPanel>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatTile className="rounded-xl" label="Queued now" value={totals.pending.toLocaleString()} />
-        <StatTile className="rounded-xl" label="Waiting over 15 min" value={(stuckPending + stuckProcessing).toLocaleString()} tone={stuckPending + stuckProcessing > 0 ? "attention" : "default"} hint={stuckProcessing > 0 ? `${stuckProcessing} locked by a worker` : undefined} />
-        <StatTile className="rounded-xl" label="Failed" value={totals.failed.toLocaleString()} tone={totals.failed > 0 ? "attention" : "default"} hint={`${formatShare(totals.failed, totals.total)} of all messages`} />
-        <StatTile className="rounded-xl" label="Delivered (retained)" value={totals.sent.toLocaleString()} hint="Link-bearing messages are deleted after delivery" />
+        <StatTile label="Queued now" value={formatCount(totals.pending)} />
+        <StatTile label="Waiting over 15 min" value={formatCount(stuckPending + stuckProcessing)} tone={stuckPending + stuckProcessing > 0 ? "attention" : "default"} hint={stuckProcessing > 0 ? `${stuckProcessing} locked by a worker` : undefined} />
+        <StatTile label="Failed" value={formatCount(totals.failed)} tone={totals.failed > 0 ? "attention" : "default"} hint={`${formatShare(totals.failed, totals.total)} of all messages`} />
+        <StatTile label="Delivered (retained)" value={formatCount(totals.sent)} hint="Link-bearing messages are deleted after delivery" />
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -72,10 +73,10 @@ export default async function SuperAdminEmailPage() {
               {kinds.map((row) => (
                 <TR key={row.kind}>
                   <TD className="tabular-nums text-sm">{row.kind}</TD>
-                  <TD className="text-right tabular-nums">{row.pending.toLocaleString()}</TD>
-                  <TD className="text-right tabular-nums">{row.processing.toLocaleString()}</TD>
-                  <TD className="text-right tabular-nums">{row.sent.toLocaleString()}</TD>
-                  <TD className="text-right tabular-nums">{row.failed > 0 ? <Chip size="sm" tone="danger">{row.failed.toLocaleString()}</Chip> : "0"}</TD>
+                  <TD className="text-right tabular-nums">{formatCount(row.pending)}</TD>
+                  <TD className="text-right tabular-nums">{formatCount(row.processing)}</TD>
+                  <TD className="text-right tabular-nums">{formatCount(row.sent)}</TD>
+                  <TD className="text-right tabular-nums">{row.failed > 0 ? <Chip size="sm" tone="danger">{formatCount(row.failed)}</Chip> : "0"}</TD>
                   <TD className="text-right tabular-nums text-ink-secondary">{formatShare(row.failed, row.total)}</TD>
                 </TR>
               ))}

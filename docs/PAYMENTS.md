@@ -16,6 +16,21 @@ Keys are saved under **Settings → Payments and tax**. Secrets are encrypted wi
 `PAYMENT_SECRETS_KEY` (32 random bytes, base64), bound to the organisation, and never sent back to the browser.
 Without that key the gateway section stays locked. Test mode follows the key (`rzp_test_`, `sk_test_`).
 
+## Payment modes
+
+Each plan chooses how it is paid (`MembershipPlan.paymentMode`, `lib/payments/paymentMode.ts`):
+
+| Mode | What members see | Gateway |
+| --- | --- | --- |
+| `FREE` | No payment step. Joining or renewing starts the membership, after approval when the plan needs it. | Never. No `Payment` row is written and no receipt number is used. A free plan charges nothing on any line, whatever its stored prices say. |
+| `ONLINE_OR_IN_HAND` | Pay online when the organisation has a usable gateway for the currency, otherwise the in-hand instructions. | When set up. |
+| `IN_HAND_ONLY` | The organisation's payment instructions (the member's unit first, then the organisation, `lib/payments/unitInstructions.ts`) and an "I've paid" claim. Staff confirm cash, UPI or bank receipt through the offline record path. | Never offered, even when the organisation has one. `startCheckout` refuses it. |
+
+Validation: `FREE` needs every price to be zero, and a paid mode needs at least one price above zero. Existing plans were
+set by migration 0025: no price at all became `FREE`, the rest `ONLINE_OR_IN_HAND`. Money still settles only through
+`settlePayment`, so receipts stay gapless per organisation per financial year. The pay page, join confirmation and
+payment emails use `loadPaymentGuidance(..., mode)`, which treats an in-hand-only plan as offline.
+
 ## The payment record
 
 Every charge starts as a `Payment` with its `PaymentLine`s (term fee, joining or rejoining fee) and a frozen

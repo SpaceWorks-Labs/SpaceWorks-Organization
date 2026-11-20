@@ -1,9 +1,9 @@
 import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
-import { COLOR_MODE_BOOT_SCRIPT, COLOR_MODE_COOKIE, COLOR_MODE_STORAGE_KEY, THEME_COLOR, isColorMode, paintedColorMode, resolveColorMode, serverPaintedColorMode } from "@/lib/colorMode";
+import { COLOR_MODES, COLOR_MODE_BOOT_SCRIPT, COLOR_MODE_COOKIE, COLOR_MODE_STORAGE_KEY, THEME_COLOR, isColorMode, oppositeColorMode, resolveColorMode } from "@/lib/colorMode";
 import { installAriaDisabledGuard, isInsideAriaDisabled } from "@/lib/ariaDisabled";
 
-describe("colour mode", () => {
+describe("colour mode (Light and Dark only, owner decision 2026-11-19)", () => {
   it("defaults to light when nothing is saved or the value is unknown", () => {
     expect(resolveColorMode(undefined)).toBe("light");
     expect(resolveColorMode(null)).toBe("light");
@@ -11,25 +11,17 @@ describe("colour mode", () => {
     expect(resolveColorMode("sepia")).toBe("light");
   });
 
-  it("honours light, dark and system", () => {
+  it("reads a System choice saved by an earlier build as light", () => {
+    expect(resolveColorMode("system")).toBe("light");
+    expect(isColorMode("system")).toBe(false);
+    expect(COLOR_MODES).toEqual(["light", "dark"]);
+  });
+
+  it("honours light and dark, and the toggle flips between them", () => {
     expect(resolveColorMode("dark")).toBe("dark");
     expect(resolveColorMode("light")).toBe("light");
-    expect(resolveColorMode("system")).toBe("system");
-    expect(isColorMode("system")).toBe(true);
-    expect(isColorMode("auto")).toBe(false);
-  });
-
-  it("follows the device only for system", () => {
-    expect(paintedColorMode("system", true)).toBe("dark");
-    expect(paintedColorMode("system", false)).toBe("light");
-    expect(paintedColorMode("light", true)).toBe("light");
-    expect(paintedColorMode("dark", false)).toBe("dark");
-  });
-
-  it("lets the server paint only a fixed choice", () => {
-    expect(serverPaintedColorMode("dark")).toBe("dark");
-    expect(serverPaintedColorMode("light")).toBe("light");
-    expect(serverPaintedColorMode("system")).toBeNull();
+    expect(oppositeColorMode("light")).toBe("dark");
+    expect(oppositeColorMode("dark")).toBe("light");
   });
 
   it("uses the organisation product cookie name, mirrored to storage, and the kit's chrome colours", () => {
@@ -40,32 +32,40 @@ describe("colour mode", () => {
 });
 
 /** Runs the boot script against a minimal document and returns what it painted. */
-function boot({ cookie = "", stored = null as string | null, systemDark = false, storageThrows = false } = {}) {
+function boot({ cookie = "", stored = null as string | null, storageThrows = false } = {}) {
   const classes = new Set<string>();
   const meta = { content: THEME_COLOR.light, setAttribute(_: string, value: string) { this.content = value; } };
   const root = { style: { colorScheme: "" }, classList: { toggle: (name: string, on: boolean) => (on ? classes.add(name) : classes.delete(name)) } };
   let mediaQueries = 0;
+  const matchMedia = () => { mediaQueries += 1; return { matches: true }; };
   runInNewContext(COLOR_MODE_BOOT_SCRIPT, {
     document: { cookie, documentElement: root, querySelector: () => meta },
     localStorage: { getItem: () => { if (storageThrows) throw new Error("blocked"); return stored; } },
-    window: { matchMedia: true },
-    matchMedia: () => { mediaQueries += 1; return { matches: systemDark }; },
+    window: { matchMedia },
+    matchMedia,
   });
   return { dark: classes.has("dark"), scheme: root.style.colorScheme, meta: meta.content, mediaQueries };
 }
 
 describe("colour mode boot script", () => {
-  it("paints light by default without asking the device", () => {
-    expect(boot({ systemDark: true })).toEqual({ dark: false, scheme: "light", meta: "#FFF4E8", mediaQueries: 0 });
+  it("never asks the device", () => {
+    expect(COLOR_MODE_BOOT_SCRIPT).not.toContain("prefers-color-scheme");
+    expect(COLOR_MODE_BOOT_SCRIPT).not.toContain("matchMedia");
+    expect(COLOR_MODE_BOOT_SCRIPT).not.toContain("system");
+  });
+
+  it("paints light by default, even on a dark device", () => {
+    expect(boot()).toEqual({ dark: false, scheme: "light", meta: "#FFF4E8", mediaQueries: 0 });
   });
 
   it("paints a saved dark choice from the cookie and sets the black chrome colour", () => {
-    expect(boot({ cookie: "a=1; swo.theme=dark" })).toMatchObject({ dark: true, scheme: "dark", meta: "#000000", mediaQueries: 0 });
+    expect(boot({ cookie: "a=1; swo.theme=dark" })).toEqual({ dark: true, scheme: "dark", meta: "#000000", mediaQueries: 0 });
+    expect(boot({ cookie: "swo.theme=light", stored: "dark" })).toMatchObject({ dark: false });
   });
 
-  it("checks the device only for system", () => {
-    expect(boot({ cookie: "swo.theme=system", systemDark: true })).toMatchObject({ dark: true, mediaQueries: 1 });
-    expect(boot({ cookie: "swo.theme=system", systemDark: false })).toMatchObject({ dark: false, mediaQueries: 1 });
+  it("paints an old System choice as light", () => {
+    expect(boot({ cookie: "swo.theme=system" })).toMatchObject({ dark: false, meta: "#FFF4E8", mediaQueries: 0 });
+    expect(boot({ stored: "system" })).toMatchObject({ dark: false, mediaQueries: 0 });
   });
 
   it("falls back to localStorage, and to light when storage throws", () => {

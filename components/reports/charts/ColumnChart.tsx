@@ -77,7 +77,7 @@ export function ColumnChart({ labels, series, ariaLabel, format = "number", heig
           ) : null}
         </svg>
         {focus.index !== null ? (
-          <ChartTooltip title={labels[focus.index]} x={xOf(focus.index)} width={width} rows={series.map((entry) => ({ label: entry.label, value: formatValue(entry.values[focus.index!] ?? 0, format), slot: entry.slot, shape: "rect" }))} />
+          <ChartTooltip announce={focus.fromKeyboard} title={labels[focus.index]} x={xOf(focus.index)} width={width} rows={series.map((entry) => ({ label: entry.label, value: formatValue(entry.values[focus.index!] ?? 0, format), slot: entry.slot, shape: "rect" }))} />
         ) : null}
       </div>
     </div>

@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { configuredProviders, type ConfiguredProvider } from "@/lib/telemetry/configured";
@@ -7,11 +8,11 @@ import type { TelemetryView } from "@/lib/telemetry/types";
 type Props = { params: Promise<{ orgSlug: string }> };
 
 /** Only an active organisation's public pages run its providers; anything else resolves to nothing, never a 404. */
-async function activeOrganisationTelemetry(slug: string) {
+const activeOrganisationTelemetry = cache(async (slug: string) => {
   const org = await prisma.organisation.findUnique({ where: { slug }, select: { id: true, status: true, webTelemetry: true } });
   if (!org || org.status !== "ACTIVE") return null;
   return { id: org.id, ...parseOrgTelemetry(org.webTelemetry) };
-}
+});
 
 /**
  * The organisation's own public telemetry configuration for its /o/<slug> layout. Only a visitor with no session

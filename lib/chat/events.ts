@@ -1,5 +1,5 @@
 /** Team alerts a chat channel can receive. Client-safe; the database checks the same list (migration 0011). */
-export const CHAT_EVENTS = ["application", "payment", "payment-to-confirm", "refund-requested", "erasure-requested", "member-left", "monthly-summary"] as const;
+export const CHAT_EVENTS = ["application", "payment", "payment-to-confirm", "refund-requested", "erasure-requested", "member-left", "monthly-summary", "reminders-digest"] as const;
 export type ChatEvent = (typeof CHAT_EVENTS)[number];
 
 export const CHAT_EVENT_LABELS: Record<ChatEvent, string> = {
@@ -10,6 +10,7 @@ export const CHAT_EVENT_LABELS: Record<ChatEvent, string> = {
   "erasure-requested": "Member asked to erase their details",
   "member-left": "Member left",
   "monthly-summary": "Monthly summary",
+  "reminders-digest": "Daily digest of reminders sent",
 };
 
 export const CHAT_KINDS = ["SLACK", "DISCORD", "MATTERMOST", "TELEGRAM", "WHATSAPP", "WEBHOOK"] as const;

@@ -25,7 +25,7 @@ export function PayPageBody({ view, payToken }: { view: PayView; payToken?: stri
         <OrgLogo name={org.name} src={org.logoUrl} size="lg" />
         <div className="min-w-0">
           <p className="text-caption text-ink-muted">{org.name}</p>
-          <h2 className="text-h1 text-ink">{term.kind === "RENEWAL" ? "Renew" : "Pay for"} {term.planName}</h2>
+          <h1 className="text-h1 text-ink">{term.kind === "RENEWAL" ? "Renew" : "Pay for"} {term.planName}</h1>
         </div>
       </header>
 
@@ -110,7 +110,7 @@ export function PayPageBody({ view, payToken }: { view: PayView; payToken?: stri
             toUnit ? (
               <Callout tone="info" title="Pay your fee to your unit">Pay {view.offline?.unitName} directly. They&apos;ll record it and your receipt arrives by email.</Callout>
             ) : (
-              <Callout tone="info" title="Pay the organisation directly">{org.name} hasn&apos;t set up online payments. Contact them to pay; they&apos;ll record it and your receipt arrives by email.</Callout>
+              <Callout tone="info" title="Pay the organisation directly">{view.inHandOnly ? `${org.name} takes this fee in hand.` : `${org.name} hasn't set up online payments.`} Contact them to pay; they&apos;ll record it and your receipt arrives by email.</Callout>
             )
           ) : null}
         </>

@@ -22,7 +22,7 @@ export async function loadOrgAnalytics(organisationId: string, now: Date) {
   if (!org) return null;
   const months = rollupMonths(now);
   const buckets = platformMonths(now);
-  const scope: ReportScope = { organisationId: org.id, unitPath: null, unitId: null, planId: null, scoped: false };
+  const scope: ReportScope = { organisationId: org.id, unitPath: null, unitId: null, planId: null, limits: [], scoped: false };
   const [days, latest, units, collections, open, activity, signIns] = await Promise.all([
     prisma.orgDailyStats.groupBy({ by: ["day"], where: { organisationId: org.id, planId: null, day: { gte: months[0].first } }, _sum: { active: true, grace: true, expired: true, joined: true, lapsed: true, renewed: true } }),
     prisma.orgDailyStats.findFirst({ where: { organisationId: org.id, planId: null }, orderBy: { day: "desc" }, select: { day: true } }),

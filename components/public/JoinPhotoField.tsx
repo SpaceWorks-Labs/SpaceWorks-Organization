@@ -1,6 +1,7 @@
 "use client";
 
 import { ImageUploadPicker } from "@/components/forms/ImageUploadPicker";
+import { FieldError } from "@/components/ui/field";
 
 /**
  * The photo for the member's card, when the plan asks for one. Someone who already has a photo keeps it: an
@@ -22,9 +23,16 @@ export function JoinPhotoField({ mode, hasPhoto, error, onChange }: { mode: "OFF
         Photo
         {mode === "OPTIONAL" ? <span className="ml-1.5 font-normal text-ink-muted">Optional</span> : null}
       </p>
-      <p className="text-caption text-ink-muted">Printed on your membership card. A clear, front-facing picture of your face works best.</p>
-      <ImageUploadPicker label="Photo" placeholder="Your photo" objectFit="cover" onChange={(file) => onChange(file)} />
-      {error ? <p role="alert" className="text-caption text-danger-fg">{error}</p> : null}
+      <p id="join-photo-help" className="text-caption text-ink-muted">Printed on your membership card. A clear, front-facing picture of your face works best.</p>
+      <ImageUploadPicker
+        label="Photo"
+        placeholder="Your photo"
+        objectFit="cover"
+        invalid={Boolean(error)}
+        describedBy={error ? "join-photo-error join-photo-help" : "join-photo-help"}
+        onChange={(file) => onChange(file)}
+      />
+      {error ? <FieldError id="join-photo-error">{error}</FieldError> : null}
     </div>
   );
 }

@@ -18,7 +18,7 @@ export async function revokeSession(input: unknown): Promise<ActionResult<{ curr
   const session = await requireAuth();
   const parsed = schema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "That device could not be found." };
-  if (await isActionRateLimited("auth", session.user.id)) return { ok: false, error: "Too many attempts. Please try again later." };
+  if (await isActionRateLimited("auth", session.user.id)) return { ok: false, error: "Too many attempts. Try again later." };
   const row = await prisma.userSession.findFirst({ where: { id: parsed.data.sessionId, userId: session.user.id, revokedAt: null }, select: { method: true } });
   if (!row || !(await revokeUserSession(session.user.id, parsed.data.sessionId))) return { ok: false, error: "That device could not be found." };
   await auditSessionRevoked(session.user.id, row.method);

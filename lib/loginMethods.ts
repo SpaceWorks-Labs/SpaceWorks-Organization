@@ -6,7 +6,6 @@ import { firebaseConfig, supabaseConfig } from "@/lib/authBridges";
 import { getOAuthSettings } from "@/lib/oauthProviders";
 import { listEnabledOidcProviders } from "@/lib/oidc/providers";
 import { listEnabledSamlProviders } from "@/lib/saml/providers";
-import { methodModuleInstalled } from "@/lib/authMethods/pending";
 import { isEmailServiceConfigured } from "@/lib/emailAvailability";
 import { isSmsConfigured } from "@/lib/sms/settings";
 import {
@@ -35,9 +34,33 @@ export async function getLoginSwitches(): Promise<LoginSwitches> {
   return Object.fromEntries(LOGIN_METHODS.map((method) => [method, row[LOGIN_SWITCH_FIELDS[method]] ?? DEFAULT_SWITCHES[method]])) as LoginSwitches;
 }
 
+/** What the five instance-configuration reads return; kept briefly in this process, since every page asks. */
+type StoredMethods = Awaited<ReturnType<typeof readStoredMethods>>;
+
+const LOGIN_METHODS_TTL_MS = 30_000;
+let stored: { at: number; value: Promise<StoredMethods> } | null = null;
+
+/** Drop the kept copy; the actions that change sign-in methods, providers or SMS settings call this when they save. */
+export function invalidateLoginMethodsCache() {
+  stored = null;
+}
+
+function readStoredMethods() {
+  return Promise.all([getLoginSwitches(), getOAuthSettings(), listEnabledOidcProviders(), listEnabledSamlProviders(), isSmsConfigured()]);
+}
+
+function storedMethods(): Promise<StoredMethods> {
+  const now = Date.now();
+  if (stored && now - stored.at < LOGIN_METHODS_TTL_MS) return stored.value;
+  const value = readStoredMethods();
+  stored = { at: now, value };
+  value.catch(() => { if (stored?.value === value) stored = null; });
+  return value;
+}
+
 /** Each method's state (switch AND configuration; LOGIN_METHODS wins over the database), plus the provider settings. */
 export async function loadLoginMethods() {
-  const [switches, oauth, oidc, saml, smsReady] = await Promise.all([getLoginSwitches(), getOAuthSettings(), listEnabledOidcProviders(), listEnabledSamlProviders(), isSmsConfigured()]);
+  const [switches, oauth, oidc, saml, smsReady] = await storedMethods();
   const configured: Record<LoginMethod, boolean> = {
     password: true,
     google: oauth.google !== null,
@@ -47,9 +70,9 @@ export async function loadLoginMethods() {
     saml: saml.length > 0,
     supabase: supabaseConfig() !== null,
     firebase: firebaseConfig() !== null,
-    passkey: methodModuleInstalled("passkey"),
+    passkey: true,
     // Phone codes need an SMS provider (and nothing else: not an email service).
-    phone: methodModuleInstalled("phone") && smsReady,
+    phone: smsReady,
   };
   const statuses: MethodStatus[] = resolveLoginMethods({ switches, configured, envList: loginMethodsFromEnv() });
   return { statuses, available: availableMethods(statuses), oauth, switches, oidc, saml };

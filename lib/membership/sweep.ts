@@ -2,7 +2,10 @@ import "server-only";
 
 import { Prisma, type TermStatus } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { enqueueOutbox } from "@/lib/outbox";
+import { reminderKindFor } from "@/lib/messages/kinds";
+import { queueMemberMessage } from "@/lib/notify/send";
+import { termMessageValues } from "@/lib/notify/values";
+import { queueClaimReminders, queueLifecycleReminders, queueReminderDigests } from "./sweepReminders";
 import { runStatsRollup } from "@/lib/reports/rollup";
 import { statusAt } from "./lifecycle";
 
@@ -37,9 +40,16 @@ export async function sweepTermStatuses(now = new Date()) {
     select: { id: true, organisationId: true, status: true, startsAt: true, endsAt: true, graceUntil: true, paymentDueBy: true, createdAt: true },
     take: BATCH,
   });
+  const successors = candidates.length
+    ? await prisma.membershipTerm.findMany({
+        where: { renewedFromId: { in: candidates.map((term) => term.id) }, status: { in: ["UPCOMING", "ACTIVE", "GRACE", "ENDED"] } },
+        select: { renewedFromId: true },
+        distinct: ["renewedFromId"],
+      })
+    : [];
+  const renewed = new Set(successors.map((row) => row.renewedFromId));
   for (const term of candidates) {
-    const successor = await prisma.membershipTerm.count({ where: { renewedFromId: term.id, status: { in: ["UPCOMING", "ACTIVE", "GRACE", "ENDED"] } } });
-    const to = statusAt(term, now, successor > 0);
+    const to = statusAt(term, now, renewed.has(term.id));
     if (to === term.status) continue;
     const updated = await prisma.$transaction(async (tx) => {
       const result = await tx.membershipTerm.updateMany({ where: { id: term.id, status: term.status }, data: { status: to } });
@@ -86,6 +96,7 @@ export async function queueRenewalReminders(now = new Date()) {
     // A member who rejoined with a new term (not linked as a renewal) is not reminded about the old one.
     if (due.length && (await prisma.membershipTerm.count({ where: { memberId: term.memberId, planId: term.planId, status: { in: ["UPCOMING", "ACTIVE", "GRACE"] }, startsAt: { gte: term.endsAt! } } }))) continue;
     for (const reminder of due) {
+      const values = (await termMessageValues(term.id, term.organisationId)) ?? {};
       try {
         await prisma.$transaction(async (tx) => {
           // Mark every older reminder as handled too, so a sweep after downtime sends one email, not three.
@@ -93,7 +104,8 @@ export async function queueRenewalReminders(now = new Date()) {
             .filter((r) => r.at <= reminder.at && !sent.has(r.key))
             .map((r) => ({ termId: term.id, key: r.key }));
           await tx.reminderLog.createMany({ data: older, skipDuplicates: true });
-          await enqueueOutbox(tx, "renewal-reminder", { termId: term.id, organisationId: term.organisationId, key: reminder.key });
+          // Through the organisation's routing for this kind; the dedupe key makes it once per reminder.
+          await queueMemberMessage(tx, { organisationId: term.organisationId, memberId: term.memberId, kind: reminderKindFor(reminder.key), values, dedupeKey: `reminder:${term.id}:${reminder.key}` });
         });
         queued += 1;
       } catch (error) {
@@ -108,9 +120,10 @@ export async function queueRenewalReminders(now = new Date()) {
 export async function runMembershipSweep(now = new Date()) {
   const statuses = await sweepTermStatuses(now);
   const reminders = await queueRenewalReminders(now);
+  const more = { ...(await queueLifecycleReminders(now)), ...(await queueClaimReminders(now)), ...(await queueReminderDigests(now)) };
   const rollup = await runStatsRollup(now).catch(() => {
     console.error("[membership sweep] report rollup failed");
     return { rollupDays: 0 };
   });
-  return { ...statuses, ...reminders, ...rollup };
+  return { ...statuses, ...reminders, ...more, ...rollup };
 }

@@ -1,6 +1,7 @@
 import "server-only";
 
 import crypto from "crypto";
+import { safeEqual } from "@/lib/safeEqual";
 
 /**
  * Pay links for organisations that keep records without member accounts: "Pay now" emails carry
@@ -27,9 +28,7 @@ export function payLinkToken(termId: string, now = Date.now()) {
 export function payLinkTermId(token: string, now = Date.now()) {
   const parts = token.split(".");
   if (parts.length !== 3 || !/^[a-z0-9]{10,40}$/i.test(parts[0]) || !/^\d{9,11}$/.test(parts[1])) return null;
-  const expected = Buffer.from(sign(`${parts[0]}.${parts[1]}`));
-  const given = Buffer.from(parts[2]);
-  if (expected.length !== given.length || !crypto.timingSafeEqual(expected, given)) return null;
+  if (!safeEqual(sign(`${parts[0]}.${parts[1]}`), parts[2])) return null;
   if (Number(parts[1]) * 1000 < now) return null;
   return parts[0];
 }

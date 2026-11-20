@@ -2,21 +2,21 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { lockOrganisationTeam, mayGrant, reachOf } from "@/lib/team/granting";
+import { limitPaths, lockOrganisationTeam, mayGrant, reachOf } from "@/lib/team/granting";
 import { roleColumns } from "@/lib/team/roles";
 
 export type InviteAcceptance =
   | { ok: true; href: string }
   | { ok: false; reason: "unavailable" | "wrong-account" | "team-full" };
 
-type Invite = { organisationId: string; roleId: string; unitId: string | null; createdByUserId: string | null };
+type Invite = { organisationId: string; roleId: string; unitId: string | null; createdByUserId: string | null; scopes: Array<{ groupingId: string; valueId: string }> };
 
 /** A super admin off the team who sent an invite through platform access stands in as an organisation-wide owner. */
 async function platformInviter(tx: Prisma.TransactionClient, organisationId: string, userId: string) {
   const creator = await tx.user.findUnique({ where: { id: userId }, select: { isSuperAdmin: true, email: true, emailVerified: true } });
   if (!creator?.isSuperAdmin || !creator.email || !creator.emailVerified) return null;
   const orgRole = await tx.orgRole.findFirst({ where: { organisationId, isOwner: true } });
-  return orgRole ? { orgRole, unitId: null } : null;
+  return orgRole ? { id: `platform:${userId}`, orgRole, unitId: null, scopes: [] } : null;
 }
 
 /**
@@ -38,11 +38,11 @@ async function stillGrantable(tx: Prisma.TransactionClient, invite: Invite) {
   }
   const inviter = (await tx.teamMember.findUnique({
     where: { userId_organisationId: { userId: invite.createdByUserId, organisationId: invite.organisationId } },
-    include: { orgRole: true },
+    include: { orgRole: true, scopes: { select: { groupingId: true, valueId: true } } },
   })) ?? (await platformInviter(tx, invite.organisationId, invite.createdByUserId));
   if (!inviter) return null;
-  const scope = await reachOf(tx, invite.organisationId, inviter.unitId);
-  return mayGrant(inviter, scope, { role, unitId: invite.unitId, unitPath: unit?.path ?? null }) ? role : null;
+  const scope = await reachOf(tx, invite.organisationId, inviter);
+  return mayGrant(inviter, scope, { role, unitId: invite.unitId, unitPath: unit?.path ?? null, limits: await limitPaths(tx, invite.organisationId, invite.scopes) }) ? role : null;
 }
 
 /**
@@ -54,7 +54,7 @@ export async function acceptOrganisationInviteToken(token: string, user: { id: s
   return prisma.$transaction(async (tx) => {
     const invite = await tx.teamInvite.findUnique({
       where: { token },
-      select: { id: true, email: true, organisationId: true, roleId: true, unitId: true, createdByUserId: true, usedAt: true, expiresAt: true, organisation: { select: { slug: true } } },
+      select: { id: true, email: true, organisationId: true, roleId: true, unitId: true, createdByUserId: true, usedAt: true, expiresAt: true, scopes: { select: { groupingId: true, valueId: true } }, organisation: { select: { slug: true } } },
     });
     const now = new Date();
     if (!invite || invite.usedAt || (invite.expiresAt && invite.expiresAt <= now)) return { ok: false, reason: "unavailable" };
@@ -78,7 +78,8 @@ export async function acceptOrganisationInviteToken(token: string, user: { id: s
     if (claim.count !== 1) return { ok: false, reason: "unavailable" };
     // Someone already on the team keeps the access they have.
     if (!existing) {
-      await tx.teamMember.create({ data: { userId: user.id, organisationId: invite.organisationId, ...roleColumns(role), unitId: invite.unitId } });
+      const joined = await tx.teamMember.create({ data: { userId: user.id, organisationId: invite.organisationId, ...roleColumns(role), unitId: invite.unitId } });
+      if (invite.scopes.length) await tx.teamMemberScope.createMany({ data: invite.scopes.map((scope) => ({ organisationId: invite.organisationId, teamMemberId: joined.id, groupingId: scope.groupingId, valueId: scope.valueId })) });
     }
     await tx.auditEvent.create({ data: { action: "TEAM_INVITE_ACCEPTED", actorUserId: user.id, organisationId: invite.organisationId, targetType: "TeamInvite", targetId: invite.id, metadata: { roleId: role.id, unitId: invite.unitId } } });
     return { ok: true, href: `/dashboard/${invite.organisation.slug}` };

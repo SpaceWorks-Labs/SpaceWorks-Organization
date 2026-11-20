@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import { AreasSection } from "@/components/marketing/AreasSection";
+import { CardShowcase } from "@/components/marketing/CardShowcase";
 import { CloseSection, FaqSection } from "@/components/marketing/ClosingSections";
 import { HeroSection } from "@/components/marketing/HeroSection";
 import { LandingSplash } from "@/components/marketing/LandingSplash";
@@ -23,8 +24,8 @@ export const metadata: Metadata = {
 
 /**
  * "/" (product rules §12.1 and §12.2). With LANDING_ENABLED on (the default) it is the landing page: the hero, the
- * membership story, a headline per feature area, screenshots, self-hosting on the Deep Ink island, the licence,
- * questions and a closing call to action. Off, it follows the data through the directory's own reader, which
+ * membership story, sample member cards, a headline per feature area, screenshots, self-hosting on the Deep Ink
+ * island, the licence, questions and a closing call to action. Off, it follows the data through the directory's own reader, which
  * lists only public, active organisations.
  */
 export default async function HomePage() {
@@ -39,6 +40,7 @@ export default async function HomePage() {
       <HeroSection />
       <SkipAhead target="areas" label="Skip the membership story" />
       <MembershipStory />
+      <CardShowcase />
       <AreasSection />
       <ScreensSection />
       <SelfHostIsland />

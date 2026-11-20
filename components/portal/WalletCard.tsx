@@ -91,6 +91,7 @@ export function WalletCard({ entry, cards = [] }: { entry: WalletEntry; cards?: 
               planId={membership.planId}
               planName={membership.planName}
               actions={membership.state.actions}
+              reask={membership.reask}
               due={membership.due ? money(membership.due.minor, membership.due.currency, org.locale) : null}
             />
             <CardSlot card={cards.find((card) => card.planId === membership.planId) ?? null} />

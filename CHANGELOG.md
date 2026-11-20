@@ -4,6 +4,61 @@ Releases are published from `main` and titled **`Space Works Organization <versi
 file selects the series; each build is tagged `v<series>-main.<run>.<sha>`, which is what a deployment pins
 to. Pushes to `dev` publish staging images tagged `dev` without a release.
 
+## 0.10.0 (2026-11-20)
+
+Organisations divided any way they need, plans that are free or paid in hand, reminders on every channel, a full
+landing-page builder, a Canva-style card editor, an activity log and much faster pages.
+
+- **Groupings and smart groups:**
+  - Any number of groupings beyond units (Profession, Batch, College…), as lists or trees, asked on the join form
+    as a select.
+  - Staff can be limited to grouping values as well as units.
+  - Smart groups (conditions on plan, status, unit, grouping, answers, dates and age) filter members, reports,
+    exports and renewals.
+- **Payment modes and renewals:**
+  - Plans are free, paid online or in hand, or paid in hand only (no payment service needed: members see the
+    instructions and say "I've paid"; staff confirm).
+  - Renewal rules: the window, approval again, asking again for answers or a photo, who may renew, moving into
+    another plan by age or years, and extra grace.
+- **Messages on every channel:**
+  - Members get reminders and notices by email (SMTP, Amazon SES, Resend, Postmark), SMS (Twilio, MSG91), WhatsApp
+    (Twilio, Meta), Telegram, Slack, Discord or Mattermost, set up by the platform or by the organisation.
+  - Members link their own channels, choose consent, and can reply STOP. Quiet hours apply.
+  - Each message goes once, with a fallback.
+  - Organisations write their own wording for all seventeen kinds of member message, with an SMS version.
+- **Organisation landing pages:** twenty section types (hero, call to action, live counts, a sample card,
+  committee, testimonials, timeline, stats, video, PDF downloads and more), templates, and a light/dark and phone
+  preview.
+- **Member cards:**
+  - Better built-in designs with no edge stripes, three new designs, a "Scan to verify" caption, long-name fitting
+    and a back with contact details.
+  - A Canva-style editor where the front and back work the same: shapes, top and bottom bands, badges, icons,
+    QR, barcodes and photo frames; multi-select, snapping, rulers, groups, gradients and text effects; a brand
+    kit, a logo maker, 30 saved versions per design, your own templates, a preview with a real member and a
+    print PDF with optional bleed.
+- **Connected records:**
+  - An activity log for each organisation, with filters and links.
+  - Form answer changes logged by field.
+  - Messages and activity on the member page; members see their own messages.
+  - Revoked memberships end their card.
+  - Public counts refresh at once.
+- **Docs:** `/docs` rebuilt with search, quickstarts, manuals for each role, hosting guides (including a free route
+  with Cloudflare Tunnel), and generated reference pages.
+- **Landing page:** the team's SpaceWorks cards drift past, with a pause button.
+- **Theme:** a single light/dark switch with the design system's circle reveal.
+- **Faster and safer:**
+  - Sign-in and permission checks are reused within a request, and the member list counts in one query with
+    trigram search.
+  - The retention job runs hourly with proper indexes.
+  - Contact details are shown only to staff who may see them.
+  - Password resets can't be blocked by spam, and the member limit is locked against simultaneous joins.
+  - Recent sign-in is required for payment and team changes.
+  - Member photos are no longer CDN-cached.
+- **Installer:** a "Cloudflare Tunnel" option alongside Caddy and an external proxy.
+- **Upgrade notes:**
+  - Run migrations 0023–0028 (the update does this).
+  - New optional environment variables are listed in `docs/CONFIGURATION.md`.
+
 ## 0.9.0 (2026-11-19)
 
 Space Works Design System v2.5.1 everywhere, a landing page, a features page and in-product docs, motion,

@@ -6,7 +6,7 @@
 
 /** The docs viewer's feature pages (/docs/<slug>), in reading order. */
 export const DOCS_SLUGS = [
-  "organisations", "units", "staff-and-roles", "sign-in", "plans-and-join-forms", "renewals", "payments", "receipts-and-refunds",
+  "organisations", "units", "groupings", "staff-and-roles", "sign-in", "plans-and-join-forms", "renewals", "payments", "receipts-and-refunds",
   "member-cards", "member-portal", "public-page", "reports-and-analytics", "notifications", "web-analytics", "self-hosting",
 ] as const;
 
@@ -43,7 +43,7 @@ export const FEATURE_AREAS: readonly FeatureArea[] = [
       "Anyone with an account can apply. The platform super admin approves, declines or creates organisations.",
       "Settings need org.settings. Deleting the organisation and transferring ownership are the Owner's alone.",
     ],
-    toggle: ["The super admin switches new account sign-ups on or off for the platform.", "Each organisation chooses whether it is listed in the directory."],
+    toggle: ["The super admin switches new account sign-ups on or off for the platform.", "The platform super admin decides whether an organisation is listed in the directory."],
   },
   {
     id: "units", docsSlug: "units", title: "Units",
@@ -60,6 +60,22 @@ export const FEATURE_AREAS: readonly FeatureArea[] = [
       "Staff given a role for one unit see and act only inside that unit and the units below it. They can read, but not change, organisation-wide settings.",
     ],
     toggle: ["Units are optional: an organisation without any simply has no unit level.", "Levels and names are set in Settings, under structure."],
+  },
+  {
+    id: "groupings", docsSlug: "groupings", title: "Groupings", since: "0.10.0",
+    summary: "Divide members by profession, region or anything else, and limit staff to one slice.",
+    does: [
+      "Create groupings as a list, or as a tree of values under values. A member holds one value of a grouping, or several if you allow it.",
+      "Members choose their values on the join form from a select. Staff set them on the member page, in bulk from the members list, and by import.",
+      "Limit staff to a grouping value, the way they are limited to a unit. It combines with a unit limit, and a tree value covers its subtree.",
+      "Smart groups are saved conditions (plan, status, unit, grouping, answers, dates, age, payment due) used to filter the members list, exports and card downloads.",
+      "Reports break members down by any grouping next to the unit league, as counts only.",
+    ],
+    who: [
+      "Creating groupings and values needs groupings.manage, for the whole organisation only.",
+      "Staff limited by a grouping see and act only on members holding a value in their limit, and can give only values inside it.",
+    ],
+    toggle: ["Groupings are optional: an organisation without any shows nothing of them.", "Create them under Settings, Groupings, then add a grouping question to a plan's join form."],
   },
   {
     id: "staff-and-roles", docsSlug: "staff-and-roles", title: "Staff and roles",
@@ -84,7 +100,7 @@ export const FEATURE_AREAS: readonly FeatureArea[] = [
       "Staff still set up an authenticator before the dashboard opens, and super admins always use an email and password set on the server.",
     ],
     who: ["Anyone with an account signs in.", "Which methods are offered is the platform operator’s choice, made at install or in Super admin, Auth."],
-    toggle: ["The installer asks which sign-in options to offer; bash scripts/admin.sh login-methods changes them later.", "Each method can be switched off without losing its settings."],
+    toggle: ["The installer asks which sign-in options to offer; bash scripts/admin.sh login-methods changes password, Google, Apple, GitHub, Supabase, Firebase, OIDC and SAML later, and passkeys and phone codes are switched on in Super admin, Auth.", "Each method can be switched off without losing its settings."],
   },
   {
     id: "plans-and-join-forms", docsSlug: "plans-and-join-forms", title: "Plans and join forms",
@@ -137,7 +153,7 @@ export const FEATURE_AREAS: readonly FeatureArea[] = [
     ],
     who: [
       "Credit notes and refunds need payments.manage; the accounts ledger needs accounts.manage.",
-      "GSTR-1 tables need reports.gstr1, which is for the whole organisation only.",
+      "GSTR-1 tables need reports.finance.",
     ],
     toggle: ["The tax mode is chosen in Settings, under payments and tax.", "The organisation sets its own refund policy."],
   },
@@ -177,7 +193,7 @@ export const FEATURE_AREAS: readonly FeatureArea[] = [
       "The page can use the organisation's own accent colour, checked for readable contrast.",
     ],
     who: ["Editing the page needs org.settings."],
-    toggle: ["Publish and Unpublish decide whether the page is visible.", "Being listed in the directory is a separate setting."],
+    toggle: ["Publish and Unpublish decide whether the page is visible.", "Being listed in the directory is decided by the platform super admin."],
   },
   {
     id: "reports-and-analytics", docsSlug: "reports-and-analytics", title: "Reports and analytics",
@@ -216,7 +232,7 @@ export const FEATURE_AREAS: readonly FeatureArea[] = [
       "Only page route templates are sent, never free text, query strings, names or email addresses.",
       "The platform sets up providers for the whole site, and each organisation can set up its own for its public pages.",
     ],
-    who: ["The platform super admin for the whole site.", "Each organisation's team for its own public pages."],
+    who: ["The platform super admin for the whole site.", "Each organisation's Owner for its own public pages."],
     toggle: ["Save a provider's public identifier in settings to switch it on; remove it to switch it off."],
   },
   {

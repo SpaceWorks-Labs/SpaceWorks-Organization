@@ -23,6 +23,7 @@ const tx = {
   verificationToken: {
     deleteMany: vi.fn(),
     create: vi.fn(),
+    findFirst: vi.fn(),
   },
   // A super admin is never reset by email; the test user isn't one.
   user: { update: vi.fn(), findUnique: vi.fn(async () => ({ isSuperAdmin: false })) },
@@ -39,6 +40,7 @@ beforeEach(() => {
   tx.user.update.mockResolvedValue({ id: "user_1" });
   tx.verificationToken.deleteMany.mockResolvedValue({ count: 0 });
   tx.verificationToken.create.mockResolvedValue({});
+  tx.verificationToken.findFirst.mockResolvedValue(null);
   enqueueResetMock.mockResolvedValue(undefined);
   bcryptMock.hash.mockResolvedValue("new-password-hash");
 });
@@ -73,6 +75,25 @@ describe("confirmPasswordReset", () => {
   });
 });
 
+describe("confirmPasswordReset rate limit", () => {
+  const input = { email: "person@example.com", token: "a".repeat(64), password: "new-password" };
+
+  it("uses its own bucket keyed by the token, never the per-email request bucket", async () => {
+    rateLimitMock.mockImplementation(async (bucket: string) => bucket === "passwordReset");
+    tx.verificationToken.deleteMany.mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
+    await expect(confirmPasswordReset(input)).resolves.toEqual({ ok: true, data: { reset: true } });
+    const [bucket, subject] = rateLimitMock.mock.calls[0];
+    expect(bucket).toBe("passwordResetConfirm");
+    expect(subject).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it("is still limited per token and client", async () => {
+    rateLimitMock.mockImplementation(async (bucket: string) => bucket === "passwordResetConfirm");
+    await expect(confirmPasswordReset(input)).resolves.toEqual({ ok: false, error: "Invalid or expired reset link." });
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+});
+
 describe("requestPasswordReset without an email service", () => {
   it("refuses with a clear message and sends nothing", async () => {
     emailMock.configured = false;
@@ -87,6 +108,14 @@ describe("requestPasswordReset without an email service", () => {
 });
 
 describe("requestPasswordReset", () => {
+  it("keeps a token issued less than a minute ago and sends nothing new", async () => {
+    tx.verificationToken.findFirst.mockResolvedValueOnce({ token: "t" });
+    await expect(requestPasswordReset({ email: "person@example.com" })).resolves.toEqual({ ok: true, data: { sent: true } });
+    expect(tx.verificationToken.deleteMany).not.toHaveBeenCalled();
+    expect(tx.verificationToken.create).not.toHaveBeenCalled();
+    expect(enqueueResetMock).not.toHaveBeenCalled();
+  });
+
   it("atomically queues a reset link with its one-time token", async () => {
     await expect(requestPasswordReset({ email: "person@example.com" })).resolves.toEqual({
       ok: true,

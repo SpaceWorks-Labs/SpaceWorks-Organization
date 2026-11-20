@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { can, organisationAllows } from "@/lib/permissionRoles";
 import { getMembership, hasAuthenticator } from "@/lib/permissions";
-import { teamScope, unitInScope } from "@/lib/membership/scope";
+import { memberInScope, teamScope } from "@/lib/membership/scope";
 
 /*
  * Who may download a card: a team member of the card's organisation who manages cards (as bulk downloads require)
@@ -16,7 +16,7 @@ import { teamScope, unitInScope } from "@/lib/membership/scope";
 export type CardViewer = { userId: string; as: "team" | "member" };
 
 /** Whether this account is the card's member: linked, or the same verified email. */
-export async function isCardHolder(userId: string, member: { userId: string | null; email: string }) {
+async function isCardHolder(userId: string, member: { userId: string | null; email: string }) {
   if (member.userId === userId) return true;
   const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, emailVerified: true } });
   return Boolean(user?.email && user.emailVerified && user.email.trim().toLowerCase() === member.email.trim().toLowerCase());
@@ -30,6 +30,7 @@ export async function authorizeCardAccess(cardId: string): Promise<CardViewer | 
     where: { id: cardId },
     select: {
       organisationId: true,
+      memberId: true,
       organisation: { select: { status: true } },
       member: { select: { userId: true, email: true, anonymisedAt: true, unit: { select: { path: true } } } },
     },
@@ -38,8 +39,8 @@ export async function authorizeCardAccess(cardId: string): Promise<CardViewer | 
 
   const membership = await getMembership(userId, card.organisationId);
   if (membership && organisationAllows(card.organisation.status, "members.view") && (can(membership, "cards.manage") || can(membership, "members.contact")) && (await hasAuthenticator(userId))) {
-    const scope = await teamScope(card.organisationId, membership.unitId);
-    if (unitInScope(scope, card.member.unit?.path ?? null)) return { userId, as: "team" };
+    const scope = await teamScope(card.organisationId, membership);
+    if (await memberInScope(scope, card.memberId)) return { userId, as: "team" };
   }
   // Members keep their card while the organisation is suspended (member data rights stay open).
   if (!["ACTIVE", "SUSPENDED", "ARCHIVED"].includes(card.organisation.status)) return null;

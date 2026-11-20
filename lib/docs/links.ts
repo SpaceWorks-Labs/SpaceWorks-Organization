@@ -1,38 +1,44 @@
 import { isSafeLink } from "@/lib/publicPage/sections";
-import { DOC_SLUGS } from "./pages";
+import { GITHUB_URL } from "@/lib/openSource";
+import { DOCS } from "./content";
 
-/** Source file names of the operator docs, so a link such as `GST.md` finds /docs/gst. */
-const FILE_SLUGS: Record<string, string> = {
-  "ARCHITECTURE.md": "architecture",
-  "CONFIGURATION.md": "configuration",
-  "DEPLOYMENT_VPS.md": "deployment-vps",
-  "DEPLOYMENT_CLOUD.md": "deployment-cloud",
-  "DEPLOYMENT_NETLIFY.md": "deployment-netlify",
-  "SECURITY.md": "security",
-  "PAYMENTS.md": "payments-operators",
-  "GST.md": "gst",
-  "NOTIFICATIONS.md": "notifications-operators",
-  "REPORTS.md": "reports",
-};
+const ANCHOR = /^#[A-Za-z0-9_-]*$/;
+
+/** Resolve `../a/./b.md` against the folder of a repository path; null when it climbs out of the repository. */
+export function resolvePath(fromSource: string, target: string): string | null {
+  const parts = fromSource.split("/").slice(0, -1);
+  for (const part of target.split("/")) {
+    if (part === "..") { if (!parts.length) return null; parts.pop(); }
+    else if (part && part !== ".") parts.push(part);
+  }
+  return parts.join("/");
+}
 
 /**
- * Where a link in a doc may go, or null to show it as plain text. Safe web, mail and phone links pass; `#section`
- * stays on the page; `Other.md#part` and `/docs/<slug>` go to the doc when it is on the allow-list.
+ * Where a link written in a doc may go, or null to show it as plain text. Safe web, mail and phone links pass;
+ * `#section` stays on the page; a relative link to a published doc (`../GST.md#rates`) or `/docs/<slug>` opens it
+ * here; a relative link to any other repository file opens it on GitHub. Plans and unsafe schemes never link.
+ * `fromSource` is the repository path of the doc the link is in (its folder anchors relative links).
  */
-export function resolveDocHref(href: string | undefined): string | null {
+export function resolveDocHref(href: string | undefined, fromSource = "docs/index.md"): string | null {
   if (!href) return null;
   const value = href.trim();
-  if (value.startsWith("#")) return /^#[A-Za-z0-9_-]*$/.test(value) ? value : null;
+  if (value.startsWith("#")) return ANCHOR.test(value) ? value : null;
   if (isSafeLink(value)) return value;
   if (/^[a-z][a-z0-9+.-]*:/i.test(value) || value.startsWith("//")) return null;
   const hash = value.indexOf("#");
   const path = hash === -1 ? value : value.slice(0, hash);
   const anchor = hash === -1 ? "" : value.slice(hash);
-  if (anchor && !/^#[A-Za-z0-9_-]*$/.test(anchor)) return null;
+  if (anchor && !ANCHOR.test(anchor)) return null;
+  if (path === "/docs" || path === "/docs/") return `/docs${anchor}`;
   const direct = /^\/docs\/([a-z0-9-]+)\/?$/.exec(path);
-  const name = path.split("/").pop() ?? "";
-  const slug = direct?.[1] ?? FILE_SLUGS[name] ?? (name.endsWith(".md") && !path.startsWith("/") ? name.slice(0, -3) : null);
-  return slug && DOC_SLUGS.includes(slug) ? `/docs/${slug}${anchor}` : null;
+  if (direct) return DOCS.some((doc) => doc.slug === direct[1]) ? `/docs/${direct[1]}${anchor}` : null;
+  if (path.startsWith("/") || !/^[A-Za-z0-9._/-]+$/.test(path)) return null;
+  const target = resolvePath(fromSource, path);
+  if (!target || target.startsWith("docs/plans/") || target === "docs/plans") return null;
+  const doc = DOCS.find((entry) => entry.source === target);
+  if (doc) return `/docs/${doc.slug}${anchor}`;
+  return `${GITHUB_URL}/blob/dev/${target}${anchor}`;
 }
 
 /** Images come only from the product's own /screens/ and /brand/ folders. */

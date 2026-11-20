@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { safeEqual } from "@/lib/safeEqual";
 
 /**
  * Pure pieces of staff-invite sign-up (no request context): the signed cookie value and the return path.
@@ -28,9 +29,7 @@ export function verifyInviteCookie(value: string | undefined, now = Date.now()):
   if (!parts || parts.length !== 3) return null;
   const [token, expires, signature] = parts;
   if (!TOKEN_PATTERN.test(token) || !/^\d{10,16}$/.test(expires)) return null;
-  const expected = Buffer.from(sign(`${token}.${expires}`));
-  const given = Buffer.from(signature);
-  if (expected.length !== given.length || !crypto.timingSafeEqual(expected, given)) return null;
+  if (!safeEqual(sign(`${token}.${expires}`), signature)) return null;
   return Number(expires) > now ? token : null;
 }
 

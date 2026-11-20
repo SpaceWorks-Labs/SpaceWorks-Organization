@@ -22,6 +22,8 @@ function downloadUrl(slug: string, format: CardExportFormat, filter: CardExportF
   if (filter.unitId) query.set("unit", filter.unitId);
   if (filter.roleId) query.set("role", filter.roleId);
   if (filter.q) query.set("q", filter.q);
+  if (filter.valueId) query.set("gv", filter.valueId);
+  if (filter.smartGroupId) query.set("sg", filter.smartGroupId);
   return `/api/exports/cards/${encodeURIComponent(slug)}?${query}`;
 }
 

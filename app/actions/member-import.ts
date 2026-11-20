@@ -13,18 +13,25 @@ import { isIndianStateCode } from "@/lib/indianStates";
 import { mappingIsUsable, readRow, suggestMapping, type ImportTarget } from "@/lib/membership/importMapping";
 import { checkImportRows, type RowProblem } from "@/lib/membership/importRows";
 import { queueVerificationAlerts } from "@/lib/membership/importAlerts";
-import { teamScope, unitInScope } from "@/lib/membership/scope";
+import { heldValuesInScope, memberWhere, teamScope, type ScopeSubject } from "@/lib/membership/scope";
+import { loadGroupingLookup } from "@/lib/groupings/importLookup";
+import { heldValues, replaceMemberValues } from "@/lib/groupings/memberValues";
+import { GroupingError } from "@/lib/groupings/service";
 import { planOffersUnit } from "@/lib/membership/planUnits";
 import { MembershipError, openTerm, upsertMember } from "@/lib/membership/service";
-import { lockMemberByEmail } from "@/lib/membership/memberLock";
+import { hasRoomForMember, lockMemberByEmail } from "@/lib/membership/memberLock";
 import { importAnswers } from "@/lib/membership/importAnswers";
 import { organisationQuestionPlans } from "@/lib/membership/questionPlans";
 import type { QuestionPlan } from "@/lib/membership/planAnswers";
 import { reissueCardsForRoleChange } from "@/lib/cards/issue";
+import { membershipChanged } from "@/lib/membership/afterChange";
+import { auditAnswerChange } from "@/lib/membership/answerAudit";
 import type { ActionResult } from "./org";
 
 const revalidatePath = trackedRevalidation(nextRevalidatePath);
 const MAX_IMPORT_ROWS = 2000;
+/** The keys of the organisation's groupings, which grouping columns may name. */
+const groupingKeys = async (organisationId: string) => new Set((await loadGroupingLookup(organisationId)).keys());
 const questionKeys = (plans: QuestionPlan[]) => new Set(plans.flatMap((plan) => plan.fields.filter((field) => !field.section).map((field) => field.key)));
 
 const sourceSchema = z.discriminatedUnion("kind", [
@@ -59,19 +66,21 @@ const previewSchema = z.object({
  * without a unit keeps the member's own, which decides the importer's reach and the roles it may give), plus
  * every plan's questions and those members' stored answers.
  */
-async function importContext(organisationId: string, unitId: string | null, rows: string[][], mapping: ImportTarget[], plans: QuestionPlan[]) {
-  const scope = await teamScope(organisationId, unitId);
+async function importContext(organisationId: string, who: ScopeSubject, rows: string[][], mapping: ImportTarget[], plans: QuestionPlan[]) {
+  const scope = await teamScope(organisationId, who);
   const emails = rows.flatMap((cells) => {
     const row = readRow(cells, mapping);
     return "error" in row ? [] : [row.email];
   });
-  const [units, roles, existing] = await Promise.all([
+  const [units, roles, existing, groupings] = await Promise.all([
     prisma.orgUnit.findMany({ where: { organisationId, archivedAt: null }, select: { id: true, name: true, slug: true, code: true, path: true } }),
     prisma.memberRole.findMany({ where: { organisationId, archivedAt: null }, select: { id: true, name: true, unit: { select: { path: true } } } }),
     emails.length ? prisma.member.findMany({ where: { organisationId, email: { in: emails } }, select: { email: true, fieldValues: true, unit: { select: { path: true } } } }) : [],
+    loadGroupingLookup(organisationId),
   ]);
   return {
     scope,
+    groupings,
     units,
     roles: roles.map((role) => ({ id: role.id, name: role.name, unitPath: role.unit?.path ?? null })),
     scopePath: scope.unitPath,
@@ -96,9 +105,10 @@ export async function previewMemberImport(input: unknown): Promise<ActionResult<
     const [headers, ...rows] = await readSource(parsed.data.source);
     const plans = await organisationQuestionPlans(access.organisation.id);
     const fields = plans.find((plan) => plan.id === parsed.data.planId)?.fields.filter((field) => !field.section) ?? [];
-    const mapping = parsed.data.mapping?.length === headers.length ? (parsed.data.mapping as ImportTarget[]) : suggestMapping(headers, fields);
-    const mappingError = mappingIsUsable(mapping, questionKeys(plans));
-    const checked = mappingError ? null : checkImportRows(rows, mapping, await importContext(access.organisation.id, access.membership.unitId, rows, mapping, plans));
+    const lookup = await loadGroupingLookup(access.organisation.id);
+    const mapping = parsed.data.mapping?.length === headers.length ? (parsed.data.mapping as ImportTarget[]) : suggestMapping(headers, fields, [...lookup].map(([key, grouping]) => ({ key, name: grouping.name })));
+    const mappingError = mappingIsUsable(mapping, questionKeys(plans), await groupingKeys(access.organisation.id));
+    const checked = mappingError ? null : checkImportRows(rows, mapping, { ...(await importContext(access.organisation.id, access.membership, rows, mapping, plans)), blind: true });
     return { ok: true, data: { headers, sample: rows.slice(0, 8), total: rows.length, mapping, ready: checked?.ready.length ?? 0, problems: checked?.problems.slice(0, 200) ?? [], mappingError } };
   } catch (error) {
     return fail(error);
@@ -129,7 +139,7 @@ export async function commitMemberImport(input: unknown): Promise<ActionResult<C
   if (await isActionRateLimited("upload", access.userId)) return { ok: false, error: "Too many imports. Try again shortly." };
   const mapping = parsed.data.mapping as ImportTarget[];
   const plans = await organisationQuestionPlans(access.organisation.id);
-  const mappingError = mappingIsUsable(mapping, questionKeys(plans));
+  const mappingError = mappingIsUsable(mapping, questionKeys(plans), await groupingKeys(access.organisation.id));
   if (mappingError) return { ok: false, error: mappingError };
 
   let rows: string[][];
@@ -138,11 +148,11 @@ export async function commitMemberImport(input: unknown): Promise<ActionResult<C
   } catch (error) {
     return fail(error);
   }
-  const org = await prisma.organisation.findUniqueOrThrow({ where: { id: access.organisation.id }, select: { id: true, slug: true, timezone: true, financialYearStartMonth: true, memberLimit: true } });
+  const org = await prisma.organisation.findUniqueOrThrow({ where: { id: access.organisation.id }, select: { id: true, slug: true, timezone: true, financialYearStartMonth: true } });
   const plan = parsed.data.planId ? await prisma.membershipPlan.findFirst({ where: { id: parsed.data.planId, organisationId: org.id, archivedAt: null }, include: { units: { select: { unit: { select: { path: true } } } } } }) : null;
   const mode = parsed.data.membership;
   if (mode !== "none" && !plan) return { ok: false, error: mode === "verify" ? "Choose the plan the members are verified for." : "Choose the plan to start memberships on." };
-  const context = await importContext(org.id, access.membership.unitId, rows, mapping, plans);
+  const context = await importContext(org.id, access.membership, rows, mapping, plans);
   const { ready, problems } = checkImportRows(rows, mapping, context);
 
   let created = 0;
@@ -150,14 +160,14 @@ export async function commitMemberImport(input: unknown): Promise<ActionResult<C
   const skipped: RowProblem[] = [...problems];
   // Unit paths of the members left waiting for verification, one per member.
   const waiting: Array<string | null> = [];
-  for (const { rowNumber, row, unit, role } of ready) {
+  for (const { rowNumber, row, unit, role, groupings } of ready) {
     try {
       const outcome = await prisma.$transaction(async (tx) => {
         const locked = await lockMemberByEmail(tx, org.id, row.email);
         const existing = locked && (await tx.member.findUnique({ where: { id: locked.id }, select: { id: true, unit: { select: { path: true } } } }));
-        // Checked again here: a member filed outside a scoped importer's unit is never taken over, in any mode.
-        if (existing && !unitInScope(context.scope, existing.unit?.path ?? null)) throw new MembershipError("Outside your unit");
-        if (!existing && org.memberLimit && (await tx.member.count({ where: { organisationId: org.id } })) >= org.memberLimit) throw new MembershipError("Member limit reached");
+        // Checked again here: a member filed outside a scoped importer's reach is never taken over, in any mode.
+        if (existing && !(await tx.member.count({ where: { AND: [memberWhere(context.scope), { id: existing.id }] } }))) throw new MembershipError("Outside your unit");
+        if (!existing && !(await hasRoomForMember(tx, org.id))) throw new MembershipError("Member limit reached");
         // The preview's answer check, again on the locked row.
         const answers = Object.keys(row.fieldValues).length ? importAnswers(plans, (locked?.fieldValues ?? {}) as Record<string, unknown>, row.fieldValues) : null;
         if (answers && "error" in answers) throw new MembershipError(answers.error);
@@ -168,6 +178,10 @@ export async function commitMemberImport(input: unknown): Promise<ActionResult<C
           stateCode: !mapping.includes("state") ? undefined : row.stateCode && isIndianStateCode(row.stateCode) ? row.stateCode : null,
           fieldValues: answers?.values, fieldValuesMode: "replace", source: "IMPORT",
         });
+        await auditAnswerChange(tx, { organisationId: org.id, actorUserId: access.userId, memberId: member.id, before: locked?.fieldValues as Record<string, unknown> | undefined, after: member.fieldValues as Record<string, unknown>, by: "import" });
+        // Grouping cells replace what the member holds in those groupings; a limited importer's rows must land inside their reach.
+        for (const entry of groupings) await replaceMemberValues(tx, org.id, member.id, entry.groupingId, entry.valueIds);
+        if (!heldValuesInScope(context.scope, await heldValues(tx, org.id, member.id))) throw new MembershipError("Outside your reach");
         if (role) {
           const hasPrimary = await tx.memberRoleAssignment.count({ where: { memberId: member.id, isPrimary: true } });
           await tx.memberRoleAssignment.upsert({ where: { memberId_roleId: { memberId: member.id, roleId: role.id } }, create: { organisationId: org.id, memberId: member.id, roleId: role.id, isPrimary: hasPrimary === 0 }, update: {} });
@@ -191,7 +205,7 @@ export async function commitMemberImport(input: unknown): Promise<ActionResult<C
       else updated += 1;
       if (outcome.opened && mode === "verify") waiting.push(outcome.unitPath);
     } catch (error) {
-      skipped.push({ row: rowNumber, reason: error instanceof MembershipError ? error.message : "Couldn't be saved" });
+      skipped.push({ row: rowNumber, reason: error instanceof MembershipError || error instanceof GroupingError ? error.message : "Couldn't be saved" });
     }
   }
   skipped.sort((a, b) => a.row - b.row);
@@ -200,6 +214,7 @@ export async function commitMemberImport(input: unknown): Promise<ActionResult<C
     await recordAuditEvent({ action: "MEMBERS_IMPORTED", actorUserId: access.userId, organisationId: org.id, targetType: "Organisation", targetId: org.id, metadata: { created, updated, waiting: waiting.length, skipped: skipped.length, source: parsed.data.source.kind, membership: mode }, client: tx });
     await queueVerificationAlerts(tx, org.id, access.userId, waiting);
   });
+  await membershipChanged(org.id);
   revalidatePath(`/dashboard/${org.slug}/members`);
   return { ok: true, data: { created, updated, waiting: waiting.length, skipped: skipped.slice(0, 100) } };
 }

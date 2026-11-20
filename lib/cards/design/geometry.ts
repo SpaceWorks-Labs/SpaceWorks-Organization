@@ -21,6 +21,7 @@ import {
   type CardSideSettings,
   type CardTemplate,
 } from "./elements";
+import { qrCaptionHeightMm } from "./qrTile";
 
 /*
  * Default boxes for a template on the given paper. Tuned on A6 portrait; smaller stock (the CR80 ID
@@ -63,9 +64,13 @@ function defaultGeometry(template: CardTemplate, widthMm: number, heightMm: numb
   const qrSize = Math.min(40, Math.max(16, round1((template === "minimal" ? 21 : 24) * k)));
   const logoSize = Math.min(20, Math.max(10, round1((template === "minimal" ? 10 : 12) * k)));
   const symbolSize = clamp(round1(9 * k), 7, 14);
-  const photoSize = clamp(round1(24 * k), 12, 34);
-  // The QR block has 1 mm of white padding; align the code itself with the margin.
-  const qr = { xMm: round1(widthMm - m - qrSize - 1), yMm: round1(heightMm - m - qrSize - 1) };
+  // Portrait ID cards give the photo more of the width (about two fifths), as a passport-style card does.
+  const tall = heightMm > widthMm * 1.15;
+  const photoSize = clamp(round1(tall ? Math.min(widthMm * 0.4, 42 * k) : 24 * k), 12, 34);
+  // The QR block has 1 mm of white padding; align the code itself with the margin. A caption under it
+  // lifts the block by the caption's height.
+  const caption = flags.showQrCaption ? qrCaptionHeightMm(qrSize) : 0;
+  const qr = { xMm: round1(widthMm - m - qrSize - 1), yMm: round1(heightMm - m - qrSize - 1 - caption) };
   const qrLeft = qr.xMm + 1;
 
   const inset = bandInsetMm(k);
@@ -82,6 +87,9 @@ function defaultGeometry(template: CardTemplate, widthMm: number, heightMm: numb
     if (besideX - textX - 3 * k >= 30) {
       logo = { xMm: round1(besideX), yMm: round1(heightMm - m - logoSize) };
       footerWidth = besideX - textX - 3 * k;
+    } else if (!flags.showSymbol) {
+      // Too narrow to share: the logo takes the bottom left, level with the QR code.
+      logo = { xMm: textX, yMm: round1(heightMm - m - logoSize) };
     } else {
       logo = { xMm: round1(widthMm - m - logoSize), yMm: round1(qr.yMm + 1 - 3 * k - logoSize) };
     }

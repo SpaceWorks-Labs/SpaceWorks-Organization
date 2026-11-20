@@ -60,7 +60,7 @@ describe("account security actions", () => {
 
   it("rate limits MFA verification before reading pending secrets", async () => {
     mocks.rateLimit.mockResolvedValue(true);
-    await expect(confirmMfaEnrollment({ code: "123456" })).resolves.toEqual({ ok: false, error: "Too many attempts. Please try again later." });
+    await expect(confirmMfaEnrollment({ code: "123456" })).resolves.toEqual({ ok: false, error: "Too many attempts. Try again later." });
     expect(mocks.pending).not.toHaveBeenCalled();
   });
 

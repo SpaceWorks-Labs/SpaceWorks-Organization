@@ -7,7 +7,7 @@ const blocked = /^\/api\/(?:frontend(?:\/|$)|internal(?:\/|$)|health\/db(?:\/|$)
 const forwardedRequestHeaders = ["accept", "content-type", "authorization", "user-agent", "if-none-match", "range", "if-range", "x-auth-return-redirect"];
 /** Provider signatures, forwarded for the delivery-report webhook paths only (they are verified by the backend). */
 const webhookPath = /^\/api\/(?:email|sms)\/webhooks\/[a-z0-9-]+$/;
-const webhookRequestHeaders = ["svix-id", "svix-timestamp", "svix-signature", "x-twilio-signature", "x-amz-sns-message-type", "x-amz-sns-message-id", "x-amz-sns-topic-arn", "x-amz-sns-subscription-arn"];
+const webhookRequestHeaders = ["svix-id", "svix-timestamp", "svix-signature", "x-twilio-signature", "x-amz-sns-message-type", "x-amz-sns-message-id", "x-amz-sns-topic-arn", "x-amz-sns-subscription-arn", "x-hub-signature-256", "x-telegram-bot-api-secret-token", "x-slack-signature", "x-slack-request-timestamp", "x-signature-ed25519", "x-signature-timestamp"];
 const forwardedResponseHeaders = ["content-type", "cache-control", "etag", "content-disposition", "content-range", "accept-ranges", "retry-after", "vary", "x-content-type-options", "referrer-policy", "x-accel-buffering"];
 
 export async function proxyBackendApi(request: Request) {

@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
 import { ANALYTICS_TTL_SECONDS, analyticsCacheKey, cached } from "@/lib/cache";
+import { limitsKey } from "@/lib/membership/scope";
+import { groupingBreakdown } from "@/lib/reports/groupingBreakdown";
 import { inSubtree, prepareDataset } from "@/lib/reports/dataset";
 import { drillHref } from "@/lib/reports/drillLinks";
 import { filterQuery, type ReportSearch } from "@/lib/reports/context";
@@ -20,7 +22,7 @@ export async function loadOrgReportsUnits({ params, searchParams }: Props) {
   const ctx = await openReport(params, searchParams, "reports.membership");
   const { now, period, scope, org, team } = ctx;
   const finance = ctx.can("reports.finance");
-  const key = analyticsCacheKey(org.id, scope.unitId, "units", scope.planId ?? "all", `${period.from.getTime()}-${period.to.getTime()}`, finance ? "money" : "members");
+  const key = analyticsCacheKey(org.id, scope.unitId, "units", limitsKey(scope.limits), scope.planId ?? "all", `${period.from.getTime()}-${period.to.getTime()}`, finance ? "money" : "members");
   // Every unit in the viewer's reach, archived ones too: their members and money still count in the league.
   const reportingUnits = await prisma.orgUnit.findMany({
     where: { organisationId: org.id, ...(team.unitPath ? { OR: [{ path: team.unitPath }, { path: { startsWith: `${team.unitPath}/` } }] } : {}) },
@@ -53,7 +55,10 @@ export async function loadOrgReportsUnits({ params, searchParams }: Props) {
   ];
   const depth = scope.unitPath ? scope.unitPath.split("/").length : 0;
   const filters = drillFilters(ctx);
+  // Aggregates by a grouping next to the unit league, inside the same scope.
+  const byGrouping = await groupingBreakdown(scope, (await searchParams).grouping?.slice(0, 64) ?? null);
   return {
+    byGrouping,
     shell: reportShell(ctx, "units"),
     hasUnits: ctx.allUnits.length > 0,
     levelName: org.unitLevels[depth] ?? "Unit",

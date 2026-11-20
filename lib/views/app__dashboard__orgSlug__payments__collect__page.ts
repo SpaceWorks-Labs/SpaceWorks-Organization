@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { requireOrgCapability } from "@/lib/permissions";
-import { memberWhere, teamScope, unitInScope, type TeamScope } from "@/lib/membership/scope";
+import { isLimited, memberWhere, teamScope, unitInScope, type TeamScope } from "@/lib/membership/scope";
 import { money } from "@/lib/membership/describe";
 import { localDate } from "@/lib/membership/periods";
 import { dayKey } from "@/lib/reports/period";
@@ -20,7 +20,7 @@ export async function loadCollectionSheet({ params, searchParams }: Props) {
   const search = await searchParams;
   const { organisation, membership } = await requireOrgCapability(orgSlug, "payments.manage");
   const organisationId = organisation.id;
-  const team = await teamScope(organisationId, membership.unitId);
+  const team = await teamScope(organisationId, membership);
   const [org, allUnits, tax] = await Promise.all([
     prisma.organisation.findUniqueOrThrow({ where: { id: organisationId }, select: { name: true, slug: true, logoUrl: true, locale: true, timezone: true, unitLevels: true, offlineConfirmationRequired: true } }),
     prisma.orgUnit.findMany({ where: { organisationId, archivedAt: null }, orderBy: { path: "asc" }, select: { id: true, name: true, path: true, level: true } }),
@@ -28,7 +28,7 @@ export async function loadCollectionSheet({ params, searchParams }: Props) {
   ]);
   const units = allUnits.filter((unit) => unitInScope(team, unit.path));
   const chosen = units.find((unit) => unit.id === search.unit) ?? units.find((unit) => unit.id === team.unitId) ?? null;
-  const scope: TeamScope = chosen ? { organisationId, unitId: chosen.id, unitPath: chosen.path } : team;
+  const scope: TeamScope = chosen ? { organisationId, unitId: chosen.id, unitPath: chosen.path, limits: team.limits } : team;
 
   const terms = await prisma.membershipTerm.findMany({
     where: {
@@ -67,7 +67,7 @@ export async function loadCollectionSheet({ params, searchParams }: Props) {
     unitId: chosen?.id ?? "",
     unitName: chosen?.name ?? null,
     /** Org-wide staff may list every member; staff for one unit always have a unit chosen. */
-    allowWholeOrganisation: !team.unitId,
+    allowWholeOrganisation: !isLimited(team),
     rows,
     truncated: terms.length > LIST_LIMIT,
     today: dayKey(localDate(new Date(), org.timezone)),

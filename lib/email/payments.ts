@@ -7,6 +7,8 @@ import { DOCUMENT_KIND_LABELS } from "@/lib/payments/numbering";
 import { documentAmount, renderDocumentPdf } from "@/lib/payments/pdf";
 import { absoluteUrl, sendBrandedEmail } from "./message";
 import { payLinkToken } from "@/lib/payments/payLink";
+import { deliverMemberMessage } from "@/lib/notify/deliver";
+import { orgTemplateContent } from "./orgTemplates";
 
 const PAYMENT_NOTICES = ["paid", "claim-received", "claim-rejected", "refunded"] as const;
 type PaymentNotice = (typeof PAYMENT_NOTICES)[number];
@@ -26,6 +28,7 @@ export async function deliverPaymentNotice(payload: Payload, messageId: string):
     where: { id: payload.paymentId, organisationId: payload.organisationId },
     include: {
       member: { select: { name: true, email: true, anonymisedAt: true } },
+      term: { select: { plan: { select: { name: true } } } },
       organisation: { select: { name: true, slug: true, locale: true, memberPortal: true } },
       documents: { where: { cancelledAt: null }, orderBy: { issuedAt: "desc" } },
     },
@@ -68,6 +71,13 @@ export async function deliverPaymentNotice(payload: Payload, messageId: string):
       paragraphs: [`Hi ${first}, ${org.name} has refunded ${wanted ? documentAmount(wanted.totalMinor, wanted.currency, org.locale) : "part of your payment"}.`, wanted ? `Credit note ${wanted.number} is attached.` : ""].filter(Boolean),
     },
   }[payload.notice];
-  await sendBrandedEmail({ organisationId: payload.organisationId, to: payment.member.email, messageId, ...content, action: { label: org.memberPortal ? "See your account" : payload.notice === "claim-rejected" ? "Submit it again" : `Visit ${org.name}`, url: account }, attachments });
-  return "sent";
+  const email = { ...content, action: { label: org.memberPortal ? "See your account" : payload.notice === "claim-rejected" ? "Submit it again" : `Visit ${org.name}`, url: account }, attachments };
+  if (payload.notice !== "paid") {
+    await sendBrandedEmail({ organisationId: payload.organisationId, to: payment.member.email, messageId, ...email });
+    return "sent";
+  }
+  // The receipt goes through the organisation's routing for "payment received" (email by default, with the PDF); its own wording replaces the email text.
+  const values = { name: first, organisation: org.name, plan: payment.term?.plan.name ?? null, amount };
+  const own = await orgTemplateContent(payload.organisationId, "payment-received", values);
+  return deliverMemberMessage({ organisationId: payload.organisationId, memberId: payment.memberId, kind: "payment-received", values, dedupeKey: `payment:${messageId}` }, messageId, { email: { ...email, ...own } });
 }

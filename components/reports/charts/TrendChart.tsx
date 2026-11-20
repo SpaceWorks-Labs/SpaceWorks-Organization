@@ -109,7 +109,7 @@ export function TrendChart({ labels, series, ariaLabel, format = "number", area 
           ) : null}
         </svg>
         {focus.index !== null ? (
-          <ChartTooltip title={labels[focus.index]} x={xOf(focus.index)} width={width} rows={series.map((entry) => ({ label: entry.label, value: formatValue(entry.values[focus.index!], format), slot: entry.slot }))} />
+          <ChartTooltip announce={focus.fromKeyboard} title={labels[focus.index]} x={xOf(focus.index)} width={width} rows={series.map((entry) => ({ label: entry.label, value: formatValue(entry.values[focus.index!], format), slot: entry.slot }))} />
         ) : null}
       </div>
     </div>

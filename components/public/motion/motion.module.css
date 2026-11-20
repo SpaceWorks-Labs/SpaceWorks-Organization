@@ -15,7 +15,7 @@
 @media (prefers-reduced-motion: no-preference) {
   .route :global(.sw-route-enter) > :not(:has([data-tenant-logo])),
   .route :global(.sw-route-enter) [data-route-enter] {
-    animation: route-enter var(--sw-dur-slow) var(--sw-ease-enter) calc(var(--sw-dur-fast) / 4) backwards;
+    animation: route-enter var(--sw-dur-base) var(--sw-ease-enter) backwards;
   }
 }
 

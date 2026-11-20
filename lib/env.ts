@@ -71,6 +71,8 @@ const envSchema = z.object({
   MSG91_TEMPLATE_ID: z.preprocess((value) => value === "" ? undefined : value, z.string().min(1).optional()),
   SMS_WEBHOOK_SECRET: z.preprocess((value) => value === "" ? undefined : value, z.string().min(1).optional()),
   SMS_DAILY_COUNTRY_CAP: z.preprocess((value) => value === "" ? undefined : value, z.string().regex(/^[1-9]\d{0,6}$/).optional()),
+  MESSAGING_MATTERMOST_HOSTS: z.preprocess((value) => value === "" ? undefined : value, z.string().max(2000).optional()),
+  MESSAGE_LOG_RETENTION_DAYS: z.preprocess((value) => value === "" ? undefined : value, z.string().regex(/^[1-9]\d{0,3}$/).optional()),
   NEXT_PUBLIC_BASE_URL: z.string().url().optional(),
   REDIS_URL: z.string().url().optional(),
   CRON_SECRET: secret.optional(),

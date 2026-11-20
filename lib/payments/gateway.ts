@@ -1,6 +1,7 @@
 import "server-only";
 
 import crypto from "crypto";
+import { safeEqual } from "@/lib/safeEqual";
 
 /**
  * One interface for both gateways, so pricing, tax and receipts are identical whichever an organisation
@@ -65,8 +66,7 @@ export function hmacHex(secret: string, value: string) {
 }
 
 export function safeEqualHex(a: string, b: string) {
-  if (!/^[a-f0-9]+$/i.test(a) || a.length !== b.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(a, "hex"), Buffer.from(b, "hex"));
+  return safeEqual(a, b, "hex");
 }
 
 /** JSON or form request to a provider with a timeout. Error bodies are reduced to a short message. */

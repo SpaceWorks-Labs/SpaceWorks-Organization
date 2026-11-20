@@ -17,7 +17,7 @@ const codeSchema = z.object({ code: z.string().trim().regex(/^\d{6}$/) });
  */
 export async function regenerateRecoveryCodes(input: unknown): Promise<ActionResult<{ recoveryCodes: string[] }>> {
   const session = await requireAuth();
-  if (await isActionRateLimited("auth", session.user.id)) return { ok: false, error: "Too many attempts. Please try again later." };
+  if (await isActionRateLimited("auth", session.user.id)) return { ok: false, error: "Too many attempts. Try again later." };
   const parsed = codeSchema.safeParse(input);
   if (!parsed.success || !session.user.email) return { ok: false, error: "Enter the six-digit code from your authenticator app." };
   if (!(await hasRecentAuthentication())) return { ok: false, error: "Sign in again before replacing recovery codes." };

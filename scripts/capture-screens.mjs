@@ -28,6 +28,7 @@ const SHOTS = [
   { name: "members", path: `/dashboard/${org}/members`, as: "owner@demo.test" },
   { name: "organisations", path: "/super-admin/orgs", as: "admin@demo.test" },
   { name: "units", path: `/dashboard/${org}/settings/structure`, as: "owner@demo.test" },
+  { name: "groupings", path: `/dashboard/${org}/settings/groupings`, as: "owner@demo.test" },
   { name: "staff-and-roles", path: `/dashboard/${org}/settings/roles`, as: "owner@demo.test" },
   { name: "plans-and-join-forms", path: `/dashboard/${org}/plans`, as: "owner@demo.test" },
   { name: "renewals", path: `/dashboard/${org}/reports/renewals`, as: "owner@demo.test" },

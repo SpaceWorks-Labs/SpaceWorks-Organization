@@ -1,21 +1,15 @@
 import { DEFAULT_CARD_FONT } from "@/lib/cards/fontCatalog";
+import { newLayerId } from "./editor/clipboard";
 import { clamp, round1, type CardSideSettings } from "./elements";
-import { MAX_LAYERS, type CardLayer, type CardLayerKind } from "./layers";
+import { LAYER_DEFAULTS, MAX_LAYERS, NO_ADJUST, NO_CROP, PAINT_DEFAULTS, TEXT_DEFAULTS, type CardLayer, type CardLayerKind } from "./layerTypes";
 
 /*
  * Pure edits the designer makes to a side's layers and stacking order, plus the geometry of moving,
- * resizing and turning a layer with the mouse. Everything here returns new objects.
+ * resizing and turning a layer with the mouse. Everything here returns new objects. Edits to several
+ * layers at once (align, group, clipboard, copy style, re-layout) live in ./editor/.
  */
 
 type Side = Pick<CardSideSettings, "widthMm" | "heightMm" | "layers" | "order">;
-
-function newLayerId(taken: Iterable<string>) {
-  const used = new Set(taken);
-  for (;;) {
-    const id = `l${Math.random().toString(36).slice(2, 10).padEnd(8, "0")}`;
-    if (!used.has(id)) return id;
-  }
-}
 
 /** A new layer of `kind`, centred on the side, on top of everything. Null when the side is full. */
 export function createLayer(side: Side, kind: CardLayerKind, extra: { url?: string; aspect?: number } = {}): CardLayer | null {
@@ -23,16 +17,24 @@ export function createLayer(side: Side, kind: CardLayerKind, extra: { url?: stri
   const id = newLayerId(side.layers.map((layer) => layer.id));
   const short = Math.min(side.widthMm, side.heightMm);
   const box = (wMm: number, hMm: number) => ({ wMm: round1(wMm), hMm: round1(hMm), xMm: round1((side.widthMm - wMm) / 2), yMm: round1((side.heightMm - hMm) / 2) });
-  const base = { id, name: "", rotationDeg: 0, opacityPct: 100, hidden: false, locked: false };
-  if (kind === "text") return { ...base, kind, ...box(side.widthMm * 0.6, 8), text: "Your text", font: DEFAULT_CARD_FONT, sizePt: 12, bold: false, uppercase: false, align: "center", color: "#142C2A", trackingEm: 0, lineHeight: 1.2 };
-  if (kind === "image") {
-    // Keep the picture's shape: 40% of the short side across its longer edge.
-    const aspect = extra.aspect && extra.aspect > 0 ? extra.aspect : 1;
-    const longest = short * 0.6;
-    return { ...base, kind, ...box(aspect >= 1 ? longest : longest * aspect, aspect >= 1 ? longest / aspect : longest), url: extra.url ?? "", fit: "cover", radiusMm: 0, grayscale: false };
+  const base = { ...LAYER_DEFAULTS, id };
+  const square = box(short * 0.4, short * 0.4);
+  switch (kind) {
+    case "text": return { ...base, ...TEXT_DEFAULTS, kind, ...box(side.widthMm * 0.6, 8), text: "Your text", font: DEFAULT_CARD_FONT, sizePt: 12, align: "center", color: "#142C2A" };
+    case "image": {
+      // Keep the picture's shape: 60% of the short side across its longer edge.
+      const aspect = extra.aspect && extra.aspect > 0 ? extra.aspect : 1;
+      const longest = short * 0.6;
+      return { ...base, kind, ...box(aspect >= 1 ? longest : longest * aspect, aspect >= 1 ? longest / aspect : longest), url: extra.url ?? "", fit: "cover", radiusMm: 0, grayscale: false, mask: "none", crop: { ...NO_CROP }, adjust: { ...NO_ADJUST }, shadow: null, alt: "" };
+    }
+    case "line": return { ...base, kind, ...box(side.widthMm * 0.5, 0.5), color: "#142C2A", dash: "solid" };
+    case "shape": return { ...base, ...PAINT_DEFAULTS, kind, ...square, shape: "star", points: 5, depthPct: 50, radiusMm: 0, path: "" };
+    case "icon": return { ...base, kind, ...box(short * 0.2, short * 0.2), icon: "star", color: "#142C2A", strokeMm: 0.4 };
+    case "qr": return { ...base, kind, ...box(short * 0.35, short * 0.35), dark: "#000000", light: "#FFFFFF" };
+    case "barcode": return { ...base, kind, ...box(side.widthMm * 0.45, 10), color: "#000000", background: "#FFFFFF", showText: true };
+    case "photo": return { ...base, kind, ...square, mask: "circle", stroke: null, strokeMm: 0.5, placeholder: "" };
+    default: return { ...base, ...PAINT_DEFAULTS, kind, ...square, radiusMm: kind === "rect" ? 2 : 0 };
   }
-  if (kind === "line") return { ...base, kind, ...box(side.widthMm * 0.5, 0.5), color: "#142C2A" };
-  return { ...base, kind, ...box(short * 0.4, short * 0.4), fill: "#006E63", stroke: null, strokeMm: 0.5, radiusMm: kind === "rect" ? 2 : 0 };
 }
 
 export function addLayer<T extends Side>(side: T, layer: CardLayer): T {
@@ -51,7 +53,7 @@ export function removeLayer<T extends Side>(side: T, id: string): T {
 export function duplicateLayer<T extends Side>(side: T, id: string): { side: T; id: string | null } {
   const original = side.layers.find((layer) => layer.id === id);
   if (!original || side.layers.length >= MAX_LAYERS) return { side, id: null };
-  const copy = { ...original, id: newLayerId(side.layers.map((layer) => layer.id)), xMm: round1(original.xMm + 3), yMm: round1(original.yMm + 3), locked: false } as CardLayer;
+  const copy = { ...original, id: newLayerId(side.layers.map((layer) => layer.id)), xMm: round1(original.xMm + 3), yMm: round1(original.yMm + 3), locked: false, groupId: null } as CardLayer;
   const order = [...side.order];
   order.splice(order.indexOf(id) + 1, 0, copy.id);
   return { side: { ...side, layers: [...side.layers, copy], order }, id: copy.id };

@@ -1,10 +1,5 @@
 import crypto from "node:crypto";
-
-const safeEqual = (a: string, b: string) => {
-  // Hash first so the comparison is constant-time whatever the lengths.
-  const digest = (value: string) => crypto.createHash("sha256").update(value).digest();
-  return crypto.timingSafeEqual(digest(a), digest(b)) && a.length === b.length;
-};
+import { safeEqual } from "@/lib/safeEqual";
 
 /**
  * Resend signs webhooks with Svix: HMAC-SHA256 over "id.timestamp.body" with the base64 secret after "whsec_",

@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
   passkeyChallenge: vi.fn(),
   samlLoginState: vi.fn(),
   userSession: vi.fn(),
+  messageLog: vi.fn(),
+  linkCode: vi.fn(),
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: {
@@ -23,6 +25,8 @@ vi.mock("@/lib/db", () => ({ prisma: {
   passkeyChallenge: { deleteMany: mocks.passkeyChallenge },
   samlLoginState: { deleteMany: mocks.samlLoginState },
   userSession: { deleteMany: mocks.userSession },
+  memberMessageLog: { deleteMany: mocks.messageLog },
+  notificationEndpointChallenge: { deleteMany: mocks.linkCode },
 } }));
 
 import { purgeExpiredOperationalData } from "@/lib/retention";
@@ -33,7 +37,7 @@ describe("operational retention", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.OUTBOX_RETENTION_DAYS = "30";
-    for (const mock of [mocks.verification, mocks.session, mocks.teamInvite, mocks.outbox, mocks.smsCode, mocks.passkeyChallenge, mocks.samlLoginState, mocks.userSession]) {
+    for (const mock of [mocks.verification, mocks.session, mocks.teamInvite, mocks.outbox, mocks.smsCode, mocks.passkeyChallenge, mocks.samlLoginState, mocks.userSession, mocks.messageLog, mocks.linkCode]) {
       mock.mockResolvedValue({ count: 1 });
     }
     mocks.transaction.mockImplementation((operations: Array<Promise<unknown>>) => Promise.all(operations));
@@ -56,6 +60,8 @@ describe("operational retention", () => {
       passkeyChallenges: 1,
       samlLoginStates: 1,
       userSessions: 1,
+      messageLogs: 1,
+      linkCodes: 1,
     });
     expect(mocks.smsCode).toHaveBeenCalledWith({ where: { createdAt: { lt: new Date("2030-02-27T00:00:00.000Z") } } });
     expect(mocks.teamInvite).toHaveBeenCalledWith({ where: { usedAt: null, expiresAt: { lt: now } } });

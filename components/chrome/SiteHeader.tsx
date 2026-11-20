@@ -27,7 +27,8 @@ const sheetLinkClasses = "flex min-h-12 items-center gap-2 rounded-md px-3 text-
  * The Space Works logo plus the product name "Organization", as a home link (site
  * header, auth pages, app shell, super admin). Below `sm` the symbol stands in
  * for the horizontal lockup so the bar keeps room for its controls. `stacked`
- * puts "Organization" under the lockup, for the narrow dashboard sidebar.
+ * puts "Organization" under the lockup, for the narrow dashboard sidebar. The landing splash lands on the
+ * lockup's symbol (`data-splash-target`, components/marketing/splashFlight.ts).
  */
 export function BrandHomeLink({ href = "/", stacked = false, className }: { href?: string; stacked?: boolean; className?: string }) {
   if (stacked) {
@@ -39,7 +40,7 @@ export function BrandHomeLink({ href = "/", stacked = false, className }: { href
     );
   }
   return (
-    <Link href={href} aria-label="Space Works Organization home" className={cn("inline-flex shrink-0 items-center gap-3 rounded-md", className)}>
+    <Link href={href} aria-label="Space Works Organization home" data-splash-target="" className={cn("inline-flex shrink-0 items-center gap-3 rounded-md", className)}>
       <SpaceWorksLogo variant="app-icon" height={36} label={null} className="sm:hidden" />
       <SpaceWorksProductLogo height={32} label={null} className="hidden sm:inline-flex" />
     </Link>

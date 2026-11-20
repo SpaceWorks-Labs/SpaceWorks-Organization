@@ -28,6 +28,7 @@ export async function loadOrgReportsRenewals({ params, searchParams }: Props) {
   const filters = drillFilters(ctx);
   return {
     shell: reportShell(ctx, "renewals"),
+    timeZone: ctx.org.timezone,
     summary,
     trend: trend.map((point) => ({ label: point.label, due: point.due, renewed: point.renewed, decided: point.decided, renewalRate: point.renewalRate })),
     worklist: { days, rows: worklist.slice(0, 200), total: worklist.length },

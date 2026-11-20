@@ -15,8 +15,8 @@ import { asChatPayload, deliverChatNotice } from "@/lib/chat/notify";
 import { asLoginAlertPayload, asLoginCodePayload, deliverLoginAlert, deliverLoginCode } from "@/lib/email/loginSecurity";
 import { asSmsCodePayload, deliverSmsCode } from "@/lib/sms/outbox";
 import { asOwnershipPayload, deliverOwnershipNotice } from "@/lib/team/ownershipEmail";
+import { memberMessage } from "@/lib/notify/outbox";
 import { asLegacyPhotoPurgePayload, asPhotoPurgePayload, deleteFilesWithHistory, purgeErasedMemberPhotos } from "@/lib/storage/memberPhotos";
-
 /** What a handler reports after a delivery attempt. Throw to retry; throw PermanentOutboxError to give up. */
 export type DeliveryOutcome = "sent" | "dropped";
 
@@ -29,9 +29,7 @@ export type OutboxKindHandler = {
   durable?: boolean;
   deliver(payload: Prisma.JsonValue, messageId: string): Promise<DeliveryOutcome>;
 };
-
 // ---------- payload checks shared by handlers ----------
-
 export function asRecord(value: Prisma.JsonValue): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
@@ -292,6 +290,7 @@ export const OUTBOX_KINDS = {
   "login-code": loginCode,
   "login-alert": loginAlert,
   "sms-code": smsCode,
+  "member-message": memberMessage,
   "ownership-transfer": ownershipTransfer,
   "member-photo-purge": memberPhotoPurge,
   "legacy-photo-purge": legacyPhotoPurge,

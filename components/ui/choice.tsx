@@ -7,6 +7,7 @@ import * as SwitchPrimitive from "@radix-ui/react-switch";
 import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group";
 import { Check, Minus } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { FieldError } from "./field";
 
 /* ---------- Checkbox ---------- */
 
@@ -18,7 +19,7 @@ export const Checkbox = forwardRef<ElementRef<typeof CheckboxPrimitive.Root>, Co
     <CheckboxPrimitive.Root
       ref={ref}
       className={cn(
-        "peer inline-flex size-5 shrink-0 items-center justify-center rounded-[6px] border-[1.5px] border-line-strong bg-panel transition-colors duration-(--sw-dur-fast) ease-sw hover:border-ink disabled:cursor-not-allowed disabled:border-line disabled:bg-surface data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-on-primary data-[state=indeterminate]:border-primary data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-on-primary",
+        "peer inline-flex size-5 shrink-0 items-center justify-center rounded-[6px] border-[1.5px] border-line-strong bg-panel transition-colors duration-(--sw-dur-fast) ease-sw hover:border-ink aria-[invalid=true]:border-danger-fg disabled:cursor-not-allowed disabled:border-line disabled:bg-surface data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-on-primary data-[state=indeterminate]:border-primary data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-on-primary",
         className,
       )}
       {...props}
@@ -30,23 +31,32 @@ export const Checkbox = forwardRef<ElementRef<typeof CheckboxPrimitive.Root>, Co
   );
 });
 
-/** Checkbox with a label (and optional description) on the right; the whole row is clickable. */
+/**
+ * Checkbox with a label (and optional description) on the right; the whole row is clickable. `error` shows the
+ * field's error under the label, linked with aria-describedby, and marks the box aria-invalid.
+ */
 export function CheckboxField({
   label,
   description,
+  error,
   className,
   id,
   ...props
-}: ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root> & { label: ReactNode; description?: ReactNode }) {
+}: ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root> & { label: ReactNode; description?: ReactNode; error?: ReactNode }) {
   const generatedId = useId();
   const controlId = id ?? generatedId;
+  const errorId = error ? `${controlId}-error` : undefined;
+  const describedBy = [errorId, props["aria-describedby"], description ? `${controlId}-desc` : undefined].filter(Boolean).join(" ") || undefined;
   return (
     <div className={cn("flex items-start gap-3", className)}>
-      <Checkbox id={controlId} aria-describedby={description ? `${controlId}-desc` : undefined} className="mt-0.5" {...props} />
-      <label htmlFor={controlId} className="min-w-0 cursor-pointer select-none text-body-ui text-ink">
-        {label}
-        {description ? <span id={`${controlId}-desc`} className="block text-caption text-ink-muted">{description}</span> : null}
-      </label>
+      <Checkbox {...props} id={controlId} aria-describedby={describedBy} aria-invalid={error ? true : props["aria-invalid"]} className="mt-0.5" />
+      <div className="flex min-w-0 flex-col gap-1">
+        <label htmlFor={controlId} className="cursor-pointer select-none text-body-ui text-ink">
+          {label}
+          {description ? <span id={`${controlId}-desc`} className="block text-caption text-ink-muted">{description}</span> : null}
+        </label>
+        {error ? <FieldError id={errorId}>{error}</FieldError> : null}
+      </div>
     </div>
   );
 }

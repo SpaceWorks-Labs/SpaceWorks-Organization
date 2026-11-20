@@ -2,7 +2,7 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { unitInScope, type TeamScope } from "@/lib/membership/scope";
+import { groupingLimitsWhere, isLimited, unitInScope, type GroupingLimit, type TeamScope } from "@/lib/membership/scope";
 import { prepareDataset, type Dataset, type ReportRows } from "./dataset";
 
 /**
@@ -15,7 +15,9 @@ export type ReportScope = {
   unitPath: string | null;
   unitId: string | null;
   planId: string | null;
-  /** The viewer is limited to a unit by their team role. */
+  /** The viewer's grouping limits: every one must hold for a member to count. */
+  limits: GroupingLimit[];
+  /** The viewer is limited to a unit or groupings by their team role. */
   scoped: boolean;
   /** One member only (member-level reports C1–C3). */
   memberId?: string;
@@ -40,14 +42,14 @@ export async function reportScope(team: TeamScope, filters: { unit?: string | nu
     const plan = await prisma.membershipPlan.findFirst({ where: { organisationId: team.organisationId, id: filters.plan }, select: { id: true } });
     planId = plan?.id ?? null;
   }
-  return { organisationId: team.organisationId, unitPath, unitId, planId, scoped: team.unitId !== null };
+  return { organisationId: team.organisationId, unitPath, unitId, planId, limits: team.limits, scoped: isLimited(team) };
 }
 
 /** Members inside the scope's subtree. Without a unit, the whole organisation (members without a unit too). */
-export function scopedMemberWhere(scope: Pick<ReportScope, "organisationId" | "unitPath" | "memberId">): Prisma.MemberWhereInput {
+export function scopedMemberWhere(scope: Pick<ReportScope, "organisationId" | "unitPath" | "limits" | "memberId">): Prisma.MemberWhereInput {
   const one = scope.memberId ? { id: scope.memberId } : {};
-  if (!scope.unitPath) return { organisationId: scope.organisationId, ...one };
-  return { organisationId: scope.organisationId, ...one, unit: { is: { OR: [{ path: scope.unitPath }, { path: { startsWith: `${scope.unitPath}/` } }] } } };
+  const and: Prisma.MemberWhereInput[] = [...(scope.unitPath ? [{ unit: { is: { OR: [{ path: scope.unitPath }, { path: { startsWith: `${scope.unitPath}/` } }] } } }] : []), ...groupingLimitsWhere(scope.limits)];
+  return { organisationId: scope.organisationId, ...one, ...(and.length ? { AND: and } : {}) };
 }
 
 export function scopedTermWhere(scope: ReportScope): Prisma.MembershipTermWhereInput {

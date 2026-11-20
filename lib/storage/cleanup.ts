@@ -24,7 +24,7 @@ const LOCK_TIMEOUT_MS = 10 * 60_000;
 const RETIRED = "Bulk downloads are no longer stored. Download cards from the Members page.";
 
 /** Delete up to `limit` stored export files and close jobs that never ran. Returns how many rows changed. */
-export async function purgeStoredCardExports(limit = 50) {
+async function purgeStoredCardExports(limit = 50) {
   const jobs = await prisma.cardExportJob.findMany({
     where: { OR: [{ storageKey: { not: null } }, { status: { in: ["PENDING", "PROCESSING"] } }] },
     select: { id: true, storageKey: true },

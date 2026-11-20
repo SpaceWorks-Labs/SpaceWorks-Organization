@@ -35,7 +35,7 @@ describe("team roles", () => {
   it("never lets an invite fall back to a role nobody chose", () => {
     expect(createOrgInviteSchema.safeParse({ organisationSlug: "acme" }).success).toBe(false);
     expect(createOrgInviteSchema.safeParse({ organisationSlug: "acme", role: "OWNER" }).success).toBe(false);
-    expect(createOrgInviteSchema.parse({ organisationSlug: "acme", roleId: "role_1", unitId: "" })).toEqual({ organisationSlug: "acme", roleId: "role_1", unitId: null });
+    expect(createOrgInviteSchema.parse({ organisationSlug: "acme", roleId: "role_1", unitId: "" })).toEqual({ organisationSlug: "acme", roleId: "role_1", unitId: null, valueIds: [] });
   });
 });
 

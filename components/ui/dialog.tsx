@@ -69,12 +69,13 @@ export function DialogFooter({ className, children }: { className?: string; chil
  * Confirmation for consequential actions (docs/DESIGN.md §4.15). Destructive
  * confirmations use the danger button. Pass `confirmText` to require typing a
  * value (e.g. the organisation name) before the action unlocks.
+ * `ConfirmationDialog` (components/feedback) re-exports this component.
  */
 export function ConfirmDialog({
   open,
   title,
   message,
-  confirmLabel = "Delete",
+  confirmLabel,
   cancelLabel = "Cancel",
   destructive = true,
   loading = false,
@@ -86,7 +87,8 @@ export function ConfirmDialog({
   open: boolean;
   title: ReactNode;
   message?: ReactNode;
-  confirmLabel?: string;
+  /** Name the action ("Revoke invite", "Archive role"); there is no generic default. */
+  confirmLabel: string;
   cancelLabel?: string;
   destructive?: boolean;
   loading?: boolean;

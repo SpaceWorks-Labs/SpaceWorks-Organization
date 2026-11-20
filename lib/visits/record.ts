@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 const CHANNEL = "web";
 
 /** The UTC calendar day of an instant, as the text Postgres reads as a date. */
-export const utcDayKey = (date: Date) => date.toISOString().slice(0, 10);
+const utcDayKey = (date: Date) => date.toISOString().slice(0, 10);
 
 /**
  * Add one to today's count for a route. Counts only: no person, address, cookie or storage. An organisation row

@@ -1,6 +1,7 @@
 import { allowedTelemetryOrigins, isBareHttpsOrigin, mixpanelFromEnv } from "./env";
 import { templateForPath } from "./routes";
 import { bridgeCspHosts } from "@/lib/authBridges";
+import { VIDEO_FRAME_ORIGINS } from "@/lib/publicPage/embeds";
 
 type Env = Record<string, string | undefined>;
 
@@ -9,10 +10,13 @@ const RAZORPAY_FRAMES = ["https://api.razorpay.com", "https://checkout.razorpay.
 const RAZORPAY_CONNECT = [...RAZORPAY_FRAMES, "https://lumberjack.razorpay.com"];
 
 /** The pages that may open the Razorpay Checkout frame: the member account area and the signed pay link. */
-export const needsRazorpay = (pathname: string) => pathname.startsWith("/account") || pathname.startsWith("/pay/");
+const needsRazorpay = (pathname: string) => pathname.startsWith("/account") || pathname.startsWith("/pay/");
+
+/** An organisation's public pages, whose video sections may open a YouTube (privacy-enhanced) or Vimeo player. */
+const needsVideoFrames = (pathname: string) => pathname.startsWith("/o/");
 
 /** The pages that run a Supabase or Firebase sign-in: sign-in and its bridges, staff invites and email verification. */
-export const needsAuthBridge = (pathname: string) =>
+const needsAuthBridge = (pathname: string) =>
   pathname === "/login" || pathname.startsWith("/login/") || pathname.startsWith("/join/org/") || pathname === "/verify-email" || pathname.startsWith("/verify-email/");
 
 /** The backend origin when this build talks to it from the browser; plain http only for the CI test backend. */
@@ -30,7 +34,8 @@ function backendOrigin(env: Env): string | null {
 export function cspHosts(pathname: string, env: Env = process.env) {
   const connect: string[] = [];
   const script: string[] = [];
-  const frame: string[] = needsRazorpay(pathname) ? RAZORPAY_FRAMES : [];
+  const frame: string[] = needsRazorpay(pathname) ? [...RAZORPAY_FRAMES] : [];
+  if (needsVideoFrames(pathname)) frame.push(...VIDEO_FRAME_ORIGINS);
   const backend = backendOrigin(env);
   if (backend) connect.push(backend);
   if (needsRazorpay(pathname)) connect.push(...RAZORPAY_CONNECT);

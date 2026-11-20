@@ -112,7 +112,7 @@ describe("route announcer", () => {
 });
 
 describe("motion CSS (CR-MOTION-01)", () => {
-  const files = ["motion.css", "motion-box.css", "motion-overlays.css", "motion-route.css", "motion-search.css"];
+  const files = ["motion.css", "motion-box.css", "motion-overlays.css", "motion-route.css", "motion-search.css", "theme-reveal.css"];
 
   it("uses the duration and curve tokens, never ad-hoc cubic-beziers", () => {
     for (const name of files.filter((file) => file !== "motion-box.css")) {
@@ -133,5 +133,17 @@ describe("motion CSS (CR-MOTION-01)", () => {
     expect(overlays).toContain("--sw-overlay-out: calc(var(--sw-dur-slow) * 2 / 3)");
     expect(overlays).toContain("--sw-toast-in: var(--sw-dur-base)");
     expect(overlays).toContain("--sw-toast-out: var(--sw-dur-fast)");
+  });
+});
+
+describe("route transition speed", () => {
+  it("starts at once and lasts no more than base (180ms), so it never delays content", () => {
+    const css = styles("motion-route.css");
+    const rules = [...css.matchAll(/animation:\s*sw-route-in([^;]+);/g)].map(([, value]) => value!);
+    expect(rules.length).toBeGreaterThan(0);
+    for (const value of rules) {
+      expect(value).toContain("var(--sw-dur-base)");
+      expect(value).not.toContain("calc(");
+    }
   });
 });

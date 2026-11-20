@@ -5,7 +5,10 @@ import { prisma } from "@/lib/db";
 import { getQueues, type Queues } from "./client";
 import { jobId, scheduleDefinitions, type JobDefinition } from "./definitions";
 
-/** SQL is the durable outbox. Redis carries row ids, never email content or bearer links. */
+/**
+ * SQL is the durable outbox. Redis carries row ids, never email content or bearer links. A job id is the row id plus its
+ * attempt count: stable however often the row is offered, yet a failed attempt (which raises the count) queues again.
+ */
 export async function enqueueDueOutbox(queues: Queues = getQueues()) {
   const now = new Date();
   const rows = await prisma.outboxMessage.findMany({
@@ -13,9 +16,9 @@ export async function enqueueDueOutbox(queues: Queues = getQueues()) {
       { status: "PENDING", availableAt: { lte: now } },
       { status: "PROCESSING", lockedAt: { lt: new Date(now.getTime() - 15 * 60_000) } },
     ] },
-    select: { id: true }, orderBy: { createdAt: "asc" }, take: 100,
+    select: { id: true, attempts: true }, orderBy: { createdAt: "asc" }, take: 100,
   });
-  await queues.outbox.addBulk(rows.map((row) => ({ name: "deliver", data: { kind: "outbox" as const, outboxId: row.id }, opts: { jobId: jobId("outbox", `${row.id}-${now.getTime()}`) } })));
+  await queues.outbox.addBulk(rows.map((row) => ({ name: "deliver", data: { kind: "outbox" as const, outboxId: row.id }, opts: { jobId: jobId("outbox", `${row.id}-${row.attempts}`) } })));
   return { enqueued: rows.length };
 }
 

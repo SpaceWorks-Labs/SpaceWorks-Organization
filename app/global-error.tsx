@@ -1,27 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { resolvePaintedColorMode } from "@/lib/colorModeClient";
-import type { PaintedColorMode } from "@/lib/colorMode";
+import { readColorMode } from "@/lib/colorModeClient";
+import type { ColorMode } from "@/lib/colorMode";
 
 // Rendered without the app stylesheet, so the kit's colours are explicit here: Warm Cream page and Deep Ink text in
 // light, black page and Cream text in dark (CR-DARK-01), Maker Teal action with a Cream label in both.
 const PALETTE = `
 :root{--ge-bg:#FFF4E8;--ge-ink:#142C2A;--ge-action:#006E63;--ge-on-action:#FFF4E8;color-scheme:light}
-@media (prefers-color-scheme:dark){:root:not(.light){--ge-bg:#000000;--ge-ink:#FFF4E8;color-scheme:dark}}
 :root.dark{--ge-bg:#000000;--ge-ink:#FFF4E8;color-scheme:dark}
 .ge-dk{display:none}
-@media (prefers-color-scheme:dark){:root:not(.light) .ge-lt{display:none}:root:not(.light) .ge-dk{display:inline-block}}
 :root.dark .ge-lt{display:none}:root.dark .ge-dk{display:inline-block}`;
 
 /**
- * The painted mode from before the error, read once in the browser: the class the boot script set on the old <html>
- * (still in the document while this first renders), else the saved choice or the device. On the server it is unknown,
- * and the stylesheet falls back to prefers-color-scheme.
+ * The mode from before the error, read once in the browser: the class on the old <html> (still in the document while
+ * this first renders), else the saved choice, else light. On the server it is unknown and the stylesheet paints light.
  */
-function initialMode(): PaintedColorMode | null {
+function initialMode(): ColorMode | null {
   if (typeof document === "undefined") return null;
-  return document.documentElement.classList.contains("dark") ? "dark" : resolvePaintedColorMode();
+  return document.documentElement.classList.contains("dark") ? "dark" : readColorMode();
 }
 
 export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {

@@ -104,6 +104,8 @@ export type CardSideSettings = {
   showPlan: boolean;
   /** The verify QR code. */
   showQr: boolean;
+  /** "Scan to verify" on the QR's white tile, under the code. */
+  showQrCaption: boolean;
   /** The printed card number. */
   showIdNumber: boolean;
   idNumberLabel: string;
@@ -122,7 +124,7 @@ export type CardSideSettings = {
 
 /** The optional items whose presence changes the default layout. */
 export type CardLayoutFlags = Pick<CardSideSettings, "showLogo" | "showSymbol" | "showPhoto">
-  & Partial<Pick<CardSideSettings, "showRole" | "showPlan" | "showIdNumber" | "showValidUntil">>;
+  & Partial<Pick<CardSideSettings, "showRole" | "showPlan" | "showIdNumber" | "showValidUntil" | "showQrCaption">>;
 
 export const DEFAULT_LAYOUT_FLAGS: CardLayoutFlags = { showLogo: true, showSymbol: true, showPhoto: false };
 
@@ -135,6 +137,7 @@ export function layoutFlags(settings: CardLayoutFlags): CardLayoutFlags {
     ...(settings.showPlan ? { showPlan: true } : {}),
     ...(settings.showIdNumber ? { showIdNumber: true } : {}),
     ...(settings.showValidUntil ? { showValidUntil: true } : {}),
+    ...(settings.showQrCaption ? { showQrCaption: true } : {}),
   };
 }
 
@@ -188,7 +191,7 @@ export function estimateEmWidth(text: string, bold: boolean) {
  * Point size that keeps `text` on one line within `widthMm`, never above `sizePt` and never below
  * `minRatio` of it (then it wraps instead).
  */
-function fitTextSizePt(text: string, widthMm: number, sizePt: number, bold: boolean, minRatio = 0.6) {
+export function fitTextSizePt(text: string, widthMm: number, sizePt: number, bold: boolean, minRatio = 0.6) {
   const fitting = widthMm / (estimateEmWidth(text, bold) * PT_TO_MM);
   return round1(Math.max(sizePt * minRatio, Math.min(sizePt, fitting)));
 }
@@ -248,7 +251,7 @@ export function nameSizePt(settings: CardSideSettings, name: string) {
   // Lines ≈ ems·pt/width and lines·pt must stay within 1.2·size, so pt ≤ √(1.2·size·width / ems);
   // 0.85 leaves room for words that wrap early.
   const area = 0.85 * Math.sqrt((1.2 * size * widthMm) / (estimateEmWidth(name, bold) * PT_TO_MM));
-  return round1(Math.min(fitted, Math.max(size * 0.3, area)));
+  return round1(Math.min(fitted, Math.max(size * NAME_FLOOR_RATIO, area)));
 }
 
 /** Estimated height of the heading block (label, one line of heading, rule or band padding). */
@@ -259,6 +262,9 @@ export function estimateHeaderHeightMm(template: CardTemplate, headerPt: number,
   if (decor.band) height += decor.band.padYMm * 2;
   return round1(height);
 }
+
+/** Names shrink to half their size at most (two lines then fit their room); past that they end in an ellipsis. */
+export const NAME_FLOOR_RATIO = 0.5;
 
 /** Room kept for the name: one line at full size, or two lines once auto-fit has shrunk it. */
 export function nameBlockHeightMm(namePt: number) {

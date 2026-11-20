@@ -20,9 +20,9 @@ function matches(pathname: string, prefixes: string[]) {
 /** Full-bleed marketing pages that lay out their own sections. */
 const FULL_BLEED = ["/", "/features"];
 
-type ChromeKind = "site" | "auth" | "own";
+export type ChromeKind = "site" | "auth" | "own";
 
-function chromeFor(pathname: string): ChromeKind {
+export function chromeFor(pathname: string): ChromeKind {
   if (pathname === "/") return "site";
   if (matches(pathname, AUTH_PREFIXES)) return "auth";
   if (matches(pathname, OWN_CHROME_PREFIXES)) return "own";

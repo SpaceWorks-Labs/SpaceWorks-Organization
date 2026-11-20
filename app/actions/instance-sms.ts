@@ -4,6 +4,7 @@ import { revalidatePath as nextRevalidatePath } from "next/cache";
 import { z } from "zod";
 import { trackedRevalidation } from "@/lib/frontend/revalidation";
 import { prisma } from "@/lib/db";
+import { invalidateLoginMethodsCache } from "@/lib/loginMethods";
 import { recordAuditEvent } from "@/lib/audit";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { encryptInstanceConfigSecret } from "@/lib/instanceConfigSecrets";
@@ -38,6 +39,7 @@ export async function saveInstanceSmsProvider(input: unknown): Promise<ActionRes
   await prisma.instanceSetting.upsert({ where: { id: INSTANCE_SETTINGS_ID }, create: { id: INSTANCE_SETTINGS_ID, ...values }, update: values });
   await recordAuditEvent({ action: "INSTANCE_SMS_PROVIDER_UPDATED", actorUserId: session.user.id, targetType: "InstanceSetting", targetId: INSTANCE_SETTINGS_ID, metadata: { provider: parsed.data.smsProvider, changed: changedSmsFields(before, after) } });
   revalidatePath("/super-admin/auth");
+  invalidateLoginMethodsCache();
   revalidatePath("/login");
   return { ok: true };
 }

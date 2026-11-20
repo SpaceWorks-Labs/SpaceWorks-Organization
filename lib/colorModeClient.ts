@@ -1,11 +1,10 @@
-import { COLOR_MODE_COOKIE, COLOR_MODE_STORAGE_KEY, THEME_COLOR, isColorMode, paintedColorMode, type ColorMode, type PaintedColorMode } from "@/lib/colorMode";
+import { COLOR_MODE_COOKIE, COLOR_MODE_STORAGE_KEY, THEME_COLOR, isColorMode, type ColorMode } from "@/lib/colorMode";
 
 /**
- * Browser side of the colour mode (CR-THEME-01). The cookie is the record (the server renders a fixed choice
- * from it), localStorage mirrors it for cross-tab updates, and a session value keeps the choice working for
- * this page when both are blocked.
+ * Browser side of the colour mode (Light or Dark; owner decision 2026-11-19). The cookie is the record (the server
+ * paints from it), localStorage mirrors it for cross-tab updates, and a session value keeps the choice working for
+ * this page when both are blocked. The device's light/dark setting is never read.
  */
-const DARK_QUERY = "(prefers-color-scheme: dark)";
 let sessionChoice: ColorMode | undefined;
 
 function readCookie(): string | null {
@@ -29,33 +28,20 @@ export function readColorMode(): ColorMode {
   if (sessionChoice) return sessionChoice;
   const cookie = readCookie();
   if (isColorMode(cookie)) return cookie;
-  const stored = readStorage();
-  return isColorMode(stored) ? stored : "light";
-}
-
-export function systemPrefersDark(): boolean {
-  try {
-    return window.matchMedia(DARK_QUERY).matches;
-  } catch {
-    return false;
-  }
+  return readStorage() === "dark" ? "dark" : "light";
 }
 
 /** The mode painted right now, read from the class on <html>. */
-export function readPaintedColorMode(): PaintedColorMode {
+export function readPaintedColorMode(): ColorMode {
   return document.documentElement.classList.contains("dark") ? "dark" : "light";
 }
 
-export function resolvePaintedColorMode(mode: ColorMode = readColorMode()): PaintedColorMode {
-  return paintedColorMode(mode, systemPrefersDark());
-}
-
 /** Paint a mode: the class, native control colours and the browser chrome colour. */
-export function paintColorMode(painted: PaintedColorMode) {
+export function paintColorMode(mode: ColorMode) {
   const root = document.documentElement;
-  root.classList.toggle("dark", painted === "dark");
-  root.style.colorScheme = painted;
-  document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute("content", THEME_COLOR[painted]);
+  root.classList.toggle("dark", mode === "dark");
+  root.style.colorScheme = mode;
+  document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')?.setAttribute("content", THEME_COLOR[mode]);
 }
 
 /** Save a choice in the cookie and localStorage (each may fail on its own) and for this page's session. */
@@ -75,12 +61,12 @@ export function saveColorMode(mode: ColorMode) {
 }
 
 /**
- * Keep this tab in step: another tab's choice arrives through the `storage` event, and the device's light/dark
- * setting is followed only while System is chosen. `onChange` runs after each repaint. Returns a cleanup.
+ * Keep this tab in step: another tab's choice arrives through the `storage` event. `onChange` runs after each
+ * repaint. Returns a cleanup.
  */
 export function watchColorMode(onChange: () => void): () => void {
   const repaint = () => {
-    paintColorMode(resolvePaintedColorMode());
+    paintColorMode(readColorMode());
     onChange();
   };
   const onStorage = (event: StorageEvent) => {
@@ -88,28 +74,19 @@ export function watchColorMode(onChange: () => void): () => void {
     sessionChoice = undefined;
     repaint();
   };
-  const onSystem = () => {
-    if (readColorMode() === "system") repaint();
-  };
-  let media: MediaQueryList | undefined;
-  try {
-    media = window.matchMedia(DARK_QUERY);
-  } catch {
-    media = undefined;
-  }
   // The root layout renders the class from the cookie, so a server re-render (refresh, revalidation) can rewrite it
-  // after a change to System; put the chosen paint back whenever <html> drifts from it.
+  // when the cookie is blocked and only the session choice holds; put the chosen paint back whenever <html> drifts.
+  // A theme reveal in progress is left alone (it paints inside its own view transition).
   const root = document.documentElement;
   const observer = new MutationObserver(() => {
-    const want = resolvePaintedColorMode();
+    if (root.classList.contains("sw-theme-reveal")) return;
+    const want = readColorMode();
     if (readPaintedColorMode() !== want || root.style.colorScheme !== want) repaint();
   });
   observer.observe(root, { attributes: true, attributeFilter: ["class", "style"] });
   window.addEventListener("storage", onStorage);
-  media?.addEventListener("change", onSystem);
   return () => {
     observer.disconnect();
     window.removeEventListener("storage", onStorage);
-    media?.removeEventListener("change", onSystem);
   };
 }

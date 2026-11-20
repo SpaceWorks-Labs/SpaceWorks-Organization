@@ -18,7 +18,7 @@ export async function readRequestSession(): Promise<RequestSession> {
     const name = sessionCookieName();
     const token = (await cookies()).get(name)?.value;
     if (!token) return { state: "none" };
-    const secret = process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+    const secret = process.env.AUTH_SECRET;
     const decoded = secret ? await decode({ token, secret, salt: name }) : null;
     const sid = typeof decoded?.sid === "string" ? decoded.sid : null;
     if (!decoded?.sub || !sid) return { state: "stale", userId: decoded?.sub ?? null };

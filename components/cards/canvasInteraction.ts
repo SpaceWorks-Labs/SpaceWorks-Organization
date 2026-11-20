@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, type KeyboardEvent, type PointerEvent } from "react";
+import { useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import type { CardElement, CardSideSettings } from "@/lib/cards/design/elements";
-import type { CardLayer } from "@/lib/cards/design/layers";
 
 export const SAFE_MARGIN_MM = 3;
 
@@ -22,19 +21,18 @@ export const ELEMENT_LABELS: Record<CardElement, string> = {
 };
 
 export type CanvasInteraction = {
-  /** A built-in item or a layer id. */
-  selected: string | null;
-  onSelect: (key: string) => void;
-  /** Called once when a drag or nudge starts, so it becomes one undo step. */
+  /** Selected built-in item or layer ids (a built-in item is only ever selected alone). */
+  selection: readonly string[];
+  /** Select a built-in item or layer; `additive` (Shift) adds it to, or takes it from, the selection. */
+  onSelect: (key: string, additive?: boolean) => void;
+  /** Called once when a built-in item's drag or nudge starts, so it becomes one undo step. */
   onBeginChange: () => void;
   onMove: (element: CardElement, xMm: number, yMm: number) => void;
-  /** A layer dragged to (xMm, yMm); `snap` to the grid and the card's centre lines. */
-  onLayerMove: (id: string, xMm: number, yMm: number, snap: boolean) => void;
-  onLayerMoveEnd: () => void;
-  onLayerChange: (id: string, patch: Partial<CardLayer>) => void;
-  /** Centre lines a dragged layer has snapped to. */
-  guides: { x: boolean; y: boolean };
+  /** Pointer down on a layer: select it (Shift adds) and start moving the selection. */
+  onLayerPointerDown: (id: string, event: PointerEvent<HTMLElement>) => void;
   showGrid: boolean;
+  /** Drawn over the card, outside its clipping: selection frames, guides and overlays. */
+  overlay?: ReactNode;
 };
 
 /**
@@ -45,7 +43,7 @@ export function useCanvasItems(settings: CardSideSettings, pxPerMm: number, inte
   const [drag, setDrag] = useState<{ element: CardElement; startX: number; startY: number; origin: { xMm: number; yMm: number } } | null>(null);
   return (element: CardElement) => {
     if (!interaction) return {};
-    const selected = interaction.selected === element;
+    const selected = interaction.selection.includes(element);
     return {
       role: "button" as const,
       tabIndex: 0,

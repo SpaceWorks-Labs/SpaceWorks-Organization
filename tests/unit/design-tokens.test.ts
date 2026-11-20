@@ -34,12 +34,12 @@ describe("design tokens", () => {
     expect(globals).toContain("--color-scrim: rgb(var(--sw-color-scrim));");
   });
 
-  it("consults the operating-system colour scheme only in the System boot script, never in CSS", () => {
-    for (const css of [tokens, globals, semantic, charts, motion]) expect(css).not.toContain("prefers-color-scheme");
+  it("never consults the operating-system colour scheme in CSS (Light and Dark only, owner decision 2026-11-19)", () => {
+    for (const css of [tokens, globals, semantic, charts, motion, readFileSync("app/styles/theme-reveal.css", "utf8"), readFileSync("app/styles/fonts.css", "utf8")]) expect(css).not.toContain("prefers-color-scheme");
   });
 
   it("declares each font at its real weight: Outfit 400–700, Gilroy 300 and 800 only, Unbounded 500–600", () => {
-    const faces = [...globals.matchAll(/src: url\("\/brand\/fonts\/([^"]+)"\)[^}]*font-weight: ([^;]+);/g)].map((match) => [match[1], match[2]]);
+    const faces = [...readFileSync("app/styles/fonts.css", "utf8").matchAll(/src: url\("\/brand\/fonts\/([^"]+)"\)[^}]*font-weight: ([^;]+);/g)].map((match) => [match[1], match[2]]);
     expect(faces).toEqual([
       ["Outfit-Variable.woff2", "400 700"],
       ["Gilroy-Light.woff2", "300"],

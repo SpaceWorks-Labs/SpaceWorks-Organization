@@ -17,7 +17,7 @@ export async function acceptOrganisationInvite(input: unknown): Promise<ActionRe
   if (!session?.user?.id) return { ok: false, error: "Sign in before accepting this invite." };
   const token = tokenSchema.safeParse(input);
   if (!token.success) return { ok: false, error: "This invite is unavailable." };
-  if (await isActionRateLimited("invite", session.user.id)) return { ok: false, error: "Too many attempts. Please try again later." };
+  if (await isActionRateLimited("invite", session.user.id)) return { ok: false, error: "Too many attempts. Try again later." };
   // Read from the database: session JWTs can be stale about the verified email.
   const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { email: true, emailVerified: true } });
   if (!user) return { ok: false, error: "Sign in before accepting this invite." };
@@ -43,7 +43,7 @@ export async function startInviteSignup(input: unknown): Promise<ActionResult> {
   const token = tokenSchema.safeParse(input);
   if (!token.success) return { ok: false, error: "This invite is unavailable." };
   if (await currentRequestBlocked()) return { ok: false, error: "Too many failed sign-ins from your network. Try again in an hour." };
-  if (await isActionRateLimited("invite")) return { ok: false, error: "Too many attempts. Please try again later." };
+  if (await isActionRateLimited("invite")) return { ok: false, error: "Too many attempts. Try again later." };
   if (!(await inviteIsOpen(token.data))) return { ok: false, error: "This invite is unavailable." };
   await setInviteCookie(token.data);
   return { ok: true };

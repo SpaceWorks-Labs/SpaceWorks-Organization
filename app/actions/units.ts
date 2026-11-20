@@ -110,8 +110,11 @@ export async function updateUnit(input: unknown): Promise<ActionResult> {
   const access = await structureAccess(parsed.data.organisationSlug);
   if (!access.ok) return access;
   try {
-    const updated = await prisma.orgUnit.updateMany({ where: { id: parsed.data.unitId, organisationId: access.organisation.id }, data: { name: parsed.data.name, code: parsed.data.code } });
-    if (updated.count !== 1) return { ok: false, error: "Unit not found." };
+    await prisma.$transaction(async (tx) => {
+      await lockOrganisationStructure(tx, access.organisation.id);
+      const updated = await tx.orgUnit.updateMany({ where: { id: parsed.data.unitId, organisationId: access.organisation.id }, data: { name: parsed.data.name, code: parsed.data.code } });
+      if (updated.count !== 1) throw new StructureError("Unit not found.");
+    });
   } catch (error) {
     const result = failed(error);
     if (result) return result;
@@ -211,8 +214,17 @@ export async function setUnitPaymentInstructions(input: unknown): Promise<Action
   if (!parsed.success) return { ok: false, error: "Check the highlighted fields.", fieldErrors: flattenZodErrors(parsed.error) };
   const access = await structureAccess(parsed.data.organisationSlug);
   if (!access.ok) return access;
-  const updated = await prisma.orgUnit.updateMany({ where: { id: parsed.data.unitId, organisationId: access.organisation.id }, data: { paymentInstructions: parsed.data.paymentInstructions } });
-  if (updated.count !== 1) return { ok: false, error: "Unit not found." };
+  try {
+    await prisma.$transaction(async (tx) => {
+      await lockOrganisationStructure(tx, access.organisation.id);
+      const updated = await tx.orgUnit.updateMany({ where: { id: parsed.data.unitId, organisationId: access.organisation.id }, data: { paymentInstructions: parsed.data.paymentInstructions } });
+      if (updated.count !== 1) throw new StructureError("Unit not found.");
+    });
+  } catch (error) {
+    const result = failed(error);
+    if (result) return result;
+    throw error;
+  }
   await recordAuditEvent({ action: "UNIT_PAYMENT_INSTRUCTIONS_CHANGED", actorUserId: access.userId, organisationId: access.organisation.id, targetType: "OrgUnit", targetId: parsed.data.unitId });
   await refreshStructure(access.organisation);
   return { ok: true };

@@ -11,7 +11,7 @@ ask_setup_questions() {
   echo '  1) Yes - serve the website and dashboards here.'
   echo '  2) No, backend only - the website runs on Netlify (docs/DEPLOYMENT_NETLIFY.md).'
   question RUN_FRONTEND 'Website' 1 choices:1,2 || return 1
-  SITE_ORIGIN=''; PUBLIC_DOMAIN=''; TLS_EMAIL=''; WEBHOST=''
+  SITE_ORIGIN=''; PUBLIC_DOMAIN=''; TLS_EMAIL=''; WEBHOST=''; CLOUDFLARE_TUNNEL_TOKEN=''
   if [[ "$RUN_FRONTEND" == 2 ]]; then
     question SITE_ORIGIN 'Website URL on Netlify (HTTPS origin)' '' origin || return 1
   fi
@@ -19,15 +19,22 @@ ask_setup_questions() {
   echo '  1) None - plain HTTP for a LAN or trial.'
   echo '  2) Automatic HTTPS - built-in Caddy; point DNS at this server.'
   echo '  3) I already run a reverse proxy - forward HTTPS to this server.'
+  echo '  4) Cloudflare Tunnel - free, no open ports; Cloudflare serves HTTPS (docs/DEPLOYMENT_CLOUDFLARE.md).'
   local https_default=1
   [[ "$RUN_FRONTEND" != 2 ]] || https_default=2
   while true; do
-    question HTTPS_MODE 'HTTPS' "$https_default" choices:1,2,3 || return 1
+    question HTTPS_MODE 'HTTPS' "$https_default" choices:1,2,3,4 || return 1
     [[ "$RUN_FRONTEND" != 2 || "$HTTPS_MODE" != 1 ]] && break
-    echo 'A backend for a Netlify website requires HTTPS. Choose automatic HTTPS or an existing proxy.'
+    echo 'A backend for a Netlify website requires HTTPS. Choose automatic HTTPS, an existing proxy or a Cloudflare Tunnel.'
   done
   if [[ "$HTTPS_MODE" != 1 ]]; then
-    question PUBLIC_DOMAIN 'Public domain (DNS points at this server)' '' domain || return 1
+    if [[ "$HTTPS_MODE" == 4 ]]; then
+      echo 'Create the tunnel first (Cloudflare Zero Trust -> Networks -> Tunnels -> Create, Docker connector); the public hostname must point at HTTP backend:3000.'
+      question PUBLIC_DOMAIN 'Public domain (its Cloudflare DNS record points at the tunnel)' '' domain || return 1
+      question CLOUDFLARE_TUNNEL_TOKEN 'Tunnel token (hidden)' '' tunneltoken || return 1
+    else
+      question PUBLIC_DOMAIN 'Public domain (DNS points at this server)' '' domain || return 1
+    fi
     [[ "$HTTPS_MODE" != 2 ]] || question TLS_EMAIL 'HTTPS certificate email' '' email || return 1
     WEBHOST="$PUBLIC_DOMAIN"
   else
@@ -134,7 +141,7 @@ setup_summary() {
   echo 'Deployment summary'
   local website https storage scheme=https
   [[ "$RUN_FRONTEND" == 1 ]] && website=yes || website="backend only, website at $SITE_ORIGIN"
-  case "$HTTPS_MODE" in 1) https='plain HTTP'; scheme=http ;; 2) https='automatic Caddy HTTPS' ;; 3) https='existing reverse proxy' ;; esac
+  case "$HTTPS_MODE" in 1) https='plain HTTP'; scheme=http ;; 2) https='automatic Caddy HTTPS' ;; 3) https='existing reverse proxy' ;; 4) https='Cloudflare Tunnel (token hidden)' ;; esac
   [[ "$STORAGE" == 1 ]] && storage='bundled Silo' || storage="external S3 bucket $S3_BUCKET at $S3_ENDPOINT (region $S3_REGION, keys hidden)"
   printf '  Website here: %s; HTTPS: %s; storage: %s\n' "$website" "$https" "$storage"
   printf '  Server: %s://%s; certificate email: %s\n' "$scheme" "$WEBHOST" "${TLS_EMAIL:-none}"
@@ -147,11 +154,12 @@ setup_summary() {
   local services='PostgreSQL 16 (TLS), Redis 7 (TLS)'
   [[ "$STORAGE" != 1 ]] || services+=', Silo storage (TLS, bucket initializer)'
   services+=', app, worker, beat'
-  [[ "$HTTPS_MODE" == 3 ]] || services+=', Caddy web edge'
+  case "$HTTPS_MODE" in 3) ;; 4) services+=', cloudflared tunnel connector' ;; *) services+=', Caddy web edge' ;; esac
   echo "  Will run: $services; one-shot migrations."
   case "$HTTPS_MODE" in
     2) echo "  DNS: point $PUBLIC_DOMAIN at this server; ports 80 and 443 must be open." ;;
     3) echo "  Your proxy must forward https://$PUBLIC_DOMAIN to 127.0.0.1:8080, preserving Host, overwriting X-Real-IP and sending X-Forwarded-Proto: https." ;;
+    4) echo "  Cloudflare: the tunnel's public hostname for $PUBLIC_DOMAIN must serve HTTP backend:3000. No ports need to be open on this server." ;;
   esac
   [[ "$RUN_FRONTEND" == 1 ]] || echo "  Then deploy the website on Netlify with BACKEND_ORIGIN=https://$PUBLIC_DOMAIN and the FRONTEND_GATEWAY_SECRET saved in .env."
   echo "  Will perform: ${SETUP_HOST_PLAN:-write private .env and TLS certificates, pull or build images, apply migrations, start services and install the optional GitHub Actions runner}."

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath as nextRevalidatePath } from "next/cache";
 import { trackedRevalidation } from "@/lib/frontend/revalidation";
 import { prisma } from "@/lib/db";
+import { invalidateLoginMethodsCache } from "@/lib/loginMethods";
 import { INSTANCE_SETTINGS_ID } from "@/lib/instanceSettings";
 import { requireSuperAdmin } from "@/lib/permissions";
 import { recordAuditEvent } from "@/lib/audit";
@@ -44,6 +45,7 @@ export async function setNewUserRegistrationEnabled(input: unknown): Promise<Act
     targetId: INSTANCE_SETTINGS_ID,
     metadata: { allowNewUserSignups: parsed.data.allowNewUserSignups },
   });
+  invalidateLoginMethodsCache();
   revalidatePath("/login");
   revalidatePath("/super-admin/auth");
   return { ok: true };
@@ -115,6 +117,7 @@ export async function saveInstanceServiceSettings(input: unknown): Promise<Actio
     action: "INSTANCE_SERVICE_SETTINGS_UPDATED", actorUserId: session.user.id, targetType: "InstanceSetting", targetId: INSTANCE_SETTINGS_ID,
     metadata: { smtpConfigured: Boolean(value.smtpService || value.smtpHost), backupConfigured: Boolean(value.backupProvider) },
   });
+  invalidateLoginMethodsCache();
   revalidatePath("/login");
   revalidatePath("/super-admin/settings");
   revalidatePath("/super-admin/operations");

@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 const sectionCard = "rounded-xl border border-line bg-panel p-5 sm:p-6";
 
 export default async function OrgSettingsPage({ params }: Props) {
-  const { org, canDelete, canEditProfile, canEditPortal } = await loadOrgSettingsView({ params });
+  const { org, canDelete, canEditProfile, canEditPortal, brandColours } = await loadOrgSettingsView({ params });
   return (
     <div className="flex flex-col gap-7">
       <OrgPageHeader
@@ -36,6 +36,7 @@ export default async function OrgSettingsPage({ params }: Props) {
           id="profile"
           organisationSlug={org.slug}
           canEdit={canEditProfile}
+          brandColours={brandColours}
           initial={{
             name: org.name,
             description: org.description ?? "",

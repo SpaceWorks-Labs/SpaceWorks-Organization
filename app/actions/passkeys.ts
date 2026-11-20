@@ -11,7 +11,7 @@ import { loadLoginMethods } from "@/lib/loginMethods";
 import { beginRegistration, finishRegistration, removePasskey as removeOwnPasskey, renamePasskey as renameOwnPasskey } from "@/lib/passkeys/manage";
 import type { ActionResult } from "./org";
 
-const BUSY = "Too many attempts. Please try again later.";
+const BUSY = "Too many attempts. Try again later.";
 const idSchema = z.object({ id: z.string().min(1).max(64) });
 const renameSchema = idSchema.extend({ name: z.string().trim().min(1, "Enter a name.").max(60, "Use 60 characters or fewer.") });
 const attestationSchema = z.object({ id: z.string().min(1).max(1400), rawId: z.string(), type: z.literal("public-key"), response: z.object({}).passthrough() }).passthrough();

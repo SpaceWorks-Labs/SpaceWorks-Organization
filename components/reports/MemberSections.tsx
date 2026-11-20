@@ -3,6 +3,7 @@ import type { OrgReportsMembers } from "@/lib/views/app__dashboard__orgSlug__rep
 import { formatValue } from "@/lib/reports/chartScale";
 import { TermStatusChip } from "@/components/members/TermStatusChip";
 import { buttonClasses } from "@/components/ui/button";
+import { SearchField } from "@/components/ui/search-field";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { cn } from "@/lib/cn";
 import { BarList } from "./charts/BarList";
@@ -94,9 +95,9 @@ export function MemberRegister({ view }: { view: View }) {
             {tab.label}
           </Link>
         ))}
-        <form action={base} className="ml-auto flex min-w-0 gap-2">
+        <form action={base} role="search" className="ml-auto flex min-w-0 gap-2">
           {[...new URLSearchParams(link({ q: "", page: "" }).split("?")[1] ?? "")].map(([key, value]) => <input key={key} type="hidden" name={key} value={value} />)}
-          <input name="q" defaultValue={register.q} placeholder="Name or number" aria-label="Search the register" className="min-h-11 w-44 rounded-control border border-line bg-panel px-3.5 text-sm text-ink placeholder:text-ink-muted" />
+          <SearchField name="q" defaultValue={register.q} placeholder="Name or number" aria-label="Search the register" className="w-56 max-w-full" />
           <button type="submit" className={buttonClasses({ variant: "secondary", size: "sm" })}>Search</button>
         </form>
       </nav>

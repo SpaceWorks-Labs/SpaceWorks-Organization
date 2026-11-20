@@ -127,9 +127,9 @@ jobs:
           set -euo pipefail
           work="$(mktemp -d)"
           cp .env.production.example "$work/cloud.env"
-          for layer in none tls proxy; do
+          for layer in none tls proxy cloudflared; do
             for storage in bundled external; do
-              printf "%s\n" "SWO_LAYER='$layer'" "SWO_STORAGE='$storage'" "TLS_EMAIL='ops@example.test'" > "$work/.env"
+              printf "%s\n" "SWO_LAYER='$layer'" "SWO_STORAGE='$storage'" "TLS_EMAIL='ops@example.test'" "CLOUDFLARE_TUNNEL_TOKEN='test-token'" > "$work/.env"
               grep -v '^SWO_' .env.production.example >> "$work/.env"
               SWO_STATIC_ENV_FILE="$work/.env" scripts/spaceworks-compose.sh bundled config --quiet
               SWO_STATIC_ENV_FILE="$work/.env" SWO_COMPOSE_BUILD_LAYER=1 scripts/spaceworks-compose.sh bundled config --quiet

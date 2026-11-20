@@ -8,6 +8,11 @@ export function validatePlanFieldDefinitions(fields: readonly FieldDef[], otherP
   for (const field of orderedFields(fields)) {
     if (previous.has(field.key)) add(field, "key", "Each question needs its own key");
     if (field.section && (field.type !== "TEXT" || field.required || field.multiple)) add(field, "section", "Sections must be optional text headings");
+    if (field.type === "GROUPING") {
+      if (!field.groupingId) add(field, "groupingId", "Choose a grouping");
+      if (field.section || field.multiple || field.options.length) add(field, "type", "A grouping question takes its choices from the grouping");
+      if (field.showIfKey != null || field.showIfValue != null) add(field, "showIfKey", "A grouping question can't depend on another answer");
+    } else if (field.groupingId) add(field, "groupingId", "Only a grouping question names a grouping");
     if (field.multiple && field.type !== "LONG_TEXT") add(field, "multiple", "Multiple choices need a long-text question");
     if ((field.type === "SELECT" || field.multiple) && field.options.length < 2) add(field, "options", "Give at least two choices");
     if (field.multiple && field.options.some((option) => option.includes(";"))) add(field, "options", "Choices cannot contain semicolons");

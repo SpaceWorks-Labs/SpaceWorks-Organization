@@ -15,7 +15,7 @@ export async function beginMfaEnrollment(): Promise<ActionResult<{ secret: strin
   const session = await requireAuth();
   if (!(await hasRecentAuthentication())) return { ok: false, error: "Sign in again before enabling MFA." };
   if (!session.user.email) return { ok: false, error: "An email address is required to enable MFA." };
-  if (await isActionRateLimited("auth", session.user.id)) return { ok: false, error: "Too many attempts. Please try again later." };
+  if (await isActionRateLimited("auth", session.user.id)) return { ok: false, error: "Too many attempts. Try again later." };
   const current = await prisma.user.findUnique({ where: { id: session.user.id }, select: { mfaSecretEncrypted: true, sessionVersion: true } });
   if (!current || current.mfaSecretEncrypted) return { ok: false, error: "Disable existing MFA before starting a new setup." };
   const enrollment = createMfaEnrollment(session.user.email);
@@ -36,7 +36,7 @@ export async function beginMfaEnrollment(): Promise<ActionResult<{ secret: strin
 export async function confirmMfaEnrollment(input: unknown): Promise<ActionResult<{ recoveryCodes: string[] }>> {
   const session = await requireAuth();
   if (await isActionRateLimited("auth", session.user.id)) {
-    return { ok: false, error: "Too many attempts. Please try again later." };
+    return { ok: false, error: "Too many attempts. Try again later." };
   }
   const parsed = codeSchema.safeParse(input);
   if (!parsed.success || !session.user.email) return { ok: false, error: "Enter a valid authenticator code." };
@@ -79,7 +79,7 @@ export async function confirmMfaEnrollment(input: unknown): Promise<ActionResult
 export async function disableMfa(input: unknown): Promise<ActionResult> {
   const session = await requireAuth();
   if (await isActionRateLimited("auth", session.user.id)) {
-    return { ok: false, error: "Too many attempts. Please try again later." };
+    return { ok: false, error: "Too many attempts. Try again later." };
   }
   const parsed = codeSchema.safeParse(input);
   if (!parsed.success || !session.user.email) return { ok: false, error: "Enter an authenticator or recovery code." };
@@ -104,7 +104,7 @@ export async function disableMfa(input: unknown): Promise<ActionResult> {
 export async function revokeAllSessions(): Promise<ActionResult> {
   const session = await requireAuth();
   if (!(await hasRecentAuthentication())) return { ok: false, error: "Sign in again before revoking sessions." };
-  if (await isActionRateLimited("auth", session.user.id)) return { ok: false, error: "Too many attempts. Please try again later." };
+  if (await isActionRateLimited("auth", session.user.id)) return { ok: false, error: "Too many attempts. Try again later." };
   await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${session.user.id} FOR UPDATE`;
     await tx.user.update({ where: { id: session.user.id }, data: { sessionVersion: { increment: 1 } } });

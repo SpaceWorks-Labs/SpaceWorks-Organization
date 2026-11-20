@@ -10,11 +10,12 @@ import { formatCalendarDate, localDate } from "@/lib/membership/periods";
 import { MembershipPanel } from "@/components/members/MembershipPanel";
 import { membershipViews } from "@/components/members/membershipViews";
 import { MemberProfileForm } from "@/components/members/MemberProfileForm";
-import { answersFor } from "@/lib/membership/profileQuestions";
 import { MemberRolesPicker } from "@/components/members/MemberRolesPicker";
+import { MemberGroupingsPanel } from "@/components/members/MemberGroupingsPanel";
 import { MemberCardPanel } from "@/components/cards/MemberCardPanel";
 import { TermStatusChip } from "@/components/members/TermStatusChip";
 import { ErasureRequestCard } from "@/components/members/ErasureRequestCard";
+import { MemberActivityCard, MemberMessagesCard } from "@/components/members/MemberHistoryCards";
 import { Card, CardHeader } from "@/components/ui/display";
 
 export const metadata: Metadata = { title: "Member", robots: { index: false, follow: false } };
@@ -61,18 +62,19 @@ export default async function MemberPage({ params }: { params: Promise<{ orgSlug
               questions={view.questions}
               disabled={!view.canManage || !view.showContact}
               initial={{
-                name: member.name, email: view.showContact ? member.email : "hidden", phone: view.showContact ? member.phone ?? "" : "",
+                name: member.name, email: member.email ?? "", phone: member.phone ?? "",
                 stateCode: member.stateCode ?? "", unitId: member.unitId ?? "", isMinor: member.isMinor,
                 guardianName: member.guardianName ?? "", guardianEmail: member.guardianEmail ?? "", guardianPhone: member.guardianPhone ?? "",
-                fieldValues: answersFor(view.questions, member.fieldValues),
+                fieldValues: view.answers,
               }}
             />
           </Card>
         </div>
         <div className="flex min-w-0 flex-col gap-6">
-          <MemberCardPanel slug={org.slug} memberId={member.id} memberName={member.name} plans={view.cards} canManage={view.canManageCards} delight={org.delightEnabled} />
+          <MemberCardPanel slug={org.slug} memberId={member.id} memberName={member.name} plans={view.cards} canManage={view.canManageCards} delight={org.delightEnabled} timeZone={tz} />
           <ErasureRequestCard slug={org.slug} requests={member.erasureRequests} anonymisedAt={member.anonymisedAt} canManage={view.canDecideErasure} timeZone={tz} />
           <MemberRolesPicker slug={org.slug} memberId={member.id} roles={view.roles} initial={member.roles.map((a) => a.roleId)} initialPrimary={primary} canManage={view.canManage} />
+          <MemberGroupingsPanel slug={org.slug} memberId={member.id} groupings={view.groupings} initial={view.groupingValues} canManage={view.canManage} />
           <Card as="section" className="rounded-xl">
             <CardHeader title="History" />
             {view.timeline.length === 0 ? <p className="text-body-ui text-ink-muted">Nothing yet.</p> : (
@@ -86,6 +88,8 @@ export default async function MemberPage({ params }: { params: Promise<{ orgSlug
               </ol>
             )}
           </Card>
+          {view.messages ? <MemberMessagesCard messages={view.messages} timeZone={tz} /> : null}
+          {view.activity ? <MemberActivityCard slug={org.slug} memberId={member.id} activity={view.activity} timeZone={tz} /> : null}
           <Card as="section" className="rounded-xl">
             <CardHeader title="Consent" />
             {member.consents.length === 0 ? <p className="text-body-ui text-ink-muted">No consent recorded. Members who join online agree to the privacy notice.</p> : (

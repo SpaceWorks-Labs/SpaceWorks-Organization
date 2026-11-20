@@ -9,6 +9,7 @@ import { CheckboxField } from "@/components/ui/choice";
 import { Callout } from "@/components/ui/display";
 import { Dropdown, Field, Input } from "@/components/ui/field";
 import { PlanAnswerFields, type AnswerState } from "@/components/members/PlanAnswerFields";
+import { GroupingPicker, type PickerGroupingView } from "@/components/members/GroupingPicker";
 import type { ProfilePlan } from "@/lib/membership/profileQuestions";
 
 type MemberProfileValues = {
@@ -22,14 +23,17 @@ type MemberProfileValues = {
  * questions; editing asks the questions of every plan the member holds (`questions`).
  */
 export function MemberProfileForm({
-  slug, memberId, initial, units, questions, plans, unitLabel, disabled,
+  slug, memberId, initial, units, questions, plans, unitLabel, disabled, groupings,
 }: {
   slug: string; memberId?: string; initial: MemberProfileValues; units: Array<{ id: string; name: string; level: number }>;
   questions: ProfilePlan[]; plans?: Array<{ id: string; name: string }>; unitLabel: string; disabled?: boolean;
+  /** Adding only: the groupings to give the new member a value in. */
+  groupings?: PickerGroupingView[];
 }) {
   const router = useRouter();
   const [values, setValues] = useState(initial);
   const [planId, setPlanId] = useState(plans?.[0]?.id ?? "");
+  const [picked, setPicked] = useState<Record<string, string[]>>({});
   const [errors, setErrors] = useState<Record<string, string[] | undefined>>({});
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
@@ -39,7 +43,7 @@ export function MemberProfileForm({
   const submit = () => startTransition(async () => {
     setStatus(null);
     const profile = { ...values, unitId: values.unitId || null, stateCode: values.stateCode || null };
-    const result = memberId ? await updateMember({ organisationSlug: slug, memberId, profile }) : await addMember({ organisationSlug: slug, profile, planId: planId || null });
+    const result = memberId ? await updateMember({ organisationSlug: slug, memberId, profile }) : await addMember({ organisationSlug: slug, profile, planId: planId || null, groupingValueIds: Object.values(picked).flat() });
     setErrors(result.ok ? {} : result.fieldErrors ?? {});
     if (!result.ok) return setStatus({ ok: false, text: result.error });
     if (!memberId && result.data && "memberId" in result.data) return router.push(`/dashboard/${slug}/members/${result.data.memberId}`);
@@ -78,6 +82,7 @@ export function MemberProfileForm({
         ) : null}
       </div>
       <PlanAnswerFields plans={memberId ? questions : questions.filter((plan) => plan.id === planId)} values={values.fieldValues} errors={errors} byManager disabled={disabled} onAnswer={setAnswer} />
+      {!memberId && groupings?.length ? <GroupingPicker groupings={groupings} value={picked} onChange={(id, ids) => setPicked((current) => ({ ...current, [id]: ids }))} /> : null}
       <CheckboxField checked={values.isMinor} disabled={disabled} onCheckedChange={(checked) => set("isMinor", checked === true)} label="Under 18" description="A parent or guardian consents and receives the emails too." />
       {values.isMinor ? (
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">

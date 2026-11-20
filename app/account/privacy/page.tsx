@@ -13,7 +13,7 @@ export default async function AccountPrivacyPage() {
   const { emailVerified, organisations } = await loadAccountPrivacyView();
   return (
     <div className="flex flex-col gap-6">
-      <SectionHeading title="Privacy and your data" description="See what you agreed to, take a copy of your data, or ask for it to be erased." />
+      <SectionHeading as="h1" title="Privacy and your data" description="See what you agreed to, take a copy of your data, or ask for it to be erased." />
       <Card as="section" className="rounded-xl">
         <CardHeader
           titleAs="h3"

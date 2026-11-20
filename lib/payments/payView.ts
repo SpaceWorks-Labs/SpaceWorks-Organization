@@ -22,7 +22,7 @@ export async function buildPayView(termId: string, organisationId: string, searc
   const term = await prisma.membershipTerm.findUniqueOrThrow({
     where: { id: termId },
     include: {
-      plan: { select: { name: true, paymentTiming: true } },
+      plan: { select: { name: true, paymentTiming: true, paymentMode: true } },
       member: { select: { name: true, email: true, stateCode: true, memberNumber: true, unit: { select: { path: true } } } },
       organisation: { select: { id: true, name: true, slug: true, logoUrl: true, status: true, locale: true } },
       payments: { orderBy: { createdAt: "desc" }, take: 10, select: { id: true, status: true, provider: true, utr: true, note: true, paidAt: true, documents: { where: { kind: { not: "CREDIT_NOTE" } }, select: { id: true, number: true } } } },
@@ -32,7 +32,7 @@ export async function buildPayView(termId: string, organisationId: string, searc
     prisma.orgTaxSettings.findUnique({ where: { organisationId: term.organisationId } }),
     prisma.orgPaymentSettings.findUnique({ where: { organisationId: term.organisationId } }),
   ]);
-  const guidance = await loadPaymentGuidance(term.organisationId, term.member.unit?.path, term.currency, settings);
+  const guidance = await loadPaymentGuidance(term.organisationId, term.member.unit?.path, term.currency, settings, term.plan.paymentMode);
   const snapshot = resolveTaxSnapshot(tax, term.currency);
   const lines = chargeLines({ renewal: term.kind === "RENEWAL", rejoining: false, priceMinor: term.priceMinor, joiningFeeMinor: term.joiningFeeMinor, planName: term.plan.name }, snapshot, placeOfSupply(term.member.stateCode, snapshot));
   const total = sumSplits(lines);
@@ -52,6 +52,7 @@ export async function buildPayView(termId: string, organisationId: string, searc
 
   return {
     org: term.organisation,
+    inHandOnly: term.plan.paymentMode === "IN_HAND_ONLY",
     term: { id: term.id, kind: term.kind, currency: term.currency, planName: term.plan.name, status },
     member: { name: term.member.name, email: term.member.email, memberNumber: term.member.memberNumber },
     lines,

@@ -18,7 +18,7 @@ export async function paymentAccess(slug: unknown, capability: Capability): Prom
   if (!result.ok) return result;
   if (await isActionRateLimited("action", result.userId)) return { ok: false, error: "Too many requests. Try again shortly." };
   const org = await prisma.organisation.findUniqueOrThrow({ where: { id: result.organisation.id }, select: ORG_FOR_PAYMENTS });
-  return { ok: true, access: result, scope: await teamScope(org.id, result.membership.unitId), org };
+  return { ok: true, access: result, scope: await teamScope(org.id, result.membership), org };
 }
 
 /** A payment in this organisation whose member the manager may see; null otherwise (treated as not found). */

@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { createMemberRole, updateMemberRole } from "@/app/actions/structure";
+import { useFocusFirstError } from "@/components/forms/focusFirstError";
 import { RoleChip, ROLE_COLORS, roleTone } from "@/components/members/RoleChip";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/dialog";
 import { Callout, Chip, EmptyState } from "@/components/ui/display";
 import { Dropdown, Field, Input } from "@/components/ui/field";
 import { cn } from "@/lib/cn";
@@ -17,23 +19,31 @@ function RoleForm({ slug, units, role, onDone }: { slug: string; units: UnitOpti
   const router = useRouter();
   const [values, setValues] = useState({ name: role?.name ?? "", description: role?.description ?? "", color: role?.color ?? "teal", unitId: role?.unitId ?? "" });
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string[] | undefined>>({});
+  const [confirmArchive, setConfirmArchive] = useState(false);
   const [pending, startTransition] = useTransition();
-  const submit = (archived = false) =>
+  const formRef = useRef<HTMLFormElement>(null);
+  useFocusFirstError(formRef, fieldErrors);
+  // Saving keeps the role's archived state; only the archive button changes it.
+  const submit = (archived = Boolean(role?.archivedAt)) =>
     startTransition(async () => {
       setError(null);
       const payload = { organisationSlug: slug, ...values, unitId: values.unitId || null };
       const result = role ? await updateMemberRole({ ...payload, roleId: role.id, archived }) : await createMemberRole(payload);
-      if (!result.ok) setError(result.error);
-      else {
+      setConfirmArchive(false);
+      if (!result.ok) {
+        setError(result.error);
+        setFieldErrors(result.fieldErrors ?? {});
+      } else {
         router.refresh();
         onDone();
       }
     });
   return (
-    <form className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-4" onSubmit={(event) => { event.preventDefault(); submit(); }}>
+    <form ref={formRef} className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-4" onSubmit={(event) => { event.preventDefault(); submit(); }}>
       {error ? <Callout tone="danger" role="alert">{error}</Callout> : null}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Field label="Role name" required>
+        <Field label="Role name" required error={fieldErrors.name?.[0]}>
           <Input value={values.name} onChange={(event) => setValues({ ...values, name: event.target.value })} maxLength={60} placeholder="Systems Engineer" autoFocus />
         </Field>
         <Field label="Only in unit" optional helperText="Offer this role only to members of one unit.">
@@ -43,7 +53,7 @@ function RoleForm({ slug, units, role, onDone }: { slug: string; units: UnitOpti
           </Dropdown>
         </Field>
       </div>
-      <Field label="Description" optional>
+      <Field label="Description" optional error={fieldErrors.description?.[0]}>
         <Input value={values.description} onChange={(event) => setValues({ ...values, description: event.target.value })} maxLength={200} />
       </Field>
       <fieldset className="flex flex-col gap-2">
@@ -65,11 +75,22 @@ function RoleForm({ slug, units, role, onDone }: { slug: string; units: UnitOpti
         <Button type="submit" variant="primary" loading={pending} disabled={values.name.trim().length < 2}>{role ? "Save role" : "Add role"}</Button>
         <Button type="button" variant="ghost" onClick={onDone}>Cancel</Button>
         {role ? (
-          <Button type="button" variant="dangerQuiet" className="ml-auto" disabled={pending} onClick={() => submit(!role.archivedAt)}>
+          <Button type="button" variant={role.archivedAt ? "secondary" : "dangerQuiet"} className="ml-auto" disabled={pending} onClick={() => (role.archivedAt ? submit(false) : setConfirmArchive(true))}>
             {role.archivedAt ? "Restore role" : "Archive role"}
           </Button>
         ) : null}
       </div>
+      {role ? (
+        <ConfirmDialog
+          open={confirmArchive}
+          title={`Archive ${role.name}?`}
+          message={`${role.members === 0 ? "No members hold this role." : `${role.members === 1 ? "1 member holds" : `${role.members} members hold`} this role. They keep it on their record, but their cards stop using its design and wording.`} Nobody new can be given it until you restore it.`}
+          confirmLabel="Archive role"
+          loading={pending}
+          onConfirm={() => submit(true)}
+          onCancel={() => setConfirmArchive(false)}
+        />
+      ) : null}
     </form>
   );
 }

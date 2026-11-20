@@ -12,7 +12,7 @@ import { PhoneCard } from "@/components/security/PhoneCard";
 import { loadPasskeysView } from "@/lib/views/components__security__passkeys";
 import { securityActivityLabel } from "@/lib/accountSecurity";
 import Link from "next/link";
-import { Callout } from "@/components/ui/display";
+import { Callout, SectionHeading } from "@/components/ui/display";
 import { AccountCard } from "@/components/account/AccountCard";
 
 export const metadata: Metadata = { title: "Account security" };
@@ -23,6 +23,7 @@ export default async function AccountSecurityPage({ searchParams }: { searchPara
   const { hasPassword, superAdmin, authenticatorRequired, isStaff, user, activity, sessions, linked, linkable, recoveryCodesLeft } = await loadAccountSecurityView();
   return (
     <div className="flex flex-col gap-6">
+      <SectionHeading as="h1" title="Security" description="Your password, two-step sign-in, passkeys and where you're signed in." />
       {authenticatorRequired ? (
         <Callout tone="warning" title="Set up an authenticator app to open the dashboard">
           You&apos;re on an organisation&apos;s team, so your account needs an authenticator app (such as Google Authenticator, Microsoft Authenticator or 1Password). Turn on two-step sign-in below. Members&apos; accounts don&apos;t need one.

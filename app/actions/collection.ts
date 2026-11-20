@@ -8,6 +8,7 @@ import { parseDayKey } from "@/lib/reports/period";
 import { OFFLINE_METHODS } from "@/lib/payments/offline-methods";
 import { paymentAccess } from "@/lib/payments/actionContext";
 import { COLLECTION_MAX_ROWS, recordCollectionRows, type CollectionResult } from "@/lib/payments/collection";
+import { membershipChanged } from "@/lib/membership/afterChange";
 import type { ActionResult } from "./org";
 
 const revalidatePath = trackedRevalidation(nextRevalidatePath);
@@ -37,6 +38,8 @@ export async function recordCollection(input: unknown): Promise<ActionResult<{ r
   const key = (date: { year: number; month: number; day: number }) => date.year * 10_000 + date.month * 100 + date.day;
   if (!receivedOn || key(receivedOn) > key(today) || key(receivedOn) < key(yearAgo)) return { ok: false, error: "Choose a day in the last year, not in the future.", fieldErrors: { receivedOn: ["Not a day in the last year"] } };
   const results = await recordCollectionRows(ctx, { method: parsed.data.method, receivedOn, rows: parsed.data.rows });
+  // Each row committed on its own; refresh public counts and analytics once for the sheet.
+  await membershipChanged(ctx.org.id);
   revalidatePath(`/dashboard/${ctx.org.slug}/payments`);
   revalidatePath(`/dashboard/${ctx.org.slug}/payments/collect`);
   revalidatePath(`/dashboard/${ctx.org.slug}`);

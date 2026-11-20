@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { can, requireOrgCapability } from "@/lib/permissions";
+import { can, isScopedActor, requireOrgCapability } from "@/lib/permissions";
 import { addMonths, financialYearLabel, financialYearStart, localDate, startOfLocalDay, type CalendarDate } from "@/lib/membership/periods";
 import { receiptsAndPayments } from "@/lib/accounts/statement";
 
@@ -18,7 +18,7 @@ export async function loadAccountsView({ params, searchParams }: { params: Promi
     where: { id: organisation.id },
     select: { id: true, name: true, slug: true, logoUrl: true, timezone: true, financialYearStartMonth: true, currency: true, locale: true, createdAt: true, taxSettings: { select: { mode: true, simpleTaxName: true } } },
   });
-  const scoped = Boolean(membership.unitId);
+  const scoped = isScopedActor(membership);
   const now = new Date();
   const current = financialYearStart(localDate(now, org.timezone), org.financialYearStartMonth);
   const first = financialYearStart(localDate(org.createdAt, org.timezone), org.financialYearStartMonth);

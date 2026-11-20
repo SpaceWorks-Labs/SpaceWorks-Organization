@@ -13,7 +13,7 @@ const confirmSchema = numberSchema.extend({ code: z.string().trim().min(6).max(1
 /** Common to all three: a live session, signed in recently, and the per-person limits. */
 async function gate(bucket: "auth" | "smsCode"): Promise<{ userId: string } | { error: string }> {
   const session = await requireAuth();
-  if (await isActionRateLimited(bucket, session.user.id)) return { error: "Too many attempts. Please try again later." };
+  if (await isActionRateLimited(bucket, session.user.id)) return { error: "Too many attempts. Try again later." };
   if (!(await hasRecentAuthentication())) return { error: "Sign in again before changing your phone number." };
   return { userId: session.user.id };
 }

@@ -2,6 +2,7 @@ import "server-only";
 
 import crypto from "node:crypto";
 import { parsePhoneNumberFromString } from "libphonenumber-js/max";
+import { safeEqual } from "@/lib/safeEqual";
 
 export type ParsedPhone = { e164: string; country: string };
 
@@ -36,9 +37,7 @@ export function codeHash(rowId: string, code: string) {
 }
 
 export function hashesMatch(a: string, b: string) {
-  const left = Buffer.from(a, "hex");
-  const right = Buffer.from(b, "hex");
-  return left.length > 0 && left.length === right.length &&crypto.timingSafeEqual(left, right);
+  return safeEqual(a, b, "hex");
 }
 
 /** "+91 ••••• ••210": enough for the owner to recognise their number, not enough to use it. */

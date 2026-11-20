@@ -4,9 +4,9 @@
  */
 
 /** Where a column's values go. Custom plan questions use "field:<key>". */
-export type ImportTarget = "skip" | "name" | "email" | "phone" | "state" | "unit" | "role" | `field:${string}`;
+export type ImportTarget = "skip" | "name" | "email" | "phone" | "state" | "unit" | "role" | `field:${string}` | `grouping:${string}`;
 
-const ALIASES: Record<Exclude<ImportTarget, "skip" | `field:${string}`>, string[]> = {
+const ALIASES: Record<Exclude<ImportTarget, "skip" | `field:${string}` | `grouping:${string}`>, string[]> = {
   name: ["name", "full name", "member name", "member"],
   email: ["email", "email address", "e-mail", "mail"],
   phone: ["phone", "mobile", "phone number", "mobile number", "contact", "whatsapp"],
@@ -18,7 +18,7 @@ const ALIASES: Record<Exclude<ImportTarget, "skip" | `field:${string}`>, string[
 const normalise = (value: string) => value.trim().toLowerCase().replace(/[_\-.]+/g, " ").replace(/\s+/g, " ");
 
 /** Guess where each column goes from its header. Every target is used at most once. */
-export function suggestMapping(headers: string[], fieldKeys: Array<{ key: string; label: string }>): ImportTarget[] {
+export function suggestMapping(headers: string[], fieldKeys: Array<{ key: string; label: string }>, groupings: Array<{ key: string; name: string }> = []): ImportTarget[] {
   const used = new Set<string>();
   return headers.map((header) => {
     const h = normalise(header);
@@ -33,6 +33,11 @@ export function suggestMapping(headers: string[], fieldKeys: Array<{ key: string
       used.add(`field:${field.key}`);
       return `field:${field.key}` as ImportTarget;
     }
+    const grouping = groupings.find((entry) => normalise(entry.key) === h || normalise(entry.name) === h);
+    if (grouping && !used.has(`grouping:${grouping.key}`)) {
+      used.add(`grouping:${grouping.key}`);
+      return `grouping:${grouping.key}` as ImportTarget;
+    }
     return "skip";
   });
 }
@@ -45,6 +50,8 @@ export type ImportRow = {
   unit: string | null;
   role: string | null;
   fieldValues: Record<string, string>;
+  /** Cells of grouping columns by grouping key: a value's label or code (several joined by ";"). */
+  groupings: Record<string, string>;
 };
 
 /** One row's values by target. Returns an error message instead when the row can't be imported. */
@@ -62,6 +69,10 @@ export function readRow(cells: string[], mapping: ImportTarget[]): ImportRow | {
   mapping.forEach((target, index) => {
     if (target.startsWith("field:") && cells[index]?.trim()) fieldValues[target.slice(6)] = cells[index].trim().slice(0, 2000);
   });
+  const groupings: Record<string, string> = {};
+  mapping.forEach((target, index) => {
+    if (target.startsWith("grouping:") && cells[index]?.trim()) groupings[target.slice(9)] = cells[index].trim().slice(0, 500);
+  });
   const state = value("state").toUpperCase();
   return {
     name: name.slice(0, 120),
@@ -71,15 +82,17 @@ export function readRow(cells: string[], mapping: ImportTarget[]): ImportRow | {
     unit: value("unit") || null,
     role: value("role") || null,
     fieldValues,
+    groupings,
   };
 }
 
 /** `questionKeys`: the keys of the questions columns may fill (every plan's, never sections). */
-export function mappingIsUsable(mapping: ImportTarget[], questionKeys?: ReadonlySet<string>): string | null {
+export function mappingIsUsable(mapping: ImportTarget[], questionKeys?: ReadonlySet<string>, groupingKeys?: ReadonlySet<string>): string | null {
   if (!mapping.includes("email")) return "Choose which column holds the email address.";
   if (!mapping.includes("name")) return "Choose which column holds the name.";
   const chosen = mapping.filter((target) => target !== "skip");
   if (new Set(chosen).size !== chosen.length) return "Each detail can come from only one column.";
   if (questionKeys && chosen.some((target) => target.startsWith("field:") && !questionKeys.has(target.slice(6)))) return "Match columns only to questions a plan asks.";
+  if (groupingKeys && chosen.some((target) => target.startsWith("grouping:") && !groupingKeys.has(target.slice(9)))) return "Match columns only to groupings this organisation has.";
   return null;
 }

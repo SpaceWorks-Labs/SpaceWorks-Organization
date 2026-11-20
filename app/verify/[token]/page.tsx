@@ -33,7 +33,7 @@ function checked(at: Date, timeZone = "UTC") {
 
 function Plain({ title, word, children, tone = "neutral" }: { title: string; word: string; children: React.ReactNode; tone?: "neutral" | "danger" }) {
   return (
-    <section className={cn("flex flex-col items-center gap-3 rounded-2xl border p-8 text-center", styles.arrive, tone === "danger" ? "border-danger-border bg-danger-bg" : "border-line bg-panel")}>
+    <section className={cn("flex flex-col items-center gap-3 rounded-xl border p-8 text-center", styles.arrive, tone === "danger" ? "border-danger-border bg-danger-bg" : "border-line bg-panel")}>
       <Chip tone={tone}>{word}</Chip>
       {tone === "danger" ? <ShieldX aria-hidden className="size-10 text-danger-fg" /> : <CircleAlert aria-hidden className="size-10 text-ink-muted" />}
       <h1 className={cn("text-h2", tone === "danger" ? "text-danger-fg" : "text-ink")}>{title}</h1>
@@ -53,7 +53,7 @@ function MemberVerdict({ view, images }: { view: MemberView; images: CardImages 
         <OrgLogo name={view.organisationName} src={view.organisationLogoUrl} size="md" />
         <p className="min-w-0 text-label font-semibold text-ink">{view.organisationName}</p>
       </header>
-      <section aria-labelledby="verdict" className={cn("flex flex-col gap-5 rounded-2xl border p-6", styles.arrive, tone.panel)}>
+      <section aria-labelledby="verdict" className={cn("flex flex-col gap-5 rounded-xl border p-6", styles.arrive, tone.panel)}>
         <span className={cn("w-fit", view.verdict === "valid" && styles.stamp)}><Chip tone={tone.chip}>{tone.word}</Chip></span>
         <div className={cn("flex items-center gap-3", tone.text)}>
           <tone.Icon aria-hidden className="size-9 shrink-0" />
@@ -83,9 +83,9 @@ function MemberVerdict({ view, images }: { view: MemberView; images: CardImages 
       {images ? (
         <section aria-label="Membership card" className="flex flex-col gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element -- drawn on demand for this check, never cached */}
-          <img src={images.front} alt={`Front of ${view.name}'s membership card`} className="h-auto w-full rounded-xl shadow-md" />
+          <img src={images.front} alt={`Front of ${view.name}'s membership card`} width={1011} height={638} className="h-auto w-full rounded-xl" />
           {/* eslint-disable-next-line @next/next/no-img-element -- drawn on demand for this check, never cached */}
-          {images.back ? <img src={images.back} alt={`Back of ${view.name}'s membership card`} className="h-auto w-full rounded-xl shadow-md" /> : null}
+          {images.back ? <img src={images.back} alt={`Back of ${view.name}'s membership card`} width={1011} height={638} className="h-auto w-full rounded-xl" /> : null}
         </section>
       ) : null}
     </>

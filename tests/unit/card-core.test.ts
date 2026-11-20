@@ -60,18 +60,18 @@ describe("card artwork", () => {
 
 describe("bulk export filter", () => {
   it("keeps only known values", () => {
-    expect(parseExportFilter({ status: "active", planId: "p1", unitId: "bad id!", roleId: 5, q: "  priya  " })).toEqual({ status: "active", planId: "p1", unitId: null, roleId: null, q: "priya" });
+    expect(parseExportFilter({ status: "active", planId: "p1", unitId: "bad id!", roleId: 5, q: "  priya  " })).toEqual({ status: "active", planId: "p1", unitId: null, roleId: null, q: "priya", valueId: null, smartGroupId: null });
     expect(parseExportFilter("nonsense").status).toBe("all");
   });
 
   it("selects live cards inside the requester's scope", () => {
-    const where = exportCardsWhere({ organisationId: "org1", unitId: "u1", unitPath: "root/u1" }, parseExportFilter({ planId: "p1" }), { contact: true });
+    const where = exportCardsWhere({ organisationId: "org1", unitId: "u1", unitPath: "root/u1", limits: [] }, parseExportFilter({ planId: "p1" }), { contact: true });
     expect(where).toMatchObject({ organisationId: "org1", revokedAt: null, planId: "p1" });
     expect(JSON.stringify(where.member)).toContain("root/u1");
   });
 
   it("searches email only for staff who may see contact details", () => {
-    const scope = { organisationId: "org1", unitId: null, unitPath: null };
+    const scope = { organisationId: "org1", unitId: null, unitPath: null, limits: [] };
     expect(JSON.stringify(exportCardsWhere(scope, parseExportFilter({ q: "gmail" }), { contact: true }).member)).toContain("email");
     expect(JSON.stringify(exportCardsWhere(scope, parseExportFilter({ q: "gmail" }), { contact: false }).member)).not.toContain("email");
   });

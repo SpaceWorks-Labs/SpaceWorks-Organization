@@ -71,8 +71,12 @@ type CardPalette = {
   tile: string;
   qrDark: string;
   qrLight: string;
+  /** A soft tint of the accent behind the initials when there is no photo. */
   photoPlaceholder: string;
+  /** The initials: the accent itself, deepened or lightened until it reaches 4.5:1 on the tint. */
   onPhotoPlaceholder: string;
+  /** A hairline round the photo or its placeholder. */
+  photoBorder: string;
   symbol: CardSymbolVariant;
   /** True when the chosen text colour failed the contrast check and was replaced. */
   textAdjusted: boolean;
@@ -122,6 +126,16 @@ function bandSafe(accent: string) {
   return BRAND.ink;
 }
 
+/** `colour` moved towards Deep Ink or white, whichever the surface needs, until it reads on it. */
+function readableTint(colour: string, surface: string) {
+  const target = relativeLuminance(surface) > 0.18 ? BRAND.ink : BRAND.white;
+  for (let step = 0; step <= 20; step += 1) {
+    const candidate = mix(target, colour, step * 0.05);
+    if (contrastRatio(candidate, surface) >= CARD_TEXT_CONTRAST) return candidate;
+  }
+  return target;
+}
+
 export function resolveCardPalette(
   input: { colorMode: CardColorMode; backgroundColor: CardBackgroundKey; accentColor: CardAccentKey; textColor: CardTextKey; customColours?: CardCustomColours },
   orgAccent: string | null | undefined,
@@ -137,8 +151,9 @@ export function resolveCardPalette(
       tile: BRAND.white,
       qrDark: MONO_INK,
       qrLight: BRAND.white,
-      photoPlaceholder: MONO_INK,
-      onPhotoPlaceholder: BRAND.white,
+      photoPlaceholder: BRAND.white,
+      onPhotoPlaceholder: MONO_INK,
+      photoBorder: MONO_INK,
       symbol: "ink",
       textAdjusted: false,
     };
@@ -154,6 +169,7 @@ export function resolveCardPalette(
   const text = textAdjusted ? automatic : chosen;
   const onAccent = readableOn(accent, [BRAND.cream, BRAND.ink, BRAND.white]);
   const lightBackground = relativeLuminance(background) > 0.4;
+  const photoPlaceholder = mix(accent, background, relativeLuminance(background) > 0.18 ? 0.16 : 0.3);
   return {
     background,
     text,
@@ -165,8 +181,9 @@ export function resolveCardPalette(
     tile: BRAND.white,
     qrDark: BRAND.ink,
     qrLight: BRAND.white,
-    photoPlaceholder: accent,
-    onPhotoPlaceholder: onAccent,
+    photoPlaceholder,
+    onPhotoPlaceholder: readableTint(accent, photoPlaceholder),
+    photoBorder: mix(text, background, 0.22),
     // Brand rules: one-colour ink on white, full colour on light brand colours, reversed on dark.
     symbol: background === BRAND.white ? "ink" : lightBackground ? "full" : "reversed",
     textAdjusted,

@@ -1,0 +1,28 @@
+/*
+ * Theme reveal (lib/themeTransition.ts), ported from SpaceWorks-Design motion/theme-reveal/react/themeTransition.css
+ * (current rule v2.0.1, CR-MOTION-01): the new theme's page snapshot is revealed as a circle growing from the toggle
+ * over --sw-theme-duration (slow × 3 = 720ms; the named non-blocking exception). The old snapshot stays still.
+ * Only active while .sw-theme-reveal is on <html>, so other view transitions keep their own animation. Without View
+ * Transitions, and under reduced motion, the theme changes immediately (no per-surface fade).
+ */
+:root {
+  --sw-theme-duration: calc(var(--sw-dur-slow) * 3);
+}
+
+.sw-theme-reveal::view-transition-old(root),
+.sw-theme-reveal::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+.sw-theme-reveal::view-transition-new(root) {
+  z-index: 1;
+}
+
+/* The new snapshot is live: hold every colour transition while the circle grows so no control (the toggle at the
+   circle's centre above all, kit v2.5.1) is drawn in the old theme's colours inside the new one. */
+.sw-theme-reveal *,
+.sw-theme-reveal *::before,
+.sw-theme-reveal *::after {
+  transition-property: none !important;
+}

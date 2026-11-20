@@ -6,6 +6,10 @@ import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { createSafeWebpDerivative } from "@/lib/imageValidation";
 import { getPublicUrl, uploadFile } from "@/lib/storage";
 import { recordAuditEvent } from "@/lib/audit";
+import { storeOrganisationLogo } from "@/lib/logo/store";
+import { renderLogoFile } from "@/lib/logo/render";
+import { validateLogoSpec } from "@/lib/logo/spec";
+import { LOGO_ICON_IDS } from "@/lib/logo/icons";
 import type { ActionResult } from "./org";
 
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -24,37 +28,34 @@ async function imageFile(formData: FormData) {
   return derivative;
 }
 
+/** Access, rate limit, store and audit for every way of setting an organisation logo. */
+async function storeLogo(slug: unknown, action: "ORGANISATION_LOGO_UPLOADED" | "ORGANISATION_LOGO_GENERATED", file: () => Promise<unknown>): Promise<ActionResult<{ url: string }>> {
+  // `org.settings` is org-wide to change: staff limited to one unit can't change the logo.
+  const access = await orgActionAccess(String(slug ?? "").trim(), "org.settings");
+  if (!access.ok) return access;
+  if (await isActionRateLimited("upload", access.userId))
+    return { ok: false, error: "Too many uploads. Try again later." };
+  const org = access.organisation;
+  const stored = await storeOrganisationLogo(org.id, await file());
+  if (!stored.ok) return stored;
+  await recordAuditEvent({ action, actorUserId: access.userId, organisationId: org.id, targetType: "Organisation", targetId: org.id });
+  return { ok: true, data: { url: stored.url } };
+}
+
 export async function uploadOrganisationLogo(
   formData: FormData,
 ): Promise<ActionResult<{ url: string }>> {
-  // `org.settings` is org-wide to change: staff limited to one unit can't change the logo.
-  const access = await orgActionAccess(String(formData.get("organisationSlug") ?? "").trim(), "org.settings");
-  if (!access.ok) return access;
-  if (await isActionRateLimited("upload", access.userId))
-    return { ok: false, error: "Too many uploads. Please try again later." };
-  const org = access.organisation;
-  const derivative = await imageFile(formData);
-  if ("error" in derivative) return { ok: false, error: derivative.error };
-  try {
-    const key = `organisations/${org.id}/organisation-logos/${crypto.randomUUID()}.webp`;
-    await uploadFile({
-      key,
-      body: derivative.body,
-      contentType: "image/webp",
-      organisationId: org.id,
-    });
-    await recordAuditEvent({
-      action: "ORGANISATION_LOGO_UPLOADED",
-      actorUserId: access.userId,
-      organisationId: org.id,
-      targetType: "Organisation",
-      targetId: org.id,
-    });
-    return { ok: true, data: { url: getPublicUrl(key) } };
-  } catch {
-    console.error("[media] organisation logo upload failed");
-    return { ok: false, error: "Could not upload the organisation logo." };
-  }
+  return storeLogo(formData.get("organisationSlug"), "ORGANISATION_LOGO_UPLOADED", async () => formData.get("file"));
+}
+
+/**
+ * Draw a logo from the logo maker's spec on the server (text as fontkit outlines, never system fonts) and store
+ * it like an upload. The profile form then saves the returned URL as the logo.
+ */
+export async function saveGeneratedLogo(input: { organisationSlug: string; spec: unknown }): Promise<ActionResult<{ url: string }>> {
+  const parsed = validateLogoSpec(input?.spec, LOGO_ICON_IDS);
+  if (!parsed.ok) return parsed;
+  return storeLogo(input.organisationSlug, "ORGANISATION_LOGO_GENERATED", () => renderLogoFile(parsed.spec).catch(() => null));
 }
 
 export async function uploadAccountProfileImage(
@@ -63,7 +64,7 @@ export async function uploadAccountProfileImage(
   const session = await auth();
   if (!session?.user?.id) return { ok: false, error: "You must be signed in." };
   if (await isActionRateLimited("upload", session.user.id))
-    return { ok: false, error: "Too many uploads. Please try again later." };
+    return { ok: false, error: "Too many uploads. Try again later." };
   const derivative = await imageFile(formData);
   if ("error" in derivative) return { ok: false, error: derivative.error };
   try {

@@ -3,13 +3,14 @@ import "server-only";
 import type { OrgPaymentSettings } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { gatewayTakes } from "./config";
+import { allowsGateway, type PaymentMode } from "./paymentMode";
 import { paymentSecretsConfigured } from "./secrets";
 import { paymentGuidance, type PaymentGuidance } from "./unitInstructions";
 
 type Settings = Pick<OrgPaymentSettings, "provider" | "offlineInstructions" | "secretEncrypted"> | null;
 
 /** Whether members can pay online in this currency: a gateway is chosen, its keys are saved and readable, and it takes the currency. */
-export function gatewayUsable(settings: Pick<OrgPaymentSettings, "provider" | "secretEncrypted"> | null, currency: string) {
+function gatewayUsable(settings: Pick<OrgPaymentSettings, "provider" | "secretEncrypted"> | null, currency: string) {
   return Boolean(settings && settings.provider !== "NONE" && settings.secretEncrypted && paymentSecretsConfigured() && gatewayTakes(settings.provider, currency));
 }
 
@@ -24,12 +25,12 @@ export async function unitChain(organisationId: string, unitPath: string | null 
 
 /**
  * How a member of `unitPath` pays a fee in `currency` offline. Pass the organisation's payment settings when
- * already loaded (null when it has none); they are read otherwise.
+ * already loaded (null when it has none); they are read otherwise. A plan paid in hand only never uses the gateway.
  */
-export async function loadPaymentGuidance(organisationId: string, unitPath: string | null | undefined, currency: string, settings?: Settings): Promise<PaymentGuidance> {
+export async function loadPaymentGuidance(organisationId: string, unitPath: string | null | undefined, currency: string, settings?: Settings, mode: PaymentMode = "ONLINE_OR_IN_HAND"): Promise<PaymentGuidance> {
   const [chain, found] = await Promise.all([
     unitChain(organisationId, unitPath),
     settings === undefined ? prisma.orgPaymentSettings.findUnique({ where: { organisationId }, select: { provider: true, offlineInstructions: true, secretEncrypted: true } }) : Promise.resolve(settings),
   ]);
-  return paymentGuidance({ chain, orgInstructions: found?.offlineInstructions ?? "", online: gatewayUsable(found, currency) });
+  return paymentGuidance({ chain, orgInstructions: found?.offlineInstructions ?? "", online: allowsGateway(mode) && gatewayUsable(found, currency) });
 }

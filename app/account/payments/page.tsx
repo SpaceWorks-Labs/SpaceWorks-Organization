@@ -16,7 +16,7 @@ export default async function AccountPaymentsPage() {
   const { emailVerified, payments } = await loadAccountPaymentsView();
   return (
     <div className="flex flex-col gap-6">
-      <SectionHeading title="Payments and receipts" description="What you've paid each organisation, with every receipt and credit note." />
+      <SectionHeading as="h1" title="Payments and receipts" description="What you've paid each organisation, with every receipt and credit note." />
       {!emailVerified ? (
         <Callout tone="warning" title="Verify your email to see your payments" action={<Link href="/account/profile" className={buttonClasses({ variant: "secondary", size: "sm" })}>Verify your email</Link>}>
           Organisations know you by your email address, so your payments show once it&apos;s verified.

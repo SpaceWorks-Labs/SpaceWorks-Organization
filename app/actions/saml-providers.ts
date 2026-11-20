@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath as nextRevalidatePath } from "next/cache";
 import { trackedRevalidation } from "@/lib/frontend/revalidation";
 import { prisma } from "@/lib/db";
+import { invalidateLoginMethodsCache } from "@/lib/loginMethods";
 import { requireSuperAdmin } from "@/lib/permissions";
 import { recordAuditEvent } from "@/lib/audit";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
@@ -69,6 +70,7 @@ export async function saveSamlProvider(input: unknown): Promise<ActionResult> {
     const created = await prisma.samlProvider.create({ data, select: { id: true } });
     await recordAuditEvent({ action: "SAML_PROVIDER_CREATED", actorUserId: session.user.id, targetType: "SamlProvider", targetId: created.id, metadata: { slug: value.slug, enabled: value.enabled } });
   }
+  invalidateLoginMethodsCache();
   revalidatePath("/login");
   revalidatePath("/super-admin/auth");
   return { ok: true };
@@ -85,6 +87,7 @@ export async function deleteSamlProvider(id: string): Promise<ActionResult> {
     return { removed: gone.count, links: unlinked.count };
   });
   if (removed) await recordAuditEvent({ action: "SAML_PROVIDER_REMOVED", actorUserId: session.user.id, targetType: "SamlProvider", targetId: providerId, metadata: { linksRemoved: links } });
+  invalidateLoginMethodsCache();
   revalidatePath("/login");
   revalidatePath("/super-admin/auth");
   return { ok: true };

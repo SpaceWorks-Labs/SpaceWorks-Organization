@@ -1,6 +1,7 @@
 import "server-only";
 
 import { X509Certificate, createPublicKey } from "crypto";
+import { assertPublicHost, PrivateHostError } from "@/lib/net/publicHost";
 
 export type SamlTestResult = { ok: true; notes: string[] } | { ok: false; error: string };
 
@@ -47,6 +48,12 @@ export async function testSamlConfig(input: { idpCertificate: string; ssoUrl: st
   if (input.metadataUrl) {
     if (!isHttps(input.metadataUrl)) return { ok: false, error: "The metadata address must start with https://." };
     let xml: string;
+    try {
+      await assertPublicHost(new URL(input.metadataUrl).hostname);
+    } catch (error) {
+      if (error instanceof PrivateHostError) return { ok: false, error: error.message };
+      return { ok: false, error: "The metadata address isn't valid." };
+    }
     try {
       const response = await fetchImpl(input.metadataUrl, { headers: { Accept: "application/samlmetadata+xml, application/xml, text/xml" }, redirect: "error", signal: AbortSignal.timeout(8_000) });
       if (!response.ok) return { ok: false, error: `The metadata address answered ${response.status}.` };

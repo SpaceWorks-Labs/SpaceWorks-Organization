@@ -5,6 +5,7 @@ import type { CacheItem, CacheProvider } from "@node-saml/node-saml";
 import { prisma } from "@/lib/db";
 import { safeAuthRedirect } from "@/lib/authRedirect";
 import { flowHash } from "./flow";
+import { safeEqual } from "@/lib/safeEqual";
 
 const REQUEST_TTL_MS = 10 * 60_000;
 const TICKET_TTL_MS = 2 * 60_000;
@@ -29,8 +30,7 @@ export function readRelayState(value: string | null | undefined, now = Date.now(
   const [body, mac] = (value ?? "").split(".");
   if (!body || !mac) return "/dashboard";
   const expected = crypto.createHmac("sha256", relayKey()).update(body).digest();
-  const given = Buffer.from(mac, "base64url");
-  if (given.length !== expected.length || !crypto.timingSafeEqual(given, expected)) return "/dashboard";
+  if (!safeEqual(mac, expected.toString("base64url"), "base64url")) return "/dashboard";
   try {
     const parsed = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as { c?: string; e?: number };
     return typeof parsed.e === "number" && parsed.e > now ? safeAuthRedirect(parsed.c) : "/dashboard";

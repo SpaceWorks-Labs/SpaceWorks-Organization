@@ -1,10 +1,5 @@
 import crypto from "node:crypto";
-
-const safeEqual = (a: string, b: string) => {
-  // Hash first so the comparison is constant-time whatever the lengths.
-  const digest = (value: string) => crypto.createHash("sha256").update(value).digest();
-  return crypto.timingSafeEqual(digest(a), digest(b)) && a.length === b.length;
-};
+import { safeEqual } from "@/lib/safeEqual";
 
 /**
  * Twilio signs a delivery report with HMAC-SHA1 over the full address it called, followed by every form field as

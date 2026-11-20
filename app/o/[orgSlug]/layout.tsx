@@ -18,8 +18,8 @@ export async function generateMetadata({ params }: { params: Promise<{ orgSlug: 
   return {
     title: { default: org.name, template: `%s · ${org.name}` },
     description: (org.page?.publishedAt && org.page.tagline) || org.description.slice(0, 160) || `${org.name} memberships`,
-    // Unlisted organisations are reachable by link but stay out of search engines.
-    robots: org.visibility === "PUBLIC" ? undefined : { index: false, follow: false },
+    // Unlisted and suspended organisations are reachable by link but stay out of search engines.
+    robots: org.visibility === "PUBLIC" && org.status === "ACTIVE" ? undefined : { index: false, follow: false },
   };
 }
 

@@ -38,4 +38,12 @@ describe("public derivative route", () => {
     expect(response.headers.get("cache-control")).toContain("immutable");
     expect(mocks.download).toHaveBeenCalledWith(key);
   });
+
+  it("never lets a shared cache keep a member photo", async () => {
+    for (const key of [`organisations/org_1/members/mem_1/photo-${uuid}.webp`, `organisations/org_1/member-id-photos/${uuid}.webp`]) {
+      const response = await GET(new NextRequest(`https://members.example.test/api/uploads/${key}`), { params: Promise.resolve({ key: key.split("/") }) });
+      expect(response.status).toBe(200);
+      expect(response.headers.get("cache-control")).toBe("private, no-store");
+    }
+  });
 });

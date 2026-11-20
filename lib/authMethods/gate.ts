@@ -18,7 +18,7 @@ function publicUrl(path: string, requestUrl: string) {
 }
 
 /** The refusal for any signed-in-with-a-redirect URL (the start of a sign-in, or its callback) of a method that is off. */
-export function methodDisabledResponse(request: Request) {
+function methodDisabledResponse(request: Request) {
   const target = publicUrl("/login?error=method_disabled", request.url);
   // Auth.js's own client asks for the address as JSON; everything else follows the redirect.
   if (request.headers.get("x-auth-return-redirect") === "1") return NextResponse.json({ url: target.href });

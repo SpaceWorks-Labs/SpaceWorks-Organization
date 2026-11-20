@@ -4,14 +4,15 @@ import { revalidatePath as nextRevalidatePath } from "next/cache";
 import { trackedRevalidation } from "@/lib/frontend/revalidation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { can, getMembership, hasAuthenticator, STAFF_AUTHENTICATOR_MESSAGE } from "@/lib/permissions";
-import { deleteOrganisationSchema, removeTeamMemberSchema, teamMemberUnitSchema, updateTeamRoleSchema } from "@/lib/validators";
+import { can, getMembership, hasAuthenticator, isScopedActor, STAFF_AUTHENTICATOR_MESSAGE } from "@/lib/permissions";
+import { deleteOrganisationSchema, removeTeamMemberSchema, teamMemberGroupingsSchema, teamMemberUnitSchema, updateTeamRoleSchema } from "@/lib/validators";
 import type { ActionResult } from "./org";
 import { flattenZodErrors } from "./utils";
 import { canDeleteInStatus } from "@/lib/organisationLifecycle";
 import { recordAuditEvent } from "@/lib/audit";
 import { hasRecentAuthentication } from "@/lib/reauth";
-import { liveUnit, lockGrantableRole, mayGrant } from "@/lib/team/granting";
+import { asLimits, loadScopeValues } from "@/lib/groupings/scopeValues";
+import { limitPaths, liveUnit, lockGrantableRole, mayGrant } from "@/lib/team/granting";
 import { manageableTarget, refreshTeam, teamAccess, teamChange, TeamError } from "@/lib/team/members";
 import { roleColumns } from "@/lib/team/roles";
 
@@ -20,7 +21,7 @@ const revalidatePath = trackedRevalidation(nextRevalidatePath);
 /** Give a staff member another of the organisation's roles, at the reach they already hold. */
 export async function updateTeamRole(input: unknown): Promise<ActionResult> {
   const parsed = updateTeamRoleSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Invalid input.", fieldErrors: flattenZodErrors(parsed.error) };
+  if (!parsed.success) return { ok: false, error: "Check the highlighted fields.", fieldErrors: flattenZodErrors(parsed.error) };
   const access = await teamAccess(parsed.data.organisationSlug);
   if (!access.ok) return access;
   if (!(await hasRecentAuthentication())) return { ok: false, error: "For security, sign in again before changing team roles." };
@@ -30,7 +31,7 @@ export async function updateTeamRole(input: unknown): Promise<ActionResult> {
     if (target.roleId === parsed.data.roleId) return;
     const role = await lockGrantableRole(tx, organisationId, parsed.data.roleId);
     if (!role) throw new TeamError("That role isn't available. Choose another.");
-    if (!mayGrant(access.membership, scope, { role, unitId: target.unitId, unitPath: target.unit?.path ?? null })) {
+    if (!mayGrant(access.membership, scope, { role, unitId: target.unitId, unitPath: target.unit?.path ?? null, limits: await limitPaths(tx, organisationId, target.scopes) })) {
       throw new TeamError("Your role doesn't allow you to give that role.");
     }
     await tx.teamMember.update({ where: { id: target.id }, data: roleColumns(role) });
@@ -43,10 +44,11 @@ export async function updateTeamRole(input: unknown): Promise<ActionResult> {
 /** Take someone off the team. Leaving yourself is done from your account. */
 export async function removeTeamMember(input: unknown): Promise<ActionResult> {
   const parsed = removeTeamMemberSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Invalid input.", fieldErrors: flattenZodErrors(parsed.error) };
+  if (!parsed.success) return { ok: false, error: "Check the highlighted fields.", fieldErrors: flattenZodErrors(parsed.error) };
   const access = await teamAccess(parsed.data.organisationSlug);
   if (!access.ok) return access;
   if (parsed.data.targetUserId === access.userId) return { ok: false, error: "You cannot remove yourself this way." };
+  if (!(await hasRecentAuthentication())) return { ok: false, error: "For security, sign in again before removing someone from the team." };
   const organisationId = access.organisation.id;
   const result = await teamChange(() => prisma.$transaction(async (tx) => {
     const { target } = await manageableTarget(tx, access.membership, parsed.data.targetUserId);
@@ -73,11 +75,36 @@ export async function setTeamMemberUnit(input: unknown): Promise<ActionResult> {
     if (target.unitId === unitId) return;
     const unit = unitId ? await liveUnit(tx, organisationId, unitId) : null;
     if (unitId && !unit) throw new TeamError("That unit no longer exists.");
-    if (!mayGrant(access.membership, scope, { role: target.orgRole, unitId, unitPath: unit?.path ?? null })) {
-      throw new TeamError(access.membership.unitId ? "You can only give access inside your own unit." : "Your role doesn't allow you to give this person that access.");
+    if (!mayGrant(access.membership, scope, { role: target.orgRole, unitId, unitPath: unit?.path ?? null, limits: await limitPaths(tx, organisationId, target.scopes) })) {
+      throw new TeamError(isScopedActor(access.membership) ? "You can only give access inside your own unit." : "Your role doesn't allow you to give this person that access.");
     }
     await tx.teamMember.update({ where: { id: target.id }, data: { unitId } });
     await recordAuditEvent({ action: "TEAM_UNIT_SCOPE_CHANGED", actorUserId: access.userId, organisationId, targetType: "teamMember", targetId: target.id, metadata: { fromUnitId: target.unitId, toUnitId: unitId }, client: tx });
+  }));
+  if (result.ok) refreshTeam(access.organisation.slug);
+  return result;
+}
+
+/**
+ * Limit a staff member to grouping values (each covers its subtree), or lift the grouping limits. The limits can only
+ * sit inside the actor's own reach, and the person must stay below the actor, as with a unit.
+ */
+export async function setTeamMemberGroupings(input: unknown): Promise<ActionResult> {
+  const parsed = teamMemberGroupingsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Invalid request." };
+  const access = await teamAccess(parsed.data.organisationSlug);
+  if (!access.ok) return access;
+  const organisationId = access.organisation.id;
+  const result = await teamChange(() => prisma.$transaction(async (tx) => {
+    const { target, scope } = await manageableTarget(tx, access.membership, parsed.data.targetUserId);
+    const limits = await loadScopeValues(tx, organisationId, parsed.data.valueIds);
+    if (!limits) throw new TeamError("One of those groupings or values no longer exists.");
+    if (!mayGrant(access.membership, scope, { role: target.orgRole, unitId: target.unitId, unitPath: target.unit?.path ?? null, limits: asLimits(limits) })) {
+      throw new TeamError(isScopedActor(access.membership) ? "You can only give access inside your own reach." : "Your role doesn't allow you to give this person that access.");
+    }
+    await tx.teamMemberScope.deleteMany({ where: { teamMemberId: target.id, organisationId } });
+    if (limits.length) await tx.teamMemberScope.createMany({ data: limits.map((value) => ({ organisationId, teamMemberId: target.id, groupingId: value.groupingId, valueId: value.valueId })) });
+    await recordAuditEvent({ action: "TEAM_GROUPING_SCOPE_CHANGED", actorUserId: access.userId, organisationId, targetType: "teamMember", targetId: target.id, metadata: { values: limits.length }, client: tx });
   }));
   if (result.ok) refreshTeam(access.organisation.slug);
   return result;
@@ -93,7 +120,7 @@ export async function deleteOrganisation(input: unknown): Promise<ActionResult> 
   if (!parsed.success) {
     return {
       ok: false,
-      error: "Invalid input.",
+      error: "Check the highlighted fields.",
       fieldErrors: flattenZodErrors(parsed.error),
     };
   }
@@ -120,6 +147,10 @@ export async function deleteOrganisation(input: unknown): Promise<ActionResult> 
   }
 
   const slug = org.slug;
+  // Platform access is always audited, like every other action taken through it (the row survives the deletion, so it carries no organisationId).
+  if (membership?.superAdmin) {
+    await recordAuditEvent({ action: "SUPER_ADMIN_ORG_ACTION", actorUserId: session.user.id, targetType: "Organisation", targetId: org.id, metadata: { capability: "org.delete", slug: org.slug } });
+  }
   // Deliberately omit organisationId: deleting the organisation cascades its
   // scoped records, while this audit record must survive at the instance level.
   await recordAuditEvent({

@@ -320,11 +320,13 @@ if [[ "$ACTION" == fresh ]]; then
   ports=()
   if [[ "$HTTPS_MODE" == 2 ]]; then ports+=(80 443)
   elif [[ "$HTTPS_MODE" == 3 ]]; then ports+=(8080)
+  elif [[ "$HTTPS_MODE" == 4 ]]; then :  # the tunnel dials out; nothing listens
   else ports+=(80); fi
-  for port in "${ports[@]}"; do
+  for port in ${ports[@]+"${ports[@]}"}; do
     port_in_use "$port" && die "TCP port $port is already in use. Free it before installing."
   done
-  if ((${#ports[@]} == 1)); then say "Required TCP port ${ports[0]} is free."; else say "Required TCP ports ${ports[*]} are free."; fi
+  if ((${#ports[@]} == 0)); then say "No inbound ports are needed for a Cloudflare Tunnel."
+  elif ((${#ports[@]} == 1)); then say "Required TCP port ${ports[0]} is free."; else say "Required TCP ports ${ports[*]} are free."; fi
 fi
 install_linux_dependencies() {
   local runner_packages=()

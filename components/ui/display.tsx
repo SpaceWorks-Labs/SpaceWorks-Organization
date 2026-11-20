@@ -89,7 +89,7 @@ const calloutTones: Record<CalloutTone, { classes: string; icon: ReactNode }> = 
 export function Callout({ tone = "info", title, children, action, className, role }: { tone?: CalloutTone; title?: ReactNode; children?: ReactNode; action?: ReactNode; className?: string; role?: "alert" | "status" }) {
   const { classes, icon } = calloutTones[tone];
   return (
-    <div role={role} className={cn("flex flex-col gap-3 rounded-lg px-4 py-3.5 sm:flex-row sm:items-center", classes, className)}>
+    <div role={role} className={cn("flex flex-col gap-3 rounded-xl px-4 py-3.5 sm:flex-row sm:items-center", classes, className)}>
       <span aria-hidden className="hidden shrink-0 sm:inline-flex [&_svg]:size-5">{icon}</span>
       <div className="min-w-0 flex-1 text-body-ui">
         {title ? <p className="font-semibold">{title}</p> : null}
@@ -172,11 +172,12 @@ export function PageHeader({ kicker, title, description, actions, className }: {
   );
 }
 
-export function SectionHeading({ title, description, action, className, as: Heading = "h2" }: { title: ReactNode; description?: ReactNode; action?: ReactNode; className?: string; as?: "h2" | "h3" }) {
+/** Pass `as="h1"` where the heading names the page (inside a template that holds no h1 of its own). */
+export function SectionHeading({ title, description, action, className, as: Heading = "h2" }: { title: ReactNode; description?: ReactNode; action?: ReactNode; className?: string; as?: "h1" | "h2" | "h3" }) {
   return (
     <div className={cn("flex flex-wrap items-end justify-between gap-3", className)}>
       <div className="min-w-0">
-        <Heading className="text-h4 text-ink">{title}</Heading>
+        <Heading className={cn("text-ink", Heading === "h1" ? "text-h3" : "text-h4")}>{title}</Heading>
         {description ? <p className="mt-1 text-body-ui text-ink-muted">{description}</p> : null}
       </div>
       {action}

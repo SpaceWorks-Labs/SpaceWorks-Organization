@@ -31,11 +31,14 @@ type FieldProps = {
   children: ReactElement<Record<string, unknown>>;
 };
 
-/** Label above, control, then helper or error text, all wired with ids and ARIA. */
+/** Label above, control, then helper text and any error together, both linked to the control with aria-describedby. */
 export function Field({ label, optional, helperText, error, hideLabel, className, id, required, children }: FieldProps) {
   const generatedId = useId();
   const controlId = id ?? (children.props.id as string | undefined) ?? generatedId;
-  const describedBy = error || helperText ? `${controlId}-description` : undefined;
+  const helperId = helperText ? `${controlId}-helper` : undefined;
+  const errorId = error ? `${controlId}-error` : undefined;
+  // The error first, so it is read before the standing hint.
+  const describedBy = [errorId, helperId].filter(Boolean).join(" ") || undefined;
   const control = isValidElement(children)
     ? cloneElement(children, {
         id: controlId,
@@ -51,15 +54,22 @@ export function Field({ label, optional, helperText, error, hideLabel, className
         {optional ? <span className="ml-1.5 font-normal text-ink-muted">Optional</span> : null}
       </label>
       {control}
-      {error ? (
-        <p id={describedBy} className="flex items-start gap-1.5 text-caption text-danger-fg">
-          <AlertCircle aria-hidden className="mt-px size-4 shrink-0" />
-          <span>{error}</span>
-        </p>
-      ) : helperText ? (
-        <p id={describedBy} className="text-caption text-ink-muted">{helperText}</p>
-      ) : null}
+      {helperText ? <p id={helperId} className="text-caption text-ink-muted">{helperText}</p> : null}
+      {error ? <FieldError id={errorId}>{error}</FieldError> : null}
     </div>
+  );
+}
+
+/**
+ * A field's error line. Never `role="alert"`: link it to its control (or fieldset) with `aria-describedby` and
+ * mark that control `aria-invalid`; the form's summary announces, and focus moves to the first invalid field.
+ */
+export function FieldError({ id, children }: { id?: string; children: ReactNode }) {
+  return (
+    <p id={id} className="flex items-start gap-1.5 text-caption text-danger-fg">
+      <AlertCircle aria-hidden className="mt-px size-4 shrink-0" />
+      <span>{children}</span>
+    </p>
   );
 }
 

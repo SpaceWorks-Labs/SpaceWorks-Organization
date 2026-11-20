@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -15,7 +15,7 @@ import { IconButton } from "@/components/ui/button";
 import { Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger } from "@/components/ui/menu";
 import { BrandHomeLink } from "./SiteHeader";
 import { PlatformOrganisationProvider, usePlatformOrganisation } from "./PlatformOrganisation";
-import { ColorModeMenuItems } from "./ColorModeToggle";
+import { ColorModeMenuItem } from "./ColorModeToggle";
 import { SlidingNav } from "@/components/motion/SlidingNav";
 
 /** Organisation navigation, in order. Each entry shows only when the role has the capability. */
@@ -26,6 +26,7 @@ const ORG_NAV: Array<{ path: string; label: string; capability: Capability; exac
   { path: "/payments", label: "Payments", capability: "payments.view" },
   { path: "/accounts", label: "Accounts", capability: "payments.view" },
   { path: "/reports", label: "Reports", capability: "reports.membership" },
+  { path: "/activity", label: "Activity", capability: "audit.view" },
   { path: "/team", label: "Team", capability: "org.view" },
 ];
 
@@ -37,6 +38,12 @@ const SETTINGS_ENTRY: Array<{ path: string; capability: Capability }> = [
   { path: "/settings/cards", capability: "cards.design" },
   { path: "/settings/payments", capability: "payments.settings" },
 ];
+
+/** Shows at once that a slow page is on its way: the highlight only moves when the new page commits. */
+function PendingDot() {
+  const { pending } = useLinkStatus();
+  return pending ? <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-current opacity-60" /> : null;
+}
 
 function NavItem({ href, children, active, onNavigate, badge }: { href: string; children: string; active: boolean; onNavigate?: () => void; badge?: ReactNode }) {
   return (
@@ -53,6 +60,7 @@ function NavItem({ href, children, active, onNavigate, badge }: { href: string; 
     >
       <span className="min-w-0 flex-1 truncate">{children}</span>
       {badge}
+      <PendingDot />
     </Link>
   );
 }
@@ -63,7 +71,7 @@ function currentOrganisationSlug(pathname: string | null) {
   return decodeURIComponent(match[1]!);
 }
 
-/** The person's menu: account, appearance (Light, Dark, System; CR-THEME-01) and sign out. */
+/** The person's menu: account, the Dark theme switch and sign out. */
 function AccountMenu({ user, onNavigate }: { user: ShellUser; onNavigate?: () => void }) {
   const pathname = usePathname() ?? "";
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -90,7 +98,7 @@ function AccountMenu({ user, onNavigate }: { user: ShellUser; onNavigate?: () =>
           <Link href="/account" onClick={onNavigate}>Account settings</Link>
         </MenuItem>
         <MenuSeparator />
-        <ColorModeMenuItems originRef={triggerRef} />
+        <ColorModeMenuItem originRef={triggerRef} />
         <MenuSeparator />
         <MenuItem icon={<LogOut />} onSelect={() => void signOut({ callbackUrl: "/" })}>
           Sign out

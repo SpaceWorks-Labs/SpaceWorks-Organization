@@ -33,6 +33,6 @@ export const SCHEDULED_JOBS: ReadonlyArray<JobDefinition> = [
   { area: "expired-backfill", schedule: { every: MINUTE }, run: (now) => runExpiredBackfill(now) },
   { area: "storage-cleanup", schedule: { every: MINUTE }, run: () => runStorageCleanup() },
   { area: "member-photo-sweep", schedule: { every: 60 * MINUTE }, run: (now) => runMemberPhotoSweep(now) },
-  { area: "operational-retention", schedule: { every: MINUTE }, run: (now) => purgeExpiredOperationalData(now) },
+  { area: "operational-retention", schedule: { every: 60 * MINUTE }, run: (now) => purgeExpiredOperationalData(now) },
   { area: "worker-heartbeat", schedule: { every: MINUTE }, run: () => recordHeartbeatSuccess(WORKER_HEARTBEAT_KEY, { sent: 0, failed: 0 }) },
 ];

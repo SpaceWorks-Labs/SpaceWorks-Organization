@@ -7,6 +7,7 @@ import { ORG_FOR_PAYMENTS, type OrgForPayments } from "./charges";
 import { credentialsOf, GATEWAYS } from "./config";
 import type { GatewayEvent } from "./gateway";
 import { failRefund, processRefund } from "./refunds";
+import { membershipChanged } from "@/lib/membership/afterChange";
 import { failPayment, settlePayment } from "./settle";
 
 type Tx = Prisma.TransactionClient;
@@ -91,5 +92,6 @@ export async function handleWebhook(provider: Exclude<PaymentProvider, "OFFLINE"
     await apply(tx, org, provider, event);
     return true;
   });
+  if (applied) await membershipChanged(org.id);
   return { status: 200, body: applied ? "OK" : "Duplicate" };
 }

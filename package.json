@@ -1,6 +1,6 @@
 {
   "name": "spaceworks-organization",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "engines": {
@@ -36,7 +36,8 @@
     "typecheck:frontend": "npm run typecheck --workspace=frontend",
     "test:e2e:split": "node scripts/test-split-hosting.mjs",
     "test:e2e:vps": "node scripts/test-split-hosting.mjs --monolith",
-    "docs:build": "node scripts/build-docs.mjs"
+    "docs:build": "node scripts/build-docs.mjs",
+    "landing:cards": "tsx --tsconfig scripts/landing-cards/tsconfig.json scripts/render-landing-cards.ts"
   },
   "dependencies": {
     "@auth/prisma-adapter": "2.11.3",
@@ -106,6 +107,7 @@
     "mupdf": "1.28.1",
     "prisma": "6.19.3",
     "tailwindcss": "4.3.3",
+    "tsx": "4.23.15",
     "typescript": "5.9.3",
     "vitest": "4.1.12"
   },

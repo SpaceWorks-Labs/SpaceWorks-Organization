@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { updateOrganisationPreferences } from "@/app/actions/structure";
 import { CURRENCIES, CURRENCY_CODES, formatMoney, type CurrencyCode } from "@/lib/money/currencies";
+import { useFocusFirstError } from "@/components/forms/focusFirstError";
+import { useUnsavedChangesGuard } from "@/components/forms/useUnsavedChangesGuard";
 import { Button } from "@/components/ui/button";
 import { CheckboxField } from "@/components/ui/choice";
 import { Callout } from "@/components/ui/display";
@@ -17,9 +19,13 @@ type MoneyValues = { currency: string; locale: string; timezone: string; financi
 export function MoneySettingsForm({ slug, initial, calendarLocked, timezones, disabled }: { slug: string; initial: MoneyValues; calendarLocked: boolean; timezones: string[]; disabled: boolean }) {
   const router = useRouter();
   const [values, setValues] = useState(initial);
+  const [saved, setSaved] = useState(initial);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [pending, startTransition] = useTransition();
+  const formRef = useRef<HTMLFormElement>(null);
+  useFocusFirstError(formRef, errors);
+  useUnsavedChangesGuard(!disabled && !pending && JSON.stringify(values) !== JSON.stringify(saved));
   const preview = useMemo(() => {
     try {
       const code = values.currency as CurrencyCode;
@@ -31,6 +37,7 @@ export function MoneySettingsForm({ slug, initial, calendarLocked, timezones, di
 
   return (
     <form
+      ref={formRef}
       className="flex flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
@@ -39,7 +46,10 @@ export function MoneySettingsForm({ slug, initial, calendarLocked, timezones, di
           const result = await updateOrganisationPreferences({ organisationSlug: slug, ...values });
           setErrors(result.ok ? {} : result.fieldErrors ?? {});
           setStatus(result.ok ? { ok: true, text: "Saved." } : { ok: false, text: result.error });
-          if (result.ok) router.refresh();
+          if (result.ok) {
+            setSaved(values);
+            router.refresh();
+          }
         });
       }}
     >

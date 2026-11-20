@@ -20,6 +20,7 @@ write_setup_environment() {
   [[ "$HTTPS_MODE" != 1 ]] || scheme=http
   [[ "$HTTPS_MODE" != 2 ]] || layer=tls
   [[ "$HTTPS_MODE" != 3 ]] || layer=proxy
+  [[ "$HTTPS_MODE" != 4 ]] || layer=cloudflared
   app_url="$scheme://$WEBHOST"
   # Backend for a Netlify website: links, sign-in and Server Actions use the website's origin.
   [[ -z "$SITE_ORIGIN" ]] || app_url="$SITE_ORIGIN"
@@ -33,6 +34,8 @@ write_setup_environment() {
   env_setting SITE_ADDRESS "$([[ "$HTTPS_MODE" == 2 ]] && echo "$WEBHOST" || echo "http://$WEBHOST")"
   [[ "$HTTPS_MODE" != 1 ]] || env_setting ALLOW_PLAIN_HTTP 1
   [[ -z "$TLS_EMAIL" ]] || env_setting TLS_EMAIL "$TLS_EMAIL"
+  # Only the cloudflared service reads the token (docker/compose.cloudflared.yml); the app never sees it.
+  [[ "$HTTPS_MODE" != 4 ]] || env_setting CLOUDFLARE_TUNNEL_TOKEN "$CLOUDFLARE_TUNNEL_TOKEN"
   env_setting HTTP_PORT 80
   if [[ "$RUN_FRONTEND" == 2 ]]; then
     env_setting DEPLOYMENT_MODE backend

@@ -15,7 +15,12 @@ export type TeamMemberRow = {
   isYou: boolean;
   /** Whether the viewer may change this person's role or unit, or remove them (the server checks again). */
   manageable: boolean;
+  /** The grouping values they are limited to (a value covers those under it). */
+  limits: Array<{ valueId: string; label: string; groupingName: string }>;
 };
+
+/** A grouping the viewer may limit staff to, with the values inside the viewer's own reach. */
+export type TeamGroupingOption = { id: string; name: string; values: Array<{ id: string; label: string }> };
 
 /** A role the viewer may give, and at which reach: the whole organisation, one unit, or both. */
 export type TeamRoleOption = { id: string; name: string; orgWide: boolean; scoped: boolean; /** How many permissions it holds. */ permissions: number };

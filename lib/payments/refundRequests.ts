@@ -65,7 +65,7 @@ export async function requestRefund(tx: Tx, args: { org: OrgForPayments; memberI
   const request = await tx.refundRequest.create({
     data: { organisationId: args.org.id, paymentId: paid.id, termId: term.id, memberId: args.memberId, requestedByUserId: args.userId, reason: args.reason.trim().slice(0, 500), suggestedMinor: found.offer.amountMinor, currency: found.payment.currency },
   });
-  await recordAuditEvent({ action: "REFUND_REQUESTED", actorUserId: args.userId, organisationId: args.org.id, targetType: "RefundRequest", targetId: request.id, metadata: { paymentId: paid.id, suggestedMinor: request.suggestedMinor }, client: tx });
+  await recordAuditEvent({ action: "REFUND_REQUESTED", actorUserId: args.userId, organisationId: args.org.id, targetType: "RefundRequest", targetId: request.id, metadata: { memberId: args.memberId, paymentId: paid.id, suggestedMinor: request.suggestedMinor }, client: tx });
   await enqueueOutbox(tx, "refund-notice", { requestId: request.id, organisationId: args.org.id, event: "requested" });
   await queueChatAlerts(tx, args.org.id, "refund-requested", { requestId: request.id });
   return request;
@@ -84,7 +84,7 @@ export async function withdrawRefundRequest(tx: Tx, args: { org: OrgForPayments;
   const request = await lockOpenRequest(tx, args.org.id, args.requestId);
   if (request.memberId !== args.memberId) throw new PaymentError("Refund request not found.");
   const done = await tx.refundRequest.update({ where: { id: request.id }, data: { status: "WITHDRAWN", decidedAt: args.now ?? new Date(), decidedById: args.userId } });
-  await recordAuditEvent({ action: "REFUND_REQUEST_WITHDRAWN", actorUserId: args.userId, organisationId: args.org.id, targetType: "RefundRequest", targetId: request.id, client: tx });
+  await recordAuditEvent({ action: "REFUND_REQUEST_WITHDRAWN", actorUserId: args.userId, organisationId: args.org.id, targetType: "RefundRequest", targetId: request.id, metadata: { memberId: request.memberId }, client: tx });
   return done;
 }
 
@@ -92,7 +92,7 @@ export async function withdrawRefundRequest(tx: Tx, args: { org: OrgForPayments;
 export async function declineRefundRequest(tx: Tx, args: { org: OrgForPayments; requestId: string; note: string; actorUserId: string; now?: Date }) {
   const request = await lockOpenRequest(tx, args.org.id, args.requestId);
   const done = await tx.refundRequest.update({ where: { id: request.id }, data: { status: "DECLINED", decidedAt: args.now ?? new Date(), decidedById: args.actorUserId, decisionNote: args.note.trim().slice(0, 500) } });
-  await recordAuditEvent({ action: "REFUND_REQUEST_DECLINED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "RefundRequest", targetId: request.id, client: tx });
+  await recordAuditEvent({ action: "REFUND_REQUEST_DECLINED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "RefundRequest", targetId: request.id, metadata: { memberId: request.memberId }, client: tx });
   await enqueueOutbox(tx, "refund-notice", { requestId: request.id, organisationId: args.org.id, event: "declined" });
   return done;
 }
@@ -107,7 +107,7 @@ export async function approveRefundRequest(tx: Tx, args: { org: OrgForPayments; 
   const created = await createRefund(tx, { org: args.org, paymentId: request.paymentId, amountMinor: args.amountMinor, reason: `Refund request: ${request.reason}`.slice(0, 300), actorUserId: args.actorUserId, now });
   await tx.refundRequest.update({ where: { id: request.id }, data: { status: "APPROVED", decidedAt: now, decidedById: args.actorUserId, decisionNote: args.note?.trim().slice(0, 500) || null, refundId: created.refund.id } });
   const ended = args.endMembership ? await endTermForRefund(tx, args.org, request.termId, args.actorUserId, now) : false;
-  await recordAuditEvent({ action: "REFUND_REQUEST_APPROVED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "RefundRequest", targetId: request.id, metadata: { refundId: created.refund.id, amountMinor: args.amountMinor, endedMembership: ended }, client: tx });
+  await recordAuditEvent({ action: "REFUND_REQUEST_APPROVED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "RefundRequest", targetId: request.id, metadata: { memberId: request.memberId, refundId: created.refund.id, amountMinor: args.amountMinor, endedMembership: ended }, client: tx });
   await enqueueOutbox(tx, "refund-notice", { requestId: request.id, organisationId: args.org.id, event: "approved" });
   return { created, ended };
 }

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { requireAuth } from "@/lib/permissions";
-import { verifiedEmail } from "@/lib/portal/member";
+import { PORTAL_ORGANISATION_STATUSES, verifiedEmail } from "@/lib/portal/member";
 
 /**
  * Every payment the signed-in person made, across organisations, with its receipts and credit notes.
@@ -11,7 +11,7 @@ export async function loadAccountPaymentsView() {
   const email = await verifiedEmail(session.user.id);
   if (!email) return { emailVerified: false, payments: [] };
   const payments = await prisma.payment.findMany({
-    where: { member: { email, anonymisedAt: null }, status: { in: ["PAID", "WAIVED", "AWAITING_CONFIRMATION"] } },
+    where: { member: { email, anonymisedAt: null }, organisation: { memberPortal: true, status: { in: [...PORTAL_ORGANISATION_STATUSES] } }, status: { in: ["PAID", "WAIVED", "AWAITING_CONFIRMATION"] } },
     orderBy: { createdAt: "desc" },
     take: 200,
     select: {

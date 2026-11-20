@@ -8,8 +8,10 @@ import type { ActionResult } from "./org";
 import { flattenZodErrors } from "./utils";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { recordAuditEvent } from "@/lib/audit";
-import { orgActionAccess } from "@/lib/permissions";
-import { liveUnit, lockGrantableRole, mayGrant, reachOf } from "@/lib/team/granting";
+import { hasRecentAuthentication } from "@/lib/reauth";
+import { isScopedActor, orgActionAccess } from "@/lib/permissions";
+import { asLimits, loadScopeValues } from "@/lib/groupings/scopeValues";
+import { limitPaths, liveUnit, lockGrantableRole, mayGrant, reachOf } from "@/lib/team/granting";
 import { refreshTeam, TeamError } from "@/lib/team/members";
 import { roleColumns } from "@/lib/team/roles";
 
@@ -36,8 +38,9 @@ export async function createOrgInvite(input: unknown): Promise<ActionResult<{ to
   if (!parsed.success) return { ok: false, error: "Choose a role for the invite.", fieldErrors: flattenZodErrors(parsed.error) };
   const access = await inviteAccess(parsed.data.organisationSlug);
   if (!access.ok) return access;
+  if (!(await hasRecentAuthentication())) return { ok: false, error: "For security, sign in again before inviting someone to the team." };
   const organisationId = access.organisation.id;
-  const { roleId, unitId } = parsed.data;
+  const { roleId, unitId, valueIds } = parsed.data;
   const expiresAt = new Date(Date.now() + INVITE_DAYS * 24 * 60 * 60 * 1000);
 
   // Retry on token collision (very unlikely, but unique constraint exists).
@@ -48,15 +51,18 @@ export async function createOrgInvite(input: unknown): Promise<ActionResult<{ to
         if (!role) throw new TeamError("That role isn't available. Choose another.");
         const unit = unitId ? await liveUnit(tx, organisationId, unitId) : null;
         if (unitId && !unit) throw new TeamError("That unit no longer exists.");
-        const scope = await reachOf(tx, organisationId, access.membership.unitId);
-        if (!mayGrant(access.membership, scope, { role, unitId, unitPath: unit?.path ?? null })) {
-          throw new TeamError(access.membership.unitId && !unitId ? "Choose a unit inside yours. You can't invite people for the whole organisation." : "Your role doesn't allow you to invite someone with that access.");
+        const limits = await loadScopeValues(tx, organisationId, valueIds);
+        if (!limits) throw new TeamError("One of those groupings or values no longer exists.");
+        const scope = await reachOf(tx, organisationId, access.membership);
+        if (!mayGrant(access.membership, scope, { role, unitId, unitPath: unit?.path ?? null, limits: asLimits(limits) })) {
+          throw new TeamError(isScopedActor(access.membership) && !unitId && !limits.length ? "Choose a unit or grouping inside yours. You can't invite people for the whole organisation." : "Your role doesn't allow you to invite someone with that access.");
         }
         const created = await tx.teamInvite.create({
           data: { organisationId, token: randomToken(), ...roleColumns(role), unitId, createdByUserId: access.userId, expiresAt },
           select: { id: true, token: true },
         });
-        await recordAuditEvent({ action: "ORGANISATION_INVITE_CREATED", actorUserId: access.userId, organisationId, targetType: "TeamInvite", targetId: created.id, metadata: { roleId: role.id, unitId }, client: tx });
+        if (limits.length) await tx.teamInviteScope.createMany({ data: limits.map((value) => ({ organisationId, teamInviteId: created.id, groupingId: value.groupingId, valueId: value.valueId })) });
+        await recordAuditEvent({ action: "ORGANISATION_INVITE_CREATED", actorUserId: access.userId, organisationId, targetType: "TeamInvite", targetId: created.id, metadata: { roleId: role.id, unitId, groupingValues: limits.length }, client: tx });
         return created;
       });
       refreshTeam(access.organisation.slug);
@@ -75,19 +81,19 @@ export async function createOrgInvite(input: unknown): Promise<ActionResult<{ to
 /** Revoke an unused invite link. Staff may revoke only invites they could have made. */
 export async function revokeOrgInvite(input: unknown): Promise<ActionResult> {
   const parsed = revokeOrgInviteSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "Invalid input.", fieldErrors: flattenZodErrors(parsed.error) };
+  if (!parsed.success) return { ok: false, error: "Check the highlighted fields.", fieldErrors: flattenZodErrors(parsed.error) };
   const access = await inviteAccess(parsed.data.organisationSlug);
   if (!access.ok) return access;
   const organisationId = access.organisation.id;
 
   const invite = await prisma.teamInvite.findFirst({
     where: { id: parsed.data.inviteId, organisationId },
-    select: { id: true, usedAt: true, unitId: true, orgRole: true, unit: { select: { path: true } } },
+    select: { id: true, usedAt: true, unitId: true, orgRole: true, unit: { select: { path: true } }, scopes: { select: { groupingId: true, valueId: true } } },
   });
   if (!invite) return { ok: false, error: "Invite not found." };
   if (invite.usedAt) return { ok: false, error: "Invite is already used." };
-  const scope = await reachOf(prisma, organisationId, access.membership.unitId);
-  if (!mayGrant(access.membership, scope, { role: invite.orgRole, unitId: invite.unitId, unitPath: invite.unit?.path ?? null })) {
+  const scope = await reachOf(prisma, organisationId, access.membership);
+  if (!mayGrant(access.membership, scope, { role: invite.orgRole, unitId: invite.unitId, unitPath: invite.unit?.path ?? null, limits: await limitPaths(prisma, organisationId, invite.scopes) })) {
     return { ok: false, error: "Your role doesn't allow you to revoke this invite." };
   }
 

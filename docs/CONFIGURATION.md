@@ -52,6 +52,8 @@ a plain-text database or Redis connection, or mismatched public origins.
 | `MSG91_SENDER_ID` | no | The registered sender id, when the template does not carry it. |
 | `SMS_WEBHOOK_SECRET` | no | The token MSG91's delivery report address carries (`?token=`). Twilio reports are checked by their signature. |
 | `SMS_DAILY_COUNTRY_CAP` | no | The most phone codes asked for numbers of one country calling code in a day, across the install. Default 500. |
+| `MESSAGING_MATTERMOST_HOSTS` | no | Comma-separated Mattermost host names that are allowed even though they resolve to private addresses (a server on the same network). Any other host an organisation or the platform types in must be public. |
+| `MESSAGE_LOG_RETENTION_DAYS` | no | Days the member message log (channel, kind and delivery state; never the text, a number or an address) is kept. Default 90, between 7 and 730. |
 | `SMTP_SERVICE` | no | A Nodemailer well-known service instead of a host. |
 | `SMTP_ALLOW_UNAUTHENTICATED` | no | `1` only for a private relay without authentication. |
 | `S3_BUCKET`, `S3_REGION` | production | The private bucket. |
@@ -123,7 +125,8 @@ integration tests at a disposable database; `TEST_QUEUE_REDIS_URL` at a disposab
 | `SWO_REPOSITORY` | `SpaceWorks-Labs/SpaceWorks-Organization` | Repository the installer, updater and runner follow (a fork works). |
 | `SWO_BACKEND_IMAGE`, `SWO_FRONTEND_IMAGE` | `ghcr.io/<owner>/spaceworks-organization-backend` / `-frontend` | Image names, derived from the repository owner. |
 | `SWO_IMAGE_TAG` | `.spaceworks-version`, else `latest` | The release the stack runs. |
-| `SWO_LAYER` | `none` | `none` plain HTTP through Caddy, `tls` automatic HTTPS, `proxy` your own proxy on `127.0.0.1:8080`. |
+| `SWO_LAYER` | `none` | `none` plain HTTP through Caddy, `tls` automatic HTTPS, `proxy` your own proxy on `127.0.0.1:8080`, `cloudflared` a Cloudflare Tunnel (no published ports). |
+| `CLOUDFLARE_TUNNEL_TOKEN` | | Connector token of your Cloudflare tunnel (`SWO_LAYER=cloudflared`; secret, read only by the `cloudflared` service, never by the app). The layer sets `TRUSTED_PROXY_IP_HEADER=cf-connecting-ip` for the app. See [DEPLOYMENT_CLOUDFLARE.md](DEPLOYMENT_CLOUDFLARE.md). |
 | `SWO_STORAGE` | `bundled` | `external` drops Silo for the `S3_*` bucket. |
 | `PUBLIC_APP_BASE_URL` | | The public origin; becomes `AUTH_URL` and `NEXT_PUBLIC_BASE_URL`. |
 | `SITE_ADDRESS` | | Caddy's site: `<domain>` for automatic HTTPS, `http://<host>` for plain HTTP. |

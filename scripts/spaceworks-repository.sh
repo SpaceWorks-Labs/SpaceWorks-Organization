@@ -41,7 +41,7 @@ serving_services() {
   for service in worker beat scheduler; do
     grep -qx "$service" <<< "$defined" && SERVING_SERVICES+=("$service")
   done
-  [[ "$(repository_env_value SWO_LAYER)" == proxy ]] || SERVING_SERVICES+=(caddy)
+  case "$(repository_env_value SWO_LAYER)" in proxy|cloudflared) ;; *) SERVING_SERVICES+=(caddy) ;; esac
 }
 
 # After a rollback, stop the background services the restored Compose files no longer define (worker and beat

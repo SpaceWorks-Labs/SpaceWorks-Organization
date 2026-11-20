@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { SpaceWorksProductLogo, SpaceWorksLogo } from "@/components/brand/SpaceWorksLogo";
+import { SpaceWorksProductLogo } from "@/components/brand/SpaceWorksLogo";
 import { ExternalLink, InstallCommand, PROJECT_LINKS } from "@/components/marketing/ProjectLinks";
 import { PrivacyPreferencesLink } from "@/components/telemetry/PrivacyPreferencesLink";
 import { DOCS_PATH, GITHUB_URL, LICENSE_URL, RELEASE_URL, RELEASE_VERSION, docsPath } from "@/lib/openSource";
@@ -116,30 +116,5 @@ function SourceCredit() {
       <span aria-hidden>·</span>
       <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className={creditLinkClasses}>Source code</a>
     </>
-  );
-}
-
-/** Compact footer for an organisation's public pages: the organisation leads, Space Works steps back. */
-export function OrganisationFooter() {
-  return (
-    <footer className="mt-auto border-t border-line bg-canvas">
-      <div className="mx-auto flex max-w-[1160px] flex-col gap-3 px-4 py-6 text-sm text-ink-muted sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <Link href="/" className="inline-flex items-center gap-2 self-start hover:text-ink">
-          <SpaceWorksLogo variant="app-icon" height={18} label={null} />
-          <span>Powered by Space Works</span>
-        </Link>
-        <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-          <Link href="/privacy" className={creditLinkClasses}>Privacy</Link>
-          <span aria-hidden>·</span>
-          <Link href="/terms" className={creditLinkClasses}>Terms</Link>
-          <span aria-hidden>·</span>
-          <Link href="/features" className={creditLinkClasses}>Features</Link>
-          <span aria-hidden>·</span>
-          <Link href={DOCS_PATH} className={creditLinkClasses}>Docs</Link>
-          <span aria-hidden>·</span>
-          <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className={creditLinkClasses}>Source code</a>
-        </p>
-      </div>
-    </footer>
   );
 }

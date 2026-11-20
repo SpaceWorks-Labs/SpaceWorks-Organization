@@ -78,7 +78,7 @@ type SnapshotTax = { tax?: { rateBps?: number }; recipient?: { gstin?: string | 
  */
 export async function loadTaxDocuments(scope: ReportScope): Promise<FinanceTaxDocument[]> {
   const rows = await prisma.taxDocument.findMany({
-    where: { organisationId: scope.organisationId, ...(scope.unitPath || scope.planId || scope.memberId ? { payment: { is: paymentWhere(scope) } } : {}) },
+    where: { organisationId: scope.organisationId, ...(scope.unitPath || scope.limits.length || scope.planId || scope.memberId ? { payment: { is: paymentWhere(scope) } } : {}) },
     orderBy: [{ series: "asc" }, { financialYear: "asc" }, { sequence: "asc" }],
     select: {
       id: true, paymentId: true, refundId: true, kind: true, number: true, series: true, sequence: true, financialYear: true, issuedAt: true, cancelledAt: true, currency: true,

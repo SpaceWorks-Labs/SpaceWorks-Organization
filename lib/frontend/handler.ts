@@ -20,7 +20,11 @@ const secretFields = new Set([
   "passwordHash", "mfaSecretEncrypted", "recoveryCodeHashes", "checkInStationPinHash",
   "checkInStationPinEncrypted", "checkInStationSecretVersion", "secretHash", "tokenHash",
   "smtpPasswordEncrypted", "googleClientSecretEncrypted", "access_token", "refresh_token", "id_token", "sessionToken",
+  "verifyToken", "secretEncrypted", "webhookSecretEncrypted", "configEncrypted", "clientSecretEncrypted", "applePrivateKeyEncrypted",
 ]);
+// Anything shaped like a stored secret is refused unless it is a boolean flag (hasSecret, configuredAuthSecret).
+// Plain `token` is not listed: invite, join and pay links are legitimately shown to the people they belong to.
+const secretKey = /(Encrypted|Hash|Hashes|Secret|PrivateKey)$|^(accessToken|refreshToken|idToken)|^(access|refresh|id)_token$|[vV]erifyToken$/;
 
 /** Final defence: a view reader must use safe selects/DTOs before crossing hosts. */
 export function assertSafeView(value: unknown, depth = 0): void {
@@ -29,7 +33,7 @@ export function assertSafeView(value: unknown, depth = 0): void {
   if (value instanceof Map) { for (const [key, item] of value) { assertSafeView(key, depth + 1); assertSafeView(item, depth + 1); } return; }
   if (value instanceof Set || Array.isArray(value)) { for (const item of value) assertSafeView(item, depth + 1); return; }
   for (const [key, item] of Object.entries(value)) {
-    if (secretFields.has(key)) throw new Error("A view included a forbidden field.");
+    if (secretFields.has(key) || (secretKey.test(key) && typeof item !== "boolean")) throw new Error("A view included a forbidden field.");
     assertSafeView(item, depth + 1);
   }
 }

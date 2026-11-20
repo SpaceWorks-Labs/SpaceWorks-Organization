@@ -18,7 +18,7 @@ function getHeartbeatDelegate(): OperationalHeartbeatDelegate | undefined {
     .operationalHeartbeat;
 }
 
-export async function recordHeartbeatStarted(key: string) {
+async function recordHeartbeatStarted(key: string) {
   const heartbeat = getHeartbeatDelegate();
   if (!heartbeat) return;
   await heartbeat.upsert({ where: { key }, create: { key, lastStartedAt: new Date() }, update: { lastStartedAt: new Date() } });
@@ -43,7 +43,7 @@ export async function recordHeartbeatAlive(key: string) {
   await heartbeat.upsert({ where: { key }, create: { key, lastStartedAt: now, lastSucceededAt: now }, update: { lastStartedAt: now, lastSucceededAt: now } });
 }
 
-export async function recordHeartbeatFailure(key: string, error: unknown) {
+async function recordHeartbeatFailure(key: string, error: unknown) {
   const heartbeat = getHeartbeatDelegate();
   if (!heartbeat) return;
   const message = describeOperationalError(error);

@@ -86,6 +86,13 @@ describe("POST /api/visits", () => {
     expect(mocks.seenIds.join()).not.toContain("203.0.113.9");
   });
 
+  it("does not read or count a body over the cap, declared or streamed", async () => {
+    const big = JSON.stringify({ route: "/", pad: "x".repeat(5000) });
+    expect((await post(big, { "content-length": String(big.length) })).status).toBe(204);
+    expect((await post(big)).status).toBe(204);
+    expect(mocks.record).not.toHaveBeenCalled();
+  });
+
   it("answers 204 even when counting fails", async () => {
     mocks.record.mockRejectedValueOnce(new Error("database down"));
     vi.spyOn(console, "error").mockImplementation(() => undefined);

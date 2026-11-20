@@ -65,9 +65,10 @@ describe("job queue definitions", () => {
     expect(definitions.map((item) => item.id)).toEqual(SCHEDULED_JOBS.map((entry) => `registry-${entry.area}`));
     const find = (area: string) => definitions.find((item) => item.id === `registry-${area}`);
     expect(find("outbox-relay")).toMatchObject({ queue: "outbox", schedule: { every: 60_000 } });
-    for (const area of ["membership-sweep", "expired-backfill", "storage-cleanup", "operational-retention"]) {
+    for (const area of ["membership-sweep", "expired-backfill", "storage-cleanup"]) {
       expect(find(area)).toMatchObject({ queue: "scheduled", schedule: { every: 60_000 } });
     }
+    expect(find("operational-retention")).toMatchObject({ queue: "scheduled", schedule: { every: 3_600_000 } });
     expect(find("payment-reconcile")).toMatchObject({ schedule: { every: 300_000 } });
     expect(find("refund-reconcile")).toMatchObject({ schedule: { every: 300_000 } });
     expect(find("member-photo-sweep")).toMatchObject({ schedule: { every: 3_600_000 } });

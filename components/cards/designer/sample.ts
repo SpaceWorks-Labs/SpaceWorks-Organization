@@ -4,7 +4,7 @@ import type { DesignerField } from "./SideSettings";
 
 /** The sample member the designer previews cards with. */
 
-export const SAMPLES = { latin: "Meera Nair", malayalam: "മീര നായർ", devanagari: "मीरा नायर" } as const;
+export const SAMPLES = { latin: "Shaan Shoukath", malayalam: "ഷാൻ ഷൗക്കത്ത്", devanagari: "शान शौकत" } as const;
 export type Sample = keyof typeof SAMPLES;
 
 const SAMPLE_UNITS = [["North", "N"], ["North 1", "N1"], ["North 1 East", "N1E"], ["North 1 East A", "N1EA"]] as const;
@@ -20,7 +20,7 @@ export function sampleNumberUnits(levelNames?: readonly string[]) {
   return { unitCode: units.at(-1)?.code ?? null, unitCodes: units.map((unit) => unit.code) };
 }
 
-export function sampleHolder(name: string, planName: string, roleName: string, idNumber: string, fields: DesignerField[], levelNames?: readonly string[]): CardHolder {
+export function sampleHolder(name: string, planName: string, roleName: string, idNumber: string, fields: DesignerField[], levelNames?: readonly string[], organisationName?: string): CardHolder {
   return {
     memberId: "sample",
     verifyToken: "sample",
@@ -33,5 +33,8 @@ export function sampleHolder(name: string, planName: string, roleName: string, i
     idNumber,
     validUntil: "31 Mar 2027",
     units: sampleUnits(levelNames),
+    // Sample contact details on reserved example domains and a fictional number; real cards print the organisation's own.
+    contact: { website: "example.org", email: "hello@example.org", phone: "+91 90000 00000" },
+    organisationName: organisationName ?? null,
   };
 }

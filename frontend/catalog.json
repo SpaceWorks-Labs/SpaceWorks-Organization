@@ -16,6 +16,11 @@
       "id": "app__account__memberships__orgSlug__page:loadMembershipDetailView"
     },
     {
+      "module": "lib/views/app__account__notifications__page",
+      "name": "loadAccountNotificationsView",
+      "id": "app__account__notifications__page:loadAccountNotificationsView"
+    },
+    {
       "module": "lib/views/app__account__organisations__page",
       "name": "loadAccountOrganisationsView",
       "id": "app__account__organisations__page:loadAccountOrganisationsView"
@@ -71,6 +76,11 @@
       "id": "app__dashboard__orgSlug__accounts__page:loadAccountsView"
     },
     {
+      "module": "lib/views/app__dashboard__orgSlug__activity__page",
+      "name": "loadOrgActivity",
+      "id": "app__dashboard__orgSlug__activity__page:loadOrgActivity"
+    },
+    {
       "module": "lib/views/app__dashboard__orgSlug__application__page",
       "name": "loadOrgApplicationView",
       "id": "app__dashboard__orgSlug__application__page:loadOrgApplicationView"
@@ -99,6 +109,11 @@
       "module": "lib/views/app__dashboard__orgSlug__members__page",
       "name": "loadOrgMembersDirectory",
       "id": "app__dashboard__orgSlug__members__page:loadOrgMembersDirectory"
+    },
+    {
+      "module": "lib/views/app__dashboard__orgSlug__members__smart-groups__page",
+      "name": "loadSmartGroupsView",
+      "id": "app__dashboard__orgSlug__members__smart-groups__page:loadSmartGroupsView"
     },
     {
       "module": "lib/views/app__dashboard__orgSlug__ownership__page",
@@ -204,6 +219,16 @@
       "module": "lib/views/app__dashboard__orgSlug__settings__email__page",
       "name": "loadOrgEmailSettingsView",
       "id": "app__dashboard__orgSlug__settings__email__page:loadOrgEmailSettingsView"
+    },
+    {
+      "module": "lib/views/app__dashboard__orgSlug__settings__groupings__page",
+      "name": "loadOrgGroupingsView",
+      "id": "app__dashboard__orgSlug__settings__groupings__page:loadOrgGroupingsView"
+    },
+    {
+      "module": "lib/views/app__dashboard__orgSlug__settings__messaging__page",
+      "name": "loadOrgMessagingView",
+      "id": "app__dashboard__orgSlug__settings__messaging__page:loadOrgMessagingView"
     },
     {
       "module": "lib/views/app__dashboard__orgSlug__settings__money__page",
@@ -351,6 +376,11 @@
       "id": "app__super-admin__layout:loadSuperAdminShell"
     },
     {
+      "module": "lib/views/app__super-admin__messaging__page",
+      "name": "loadPlatformMessagingView",
+      "id": "app__super-admin__messaging__page:loadPlatformMessagingView"
+    },
+    {
       "module": "lib/views/app__super-admin__monitoring__page",
       "name": "loadSuperAdminMonitoringView",
       "id": "app__super-admin__monitoring__page:loadSuperAdminMonitoringView"
@@ -441,6 +471,21 @@
       "id": "components__security__passkeys:loadPasskeysView"
     },
     {
+      "module": "lib/views/memberHistory",
+      "name": "loadMemberMessages",
+      "id": "memberHistory:loadMemberMessages"
+    },
+    {
+      "module": "lib/views/memberHistory",
+      "name": "loadMemberActivity",
+      "id": "memberHistory:loadMemberActivity"
+    },
+    {
+      "module": "lib/views/memberHistory",
+      "name": "loadMemberHistory",
+      "id": "memberHistory:loadMemberHistory"
+    },
+    {
       "module": "lib/views/super-admin__sms",
       "name": "loadInstanceSmsView",
       "id": "super-admin__sms:loadInstanceSmsView"
@@ -493,6 +538,26 @@
       "id": "auth:resendEmailVerification"
     },
     {
+      "module": "app/actions/brand-kit",
+      "name": "saveCardBrandKit",
+      "id": "brand-kit:saveCardBrandKit"
+    },
+    {
+      "module": "app/actions/brand-kit",
+      "name": "extractBrandColours",
+      "id": "brand-kit:extractBrandColours"
+    },
+    {
+      "module": "app/actions/brand-kit",
+      "name": "uploadBrandKitLogo",
+      "id": "brand-kit:uploadBrandKitLogo"
+    },
+    {
+      "module": "app/actions/card-artwork",
+      "name": "copyLogoToCardArtwork",
+      "id": "card-artwork:copyLogoToCardArtwork"
+    },
+    {
       "module": "app/actions/card-design",
       "name": "saveCardDesign",
       "id": "card-design:saveCardDesign"
@@ -521,6 +586,41 @@
       "module": "app/actions/card-design",
       "name": "uploadCardArtwork",
       "id": "card-design:uploadCardArtwork"
+    },
+    {
+      "module": "app/actions/card-preview",
+      "name": "searchCardPreviewMembers",
+      "id": "card-preview:searchCardPreviewMembers"
+    },
+    {
+      "module": "app/actions/card-preview",
+      "name": "loadCardPreviewHolder",
+      "id": "card-preview:loadCardPreviewHolder"
+    },
+    {
+      "module": "app/actions/card-templates",
+      "name": "listCardTemplates",
+      "id": "card-templates:listCardTemplates"
+    },
+    {
+      "module": "app/actions/card-templates",
+      "name": "saveCardTemplate",
+      "id": "card-templates:saveCardTemplate"
+    },
+    {
+      "module": "app/actions/card-templates",
+      "name": "deleteCardTemplate",
+      "id": "card-templates:deleteCardTemplate"
+    },
+    {
+      "module": "app/actions/card-versions",
+      "name": "listCardDesignVersions",
+      "id": "card-versions:listCardDesignVersions"
+    },
+    {
+      "module": "app/actions/card-versions",
+      "name": "getCardDesignVersion",
+      "id": "card-versions:getCardDesignVersion"
     },
     {
       "module": "app/actions/cards",
@@ -586,6 +686,46 @@
       "module": "app/actions/erasure",
       "name": "decideErasureRequest",
       "id": "erasure:decideErasureRequest"
+    },
+    {
+      "module": "app/actions/groupings",
+      "name": "createOrgGrouping",
+      "id": "groupings:createOrgGrouping"
+    },
+    {
+      "module": "app/actions/groupings",
+      "name": "updateOrgGrouping",
+      "id": "groupings:updateOrgGrouping"
+    },
+    {
+      "module": "app/actions/groupings",
+      "name": "setOrgGroupingArchived",
+      "id": "groupings:setOrgGroupingArchived"
+    },
+    {
+      "module": "app/actions/groupings",
+      "name": "createGroupingValue",
+      "id": "groupings:createGroupingValue"
+    },
+    {
+      "module": "app/actions/groupings",
+      "name": "renameGroupingValue",
+      "id": "groupings:renameGroupingValue"
+    },
+    {
+      "module": "app/actions/groupings",
+      "name": "setGroupingValueArchived",
+      "id": "groupings:setGroupingValueArchived"
+    },
+    {
+      "module": "app/actions/groupings",
+      "name": "moveGroupingValue",
+      "id": "groupings:moveGroupingValue"
+    },
+    {
+      "module": "app/actions/groupings",
+      "name": "reorderGroupingValue",
+      "id": "groupings:reorderGroupingValue"
     },
     {
       "module": "app/actions/instance-email",
@@ -684,8 +824,23 @@
     },
     {
       "module": "app/actions/media",
+      "name": "saveGeneratedLogo",
+      "id": "media:saveGeneratedLogo"
+    },
+    {
+      "module": "app/actions/media",
       "name": "uploadAccountProfileImage",
       "id": "media:uploadAccountProfileImage"
+    },
+    {
+      "module": "app/actions/member-groupings",
+      "name": "setMemberGroupings",
+      "id": "member-groupings:setMemberGroupings"
+    },
+    {
+      "module": "app/actions/member-groupings",
+      "name": "setGroupingForMembers",
+      "id": "member-groupings:setGroupingForMembers"
     },
     {
       "module": "app/actions/member-import",
@@ -756,6 +911,81 @@
       "module": "app/actions/members",
       "name": "assignMemberRoles",
       "id": "members:assignMemberRoles"
+    },
+    {
+      "module": "app/actions/messaging-account",
+      "name": "startChatLink",
+      "id": "messaging-account:startChatLink"
+    },
+    {
+      "module": "app/actions/messaging-account",
+      "name": "startPhoneLink",
+      "id": "messaging-account:startPhoneLink"
+    },
+    {
+      "module": "app/actions/messaging-account",
+      "name": "confirmPhoneLink",
+      "id": "messaging-account:confirmPhoneLink"
+    },
+    {
+      "module": "app/actions/messaging-account",
+      "name": "removeEndpoint",
+      "id": "messaging-account:removeEndpoint"
+    },
+    {
+      "module": "app/actions/messaging-account",
+      "name": "setChannelConsent",
+      "id": "messaging-account:setChannelConsent"
+    },
+    {
+      "module": "app/actions/messaging-channels",
+      "name": "saveOrgChannel",
+      "id": "messaging-channels:saveOrgChannel"
+    },
+    {
+      "module": "app/actions/messaging-channels",
+      "name": "testOrgChannel",
+      "id": "messaging-channels:testOrgChannel"
+    },
+    {
+      "module": "app/actions/messaging-channels",
+      "name": "removeOrgChannel",
+      "id": "messaging-channels:removeOrgChannel"
+    },
+    {
+      "module": "app/actions/messaging-channels",
+      "name": "saveInstanceChannel",
+      "id": "messaging-channels:saveInstanceChannel"
+    },
+    {
+      "module": "app/actions/messaging-channels",
+      "name": "testInstanceChannel",
+      "id": "messaging-channels:testInstanceChannel"
+    },
+    {
+      "module": "app/actions/messaging-channels",
+      "name": "removeInstanceChannel",
+      "id": "messaging-channels:removeInstanceChannel"
+    },
+    {
+      "module": "app/actions/messaging-channels",
+      "name": "saveMessagingPolicy",
+      "id": "messaging-channels:saveMessagingPolicy"
+    },
+    {
+      "module": "app/actions/messaging-settings",
+      "name": "saveMessagingRouting",
+      "id": "messaging-settings:saveMessagingRouting"
+    },
+    {
+      "module": "app/actions/messaging-settings",
+      "name": "saveWhatsAppTemplate",
+      "id": "messaging-settings:saveWhatsAppTemplate"
+    },
+    {
+      "module": "app/actions/messaging-settings",
+      "name": "deleteWhatsAppTemplate",
+      "id": "messaging-settings:deleteWhatsAppTemplate"
     },
     {
       "module": "app/actions/oidc-providers",
@@ -1038,6 +1268,11 @@
       "id": "public-page:uploadPublicPageImage"
     },
     {
+      "module": "app/actions/public-page",
+      "name": "uploadPublicPageFile",
+      "id": "public-page:uploadPublicPageFile"
+    },
+    {
       "module": "app/actions/recovery-codes",
       "name": "regenerateRecoveryCodes",
       "id": "recovery-codes:regenerateRecoveryCodes"
@@ -1123,6 +1358,21 @@
       "id": "sign-in-providers:saveSignInProviders"
     },
     {
+      "module": "app/actions/smart-groups",
+      "name": "saveSmartGroup",
+      "id": "smart-groups:saveSmartGroup"
+    },
+    {
+      "module": "app/actions/smart-groups",
+      "name": "deleteSmartGroup",
+      "id": "smart-groups:deleteSmartGroup"
+    },
+    {
+      "module": "app/actions/smart-groups",
+      "name": "previewSmartGroupCount",
+      "id": "smart-groups:previewSmartGroupCount"
+    },
+    {
       "module": "app/actions/staff-roles",
       "name": "createStaffRole",
       "id": "staff-roles:createStaffRole"
@@ -1196,6 +1446,11 @@
       "module": "app/actions/team",
       "name": "setTeamMemberUnit",
       "id": "team:setTeamMemberUnit"
+    },
+    {
+      "module": "app/actions/team",
+      "name": "setTeamMemberGroupings",
+      "id": "team:setTeamMemberGroupings"
     },
     {
       "module": "app/actions/team",

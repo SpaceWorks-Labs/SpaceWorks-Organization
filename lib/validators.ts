@@ -48,6 +48,14 @@ export const createOrgInviteSchema = z.object({
   organisationSlug: z.string().trim().min(1),
   roleId: idSchema,
   unitId: optionalIdSchema,
+  /** Grouping values the role is limited to (a value covers its subtree); none: no grouping limit. */
+  valueIds: z.array(idSchema).max(40).optional().default([]),
+});
+
+export const teamMemberGroupingsSchema = z.object({
+  organisationSlug: z.string().trim().min(1),
+  targetUserId: idSchema,
+  valueIds: z.array(idSchema).max(40),
 });
 
 const staffRoleFields = {

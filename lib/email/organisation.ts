@@ -81,6 +81,12 @@ export async function deliverOrganisationNotice(payload: NoticePayload, messageI
       paragraphs: [`${org.name} is active again. Everything works as before.`],
       action: { label: "Open your dashboard", url: dashboard },
     },
+    "payee-changed": {
+      subject: `The UPI payee for ${org.name} changed`,
+      heading: "UPI payee changed",
+      paragraphs: [`Someone on the team changed the UPI ID or payee name that members of ${org.name} pay to. Open the audit log to see who.`, "If this wasn't expected, change your password and review your team."],
+      action: { label: "Review payment settings", url: absoluteUrl(`/dashboard/${org.slug}/settings/payments`) },
+    },
     created: {
       subject: `${org.name} is ready`,
       heading: "Your organisation is ready",

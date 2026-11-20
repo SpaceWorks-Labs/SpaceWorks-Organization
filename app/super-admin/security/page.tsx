@@ -6,31 +6,32 @@ import { AuditTable } from "@/components/super-admin/AuditTable";
 import { BlockedAddresses } from "@/components/super-admin/BlockedAddresses";
 import { Chip, EmptyState, PageHeader, StatTile } from "@/components/ui/display";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
+import { formatCount, formatUtcStamp } from "@/lib/format/datetime";
 
 const ACTION_WINDOW_DAYS = 7;
 
 export default async function SuperAdminSecurityPage() {
   await requireSuperAdmin();
   const { mfaUsers, users, managersWithoutMfa, managers, unverifiedUsers, passwordUsers, providerGroups, activeSessions, sortedActions, recentSecurityEvents, platformAdmins, blockedAddresses } = await loadSuperAdminSecurityView();
-  const when = (iso: string | null) => (iso ? new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeStyle: "short", timeZone: "UTC" }).format(new Date(iso)) + " UTC" : "Unknown");
+  const when = (iso: string | null) => (iso ? formatUtcStamp(iso) : "Unknown");
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title="Security" description="Account protection, sign-in methods, platform admins and sensitive activity across the instance." />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <StatTile className="rounded-xl" label="Users with MFA" value={formatShare(mfaUsers, users)} hint={`${mfaUsers.toLocaleString()} of ${users.toLocaleString()} users`} progress={{ value: mfaUsers, max: Math.max(users, 1), tone: "success" }} />
-        <StatTile className="rounded-xl" label="Staff without an authenticator" value={managersWithoutMfa.toLocaleString()} hint={`of ${managers.toLocaleString()} staff; locked out of dashboards until they add one`} tone={managersWithoutMfa > 0 ? "attention" : "default"} />
-        <StatTile className="rounded-xl" label="Unverified email" value={unverifiedUsers.toLocaleString()} hint={`${formatShare(unverifiedUsers, users)} of users`} />
-        <StatTile className="rounded-xl" label="Blocked addresses" value={blockedAddresses.length.toLocaleString()} hint="After repeated failed sign-ins" tone={blockedAddresses.length > 0 ? "attention" : "default"} />
+        <StatTile label="Users with MFA" value={formatShare(mfaUsers, users)} hint={`${formatCount(mfaUsers)} of ${formatCount(users)} users`} progress={{ value: mfaUsers, max: Math.max(users, 1), tone: "success" }} />
+        <StatTile label="Staff without an authenticator" value={formatCount(managersWithoutMfa)} hint={`of ${formatCount(managers)} staff; locked out of dashboards until they add one`} tone={managersWithoutMfa > 0 ? "attention" : "default"} />
+        <StatTile label="Unverified email" value={formatCount(unverifiedUsers)} hint={`${formatShare(unverifiedUsers, users)} of users`} />
+        <StatTile label="Blocked addresses" value={formatCount(blockedAddresses.length)} hint="After repeated failed sign-ins" tone={blockedAddresses.length > 0 ? "attention" : "default"} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
         <AdminPanel title="Sign-in methods">
           <MetricRows
             rows={[
-              { label: "Users with a password", value: passwordUsers.toLocaleString() },
-              ...providerGroups.map((group) => ({ label: `Linked ${group.provider} accounts`, value: group._count._all.toLocaleString() })),
-              { label: "Unexpired database sessions", value: activeSessions.toLocaleString() },
+              { label: "Users with a password", value: formatCount(passwordUsers) },
+              ...providerGroups.map((group) => ({ label: `Linked ${group.provider} accounts`, value: formatCount(group._count._all) })),
+              { label: "Unexpired database sessions", value: formatCount(activeSessions) },
             ]}
           />
         </AdminPanel>
@@ -38,7 +39,7 @@ export default async function SuperAdminSecurityPage() {
           {sortedActions.length === 0 ? (
             <EmptyState mood="sleepy">No sensitive actions recorded this week.</EmptyState>
           ) : (
-            <MetricRows rows={sortedActions.map((row) => ({ label: <span className="tabular-nums text-sm">{row.action}</span>, value: row._count._all.toLocaleString() }))} />
+            <MetricRows rows={sortedActions.map((row) => ({ label: <span className="tabular-nums text-sm">{row.action}</span>, value: formatCount(row._count._all) }))} />
           )}
         </AdminPanel>
       </div>

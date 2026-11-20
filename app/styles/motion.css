@@ -2,12 +2,13 @@
 @import "./motion-overlays.css";
 @import "./motion-route.css";
 @import "./motion-search.css";
+@import "./theme-reveal.css";
 
 /*
  * Motion (CR-MOTION-01): the kit tokens in tokens.css. Durations --sw-dur-fast/base/slow = 120/180/240ms
  * (zeroed under reduced motion); curves --sw-ease-standard (most movement), --sw-ease-enter (arrivals) and
  * --sw-ease-exit (departures). Ordinary hover is colour only; buttons sink to 0.98 on press. Theme reveal
- * (720ms) is a named non-blocking exception. Reduced motion reaches the identical end state at once.
+ * (720ms, theme-reveal.css) is a named non-blocking exception. Reduced motion reaches the identical end state at once.
  * The motion components' rules are split by area: motion-box.css (box loader and logo), motion-overlays.css
  * (dialog, sheet, drawer, menu, popover, toast), motion-route.css (route transition, stagger, collapse, sliding
  * indicator, progress) and motion-search.css (SearchField).
@@ -36,49 +37,3 @@
 .sw-success-in {
   animation: sw-success-in var(--sw-dur-slow) var(--sw-ease-enter) both;
 }
-
-/* Colour-mode switch (components/providers.tsx, after the kit's motion/theme-reveal): the new mode is revealed
-   as a soft-edged circle growing from the picker over --sw-theme-duration (3 × slow = 720ms); the old snapshot
-   stays still. Reduced motion switches instantly. */
-:root {
-  --sw-theme-duration: calc(var(--sw-dur-slow) * 3);
-}
-
-@property --sw-reveal {
-  syntax: "<length>";
-  inherits: true;
-  initial-value: 0px;
-}
-
-.sw-theme-reveal::view-transition-old(root),
-.sw-theme-reveal::view-transition-new(root),
-.sw-theme-reveal-soft::view-transition-old(root),
-.sw-theme-reveal-soft::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
-}
-
-.sw-theme-reveal::view-transition-new(root),
-.sw-theme-reveal-soft::view-transition-new(root) {
-  z-index: 1;
-}
-
-.sw-theme-reveal-soft::view-transition-new(root) {
-  -webkit-mask-image: radial-gradient(circle at var(--sw-reveal-x) var(--sw-reveal-y), #000 calc(var(--sw-reveal) - 160px), transparent var(--sw-reveal));
-  mask-image: radial-gradient(circle at var(--sw-reveal-x) var(--sw-reveal-y), #000 calc(var(--sw-reveal) - 160px), transparent var(--sw-reveal));
-}
-
-/* Fallback when View Transitions aren't available: a gentle colour cross-fade. */
-.sw-theme-fade,
-.sw-theme-fade *,
-.sw-theme-fade *::before,
-.sw-theme-fade *::after {
-  transition-property: background-color, border-color, color, fill, stroke, box-shadow !important;
-  transition-duration: calc(var(--sw-dur-slow) * 1.75) !important;
-  transition-timing-function: var(--sw-ease-standard) !important;
-}
-
-.sw-mode-icon {
-  transition: transform var(--sw-dur-slow) var(--sw-ease-enter), opacity var(--sw-dur-base) var(--sw-ease-standard);
-}
-

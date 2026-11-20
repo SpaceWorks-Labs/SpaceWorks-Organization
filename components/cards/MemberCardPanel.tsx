@@ -8,10 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Callout, Card, CardHeader } from "@/components/ui/display";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import type { MemberCardPlan } from "@/lib/cards/panel";
+import { formatDate } from "@/lib/format/datetime";
 import { WalletCard } from "./WalletCard";
 
 const RECENT_MS = 2 * 60_000;
-const day = (date: Date) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(new Date(date));
 
 /** Play the "card issued" moment once per card per tab, for cards issued in the last two minutes. */
 function useCelebration(plans: MemberCardPlan[]) {
@@ -41,8 +41,10 @@ type Pending = { kind: "reissue" | "revoke"; cardId: string } | null;
 /**
  * The member's cards, one per plan: view, download, email, reissue or revoke, and issue where missing. `delight` is
  * the organisation's playful-touches switch: off, the card stays flat and the "card issued" moment doesn't animate.
+ * `timeZone` is the organisation's, for the issued, emailed and revoked days.
  */
-export function MemberCardPanel({ slug, memberId, memberName, plans, canManage, delight = true }: { slug: string; memberId: string; memberName: string; plans: MemberCardPlan[]; canManage: boolean; delight?: boolean }) {
+export function MemberCardPanel({ slug, memberId, memberName, plans, canManage, delight = true, timeZone = "UTC" }: { slug: string; memberId: string; memberName: string; plans: MemberCardPlan[]; canManage: boolean; delight?: boolean; timeZone?: string }) {
+  const day = (date: Date | string) => formatDate(date, timeZone);
   const router = useRouter();
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, setPending] = useState<Pending>(null);

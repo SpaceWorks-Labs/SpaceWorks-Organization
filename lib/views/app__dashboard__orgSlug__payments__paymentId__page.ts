@@ -8,7 +8,7 @@ import { statusAt, TIMED_STATUSES } from "@/lib/membership/lifecycle";
 export async function loadPaymentView({ params }: { params: Promise<{ orgSlug: string; paymentId: string }> }) {
   const { orgSlug, paymentId } = await params;
   const { organisation, membership } = await requireOrgCapability(orgSlug, "payments.view");
-  const scope = await teamScope(organisation.id, membership.unitId);
+  const scope = await teamScope(organisation.id, membership);
   const payment = await prisma.payment.findFirst({
     where: { id: paymentId, organisationId: organisation.id, member: memberWhere(scope) },
     include: {

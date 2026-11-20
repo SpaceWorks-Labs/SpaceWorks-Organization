@@ -32,7 +32,7 @@ export default async function OrgMembersDirectoryPage({ params, searchParams }: 
   const base = `/dashboard/${org.slug}/members`;
   const query = (patch: Record<string, string | number>) => {
     const next = new URLSearchParams();
-    const merged = { ...view.drill?.params, status: filter === "all" ? "" : filter, q: view.q, plan: view.selected.plan, unit: view.selected.unit, role: view.selected.role, ...patch };
+    const merged = { ...view.drill?.params, status: filter === "all" ? "" : filter, q: view.q, plan: view.selected.plan, unit: view.selected.unit, role: view.selected.role, gv: view.selected.gv, sg: view.selected.sg, ...patch };
     for (const [key, value] of Object.entries(merged)) if (value) next.set(key, String(value));
     const text = next.toString();
     return text ? `${base}?${text}` : base;
@@ -47,8 +47,9 @@ export default async function OrgMembersDirectoryPage({ params, searchParams }: 
         description={`${counts.all.toLocaleString("en-IN")} ${counts.all === 1 ? "person" : "people"}${view.scopedUnit ? " in your unit" : ""}.`}
         actions={
           <div className="flex flex-wrap gap-2">
+            <Link href={`${base}/smart-groups`} className={buttonClasses({ variant: "secondary" })}>Smart groups</Link>
             {view.canExport ? (
-              <a href={`/api/exports/members/${org.slug}`} className={buttonClasses({ variant: "secondary" })}>
+              <a href={`/api/exports/members/${org.slug}${view.selected.gv || view.selected.sg ? `?${new URLSearchParams({ ...(view.selected.gv ? { gv: view.selected.gv } : {}), ...(view.selected.sg ? { sg: view.selected.sg } : {}) })}` : ""}`} className={buttonClasses({ variant: "secondary" })}>
                 <Download aria-hidden className="size-4" />
                 Export
               </a>
@@ -57,8 +58,8 @@ export default async function OrgMembersDirectoryPage({ params, searchParams }: 
             {view.canManageCards && !view.drill ? (
               <CardExportButton
                 slug={org.slug}
-                filter={{ status: filter, planId: view.selected.plan || null, unitId: view.selected.unit || null, roleId: view.selected.role || null, q: view.q }}
-                description={filter === "all" && !view.q && !view.selected.plan && !view.selected.unit && !view.selected.role ? "every member with a card" : "the members this filter shows"}
+                filter={{ status: filter, planId: view.selected.plan || null, unitId: view.selected.unit || null, roleId: view.selected.role || null, q: view.q, valueId: view.selected.gv || null, smartGroupId: view.selected.sg || null }}
+                description={filter === "all" && !view.q && !view.selected.plan && !view.selected.unit && !view.selected.role && !view.selected.gv && !view.selected.sg ? "every member with a card" : "the members this filter shows"}
               />
             ) : null}
             {view.canManage ? (
@@ -102,7 +103,7 @@ export default async function OrgMembersDirectoryPage({ params, searchParams }: 
         </Callout>
       ) : null}
 
-      <MemberFilters plans={view.plans} units={view.units} roles={view.roles} initial={{ q: view.q, ...view.selected }} />
+      <MemberFilters plans={view.plans} units={view.units} roles={view.roles} groupings={view.groupings} smartGroups={view.smartGroups} initial={{ q: view.q, ...view.selected }} />
 
       {counts.approval > 0 && filter !== "approval" && view.canManage ? (
         <Callout tone="info" action={<Link href={query({ status: "approval", page: "" })} className={buttonClasses({ variant: "secondary", size: "sm" })}>Verify</Link>}>
@@ -111,11 +112,17 @@ export default async function OrgMembersDirectoryPage({ params, searchParams }: 
       ) : null}
 
       {rows.length === 0 ? (
-        <EmptyState {...(total === 0 && filter === "all" && !view.q ? { patch: true } : { mood: "sleepy" as const })} title={total === 0 && filter === "all" && !view.q ? "No members yet" : "Nobody matches"}>
-          {total === 0 && filter === "all" && !view.q ? "Share a plan's join link, add people by hand, or import a spreadsheet." : "Try another filter or search."}
-        </EmptyState>
+        counts.all === 0 ? (
+          <EmptyState patch title="No members yet">
+            Share a plan&apos;s join link, add people by hand, or import a spreadsheet.
+          </EmptyState>
+        ) : (
+          <EmptyState mood="sleepy" title="No members match these filters" action={<Link href={base} scroll={false} className={buttonClasses({ variant: "secondary" })}>Clear filters</Link>}>
+            Try another filter or search, or clear them to see everyone.
+          </EmptyState>
+        )
       ) : (
-        <MembersTable slug={org.slug} rows={rows} canManage={view.canManage} showUnit={view.units.length > 0} validUntil={validUntil} />
+        <MembersTable slug={org.slug} rows={rows} canManage={view.canManage} showUnit={view.units.length > 0} validUntil={validUntil} groupings={view.groupings} />
       )}
 
       {pages > 1 ? (

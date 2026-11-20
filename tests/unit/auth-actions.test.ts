@@ -50,14 +50,20 @@ describe("password account creation", () => {
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
-  it("does not mislabel a retried account creation as rate-limited", async () => {
-    mocks.userFind.mockResolvedValue({ id: "new_user", passwordHash: "hash" });
+  it("applies the per-address sign-up limit before hashing, lookups or the breached check", async () => {
     mocks.rateLimit.mockResolvedValue(true);
-
     await expect(signUpWithPassword({ name: "Person", email: "person@example.test", password: "new-password" }))
-      .resolves.toEqual({ ok: true, data: { email: "person@example.test" } });
-    expect(mocks.rateLimit).not.toHaveBeenCalled();
+      .resolves.toEqual({ ok: false, error: "Too many attempts. Try again later." });
+    expect(mocks.hash).not.toHaveBeenCalled();
+    expect(mocks.userFind).not.toHaveBeenCalled();
     expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
+  it("consumes the same limit for existing and new addresses", async () => {
+    await signUpWithPassword({ name: "Person", email: "new@example.test", password: "new-password" });
+    mocks.userFind.mockResolvedValue({ id: "u", passwordHash: "h" });
+    await signUpWithPassword({ name: "Person", email: "old@example.test", password: "new-password" });
+    expect(mocks.rateLimit.mock.calls).toEqual([["signup"], ["signup"]]);
   });
 
   it("creates the user and verification outbox record in one transaction", async () => {

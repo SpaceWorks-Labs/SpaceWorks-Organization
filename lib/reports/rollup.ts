@@ -50,7 +50,7 @@ export async function recomputeOrgDays(organisationId: string, days: CalendarDat
   if (!days.length) return 0;
   const org = await prisma.organisation.findUnique({ where: { id: organisationId }, select: { id: true, timezone: true } });
   if (!org) return 0;
-  const data = await loadDataset({ organisationId, unitPath: null, unitId: null, planId: null, scoped: false });
+  const data = await loadDataset({ organisationId, unitPath: null, unitId: null, planId: null, limits: [], scoped: false });
   const started = new Date();
   let written = 0;
   for (const day of days) {

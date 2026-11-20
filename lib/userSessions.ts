@@ -1,6 +1,7 @@
 import "server-only";
 
 import { headers } from "next/headers";
+import { after } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { isOidcProviderId } from "@/lib/oidc/providers";
@@ -81,7 +82,9 @@ export async function checkUserSession(sid: string | undefined, userId: string, 
   });
   if (!row || row.userId !== userId || row.revokedAt || row.sessionVersion !== row.user.sessionVersion) return null;
   if (now - row.lastSeenAt.getTime() >= LAST_SEEN_EVERY_MS) {
-    await prisma.userSession.updateMany({ where: { id: sid, revokedAt: null }, data: { lastSeenAt: new Date(now) } }).catch(() => undefined);
+    // After the response: the throttled write never holds up the request.
+    const touch = () => prisma.userSession.updateMany({ where: { id: sid, revokedAt: null }, data: { lastSeenAt: new Date(now) } }).catch(() => undefined);
+    try { after(touch); } catch { void touch(); }
   }
   return row.user.sessionVersion;
 }

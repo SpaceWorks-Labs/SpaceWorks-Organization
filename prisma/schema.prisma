@@ -60,11 +60,15 @@ model User {
   teamMembers       TeamMember[]
   teamInvitesCreated TeamInvite[] @relation("TeamInviteCreatedBy")
   teamInvitesUsed    TeamInvite[] @relation("TeamInviteUsedBy")
+  smartGroups        SmartGroup[]
   ownershipTransfersFrom OwnershipTransfer[] @relation("OwnershipTransferFrom")
   ownershipTransfersTo   OwnershipTransfer[] @relation("OwnershipTransferTo")
   auditEvents       AuditEvent[]
   organisationReviews OrganisationReview[]
   members           Member[]
+  notificationEndpoints NotificationEndpoint[]
+  endpointChallenges NotificationEndpointChallenge[]
+  messagingConsents MessagingConsent[]
 }
 
 model Account {
@@ -92,6 +96,8 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expires])
 }
 
 /// A signed-in browser or device (product rules section 15, Sessions). The JWT carries this row's id (`sid`); every
@@ -114,6 +120,8 @@ model UserSession {
   knownDevice KnownDevice? @relation(fields: [knownDeviceId], references: [id], onDelete: SetNull)
 
   @@index([userId, revokedAt, lastSeenAt])
+  @@index([lastSeenAt])
+  @@index([revokedAt])
 }
 
 model VerificationToken {
@@ -122,6 +130,7 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+  @@index([expires])
 }
 
 // ─── Tenants ─────────────────────────────────────────────────────────────────
@@ -174,6 +183,13 @@ enum PaymentTiming {
   ACTIVATE_THEN_CHARGE
 }
 
+/// How a plan is paid: nothing, online or in hand (the organisation's gateway if it has one), or in hand only.
+enum PaymentMode {
+  FREE
+  ONLINE_OR_IN_HAND
+  IN_HAND_ONLY
+}
+
 enum PlanFieldType {
   TEXT
   LONG_TEXT
@@ -183,6 +199,8 @@ enum PlanFieldType {
   PHONE
   NUMBER
   CHECKBOX
+  /// A choice from one of the organisation's groupings (PlanField.groupingId); saved as MemberGroupingValue rows.
+  GROUPING
 }
 
 enum MemberSource {
@@ -281,6 +299,12 @@ model Organisation {
   assets        Asset[]
   auditEvents   AuditEvent[]
   units         OrgUnit[]
+  groupings     OrgGrouping[]
+  groupingValues OrgGroupingValue[]
+  memberGroupingValues MemberGroupingValue[]
+  teamMemberScopes TeamMemberScope[]
+  teamInviteScopes TeamInviteScope[]
+  smartGroups   SmartGroup[]
   memberRoles   MemberRole[]
   plans         MembershipPlan[]
   members       Member[]
@@ -293,6 +317,8 @@ model Organisation {
   taxDocuments    TaxDocument[]
   documentCounters DocumentCounter[]
   cardDesigns   CardDesign[]
+  cardTemplates CardTemplate[]
+  cardBrandKit  CardBrandKit?
   memberCards   MemberCard[]
   cardExports   CardExportJob[]
   page          OrganisationPage?
@@ -306,6 +332,12 @@ model Organisation {
   chatChannels   ChatChannel[]
   statsDirtyDays OrgStatsDirtyDay[]
   webVisits      WebVisitDaily[]
+  messagingChannels MessagingChannel[]
+  messagingSettings OrgMessagingSettings?
+  whatsappTemplates WhatsAppTemplate[]
+  notificationEndpoints NotificationEndpoint[]
+  endpointChallenges NotificationEndpointChallenge[]
+  messagingConsents MessagingConsent[]
 
   @@index([status, createdAt])
   @@index([visibility, status])
@@ -354,10 +386,13 @@ model TeamInvite {
   unit         OrgUnit?     @relation(fields: [organisationId, unitId], references: [organisationId, id], onDelete: Restrict, onUpdate: Restrict)
   createdBy    User?        @relation("TeamInviteCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   usedBy       User?        @relation("TeamInviteUsedBy", fields: [usedByUserId], references: [id], onDelete: SetNull)
+  scopes       TeamInviteScope[]
 
+  @@unique([organisationId, id])
   @@index([organisationId])
   @@index([organisationId, roleId])
   @@index([organisationId, createdAt])
+  @@index([expiresAt])
   @@index([usedAt])
 }
 
@@ -379,7 +414,10 @@ model TeamMember {
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   orgRole      OrgRole      @relation(fields: [organisationId, roleId], references: [organisationId, id], onDelete: Restrict, onUpdate: Restrict)
   unit         OrgUnit?     @relation(fields: [organisationId, unitId], references: [organisationId, id], onDelete: Restrict, onUpdate: Restrict)
+  /// Grouping limits, ANDed with the unit limit (lib/membership/scope.ts).
+  scopes       TeamMemberScope[]
 
+  @@unique([organisationId, id])
   @@unique([userId, organisationId])
   @@index([organisationId])
   @@index([organisationId, roleId])
@@ -470,6 +508,7 @@ model OutboxMessage {
 
   @@index([status, availableAt])
   @@index([createdAt])
+  @@index([status, sentAt])
 }
 
 /// One-row operational state for scheduled work, separate from the human audit trail.
@@ -546,6 +585,8 @@ model InstanceSetting {
   smsConfigEncrypted    String?
   smsVerifiedAt         DateTime?
   smsLastError          String?
+  /// Organisations may send member messages through the platform's own channels when they have none of their own.
+  messagingOrgsMayUsePlatform Boolean @default(true)
   googleClientId       String?
   googleClientSecretEncrypted String?
   githubClientId        String?
@@ -667,6 +708,9 @@ model MembershipPlan {
   joinPhoto           String           @default("OFF")
   joinFields          Json             @default("{}")
   paymentTiming       PaymentTiming    @default(PAY_THEN_ACTIVATE)
+  paymentMode         PaymentMode      @default(ONLINE_OR_IN_HAND)
+  /// Renewal conditions, validated by lib/membership/renewalPolicy.ts.
+  renewalPolicy       Json             @default("{}")
   /// When false, only members of the units in PlanUnit may join.
   allUnits            Boolean          @default(true)
   sortOrder           Int              @default(0)
@@ -716,8 +760,11 @@ model PlanField {
   /// Only managers see and fill it; never on the public form.
   adminOnly      Boolean       @default(false)
   sortOrder      Int           @default(0)
+  /// For GROUPING questions: the grouping the answer chooses from.
+  groupingId     String?
 
   plan MembershipPlan @relation(fields: [organisationId, planId], references: [organisationId, id], onDelete: Cascade)
+  grouping OrgGrouping? @relation(fields: [organisationId, groupingId], references: [organisationId, id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([planId, key])
 }
@@ -759,9 +806,11 @@ model Member {
   refundRequests RefundRequest[]
   cards        MemberCard[]
   erasureRequests ErasureRequest[]
+  groupingValues MemberGroupingValue[]
 
   @@unique([organisationId, id])
   @@unique([organisationId, email])
+  messageLogs MemberMessageLog[]
   @@unique([organisationId, memberNumber])
   @@index([userId])
   @@index([organisationId, unitId])
@@ -819,6 +868,11 @@ model MembershipTerm {
 
   @@unique([organisationId, id])
   @@index([organisationId, status, endsAt])
+  @@index([status, endsAt])
+  @@index([status, startsAt])
+  @@index([status, graceUntil])
+  @@index([status, paymentDueBy])
+  @@index([renewedFromId, status])
   @@index([organisationId, createdAt])
   @@index([memberId, planId])
 }
@@ -1212,10 +1266,46 @@ model CardDesign {
   organisation Organisation    @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   plan         MembershipPlan? @relation(fields: [organisationId, planId], references: [organisationId, id], onDelete: Cascade)
   role         MemberRole?     @relation(fields: [organisationId, roleId], references: [organisationId, id], onDelete: Cascade)
+  versions     CardDesignVersion[]
 
   @@unique([organisationId, id])
   @@unique([organisationId, planId])
   @@unique([organisationId, roleId])
+}
+
+/// A saved state of a card design (lib/cards/versions.ts): DRAFT snapshots are coalesced to one per 10 minutes,
+/// every approval is kept as APPROVED, and each design keeps its 30 newest.
+model CardDesignVersion {
+  id             String   @id @default(cuid())
+  organisationId String
+  cardDesignId   String
+  /// DRAFT or APPROVED.
+  kind           String
+  design         Json
+  numberPrefix   String
+  numberFormat   String
+  createdById    String?
+  createdAt      DateTime @default(now())
+
+  cardDesign CardDesign @relation(fields: [organisationId, cardDesignId], references: [organisationId, id], onDelete: Cascade)
+
+  @@index([organisationId, cardDesignId, createdAt])
+}
+
+/// An organisation's own card template (app/actions/card-templates.ts): both sides, at most 50 per organisation.
+model CardTemplate {
+  id             String   @id @default(cuid())
+  organisationId String
+  /// 1 to 60 characters.
+  name           String
+  design         Json
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@index([organisationId, createdAt])
 }
 
 /// A member's card for one plan. The verify token sits in the QR and is unguessable; renewals keep the
@@ -1598,6 +1688,8 @@ model OrgEmailTemplate {
   subject        String
   heading        String
   body           String
+  /// Short text for SMS, WhatsApp, Telegram, Slack, Discord and Mattermost; empty uses the standard short text.
+  shortText      String   @default("")
   updatedById    String?
   updatedAt      DateTime @updatedAt
 
@@ -1681,8 +1773,275 @@ model SmsCode {
   deliveryError String?
   createdAt     DateTime  @default(now())
 
+  @@index([createdAt])
   @@index([phoneHash, createdAt])
   @@index([country, createdAt])
   @@index([providerRef])
   @@index([expiresAt])
+}
+
+/// An extra way an organisation divides its members beyond the unit tree ("Profession", "Region"). A list or a tree
+/// of values; members choose values on the join form; staff can be limited to values (TeamMemberScope).
+model OrgGrouping {
+  id             String    @id @default(cuid())
+  organisationId String
+  /// Lowercase key, unique per organisation (used by imports and exports).
+  key            String
+  name           String
+  /// "list" or "tree" (values may have parents).
+  kind           String    @default("list")
+  /// A member may hold several values of this grouping.
+  multiple       Boolean   @default(false)
+  sortOrder      Int       @default(0)
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  organisation Organisation          @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  values       OrgGroupingValue[]
+  memberValues MemberGroupingValue[]
+  teamScopes   TeamMemberScope[]
+  inviteScopes TeamInviteScope[]
+  planFields   PlanField[]
+
+  @@unique([organisationId, id])
+  @@unique([organisationId, key])
+}
+
+model OrgGroupingValue {
+  id             String    @id @default(cuid())
+  organisationId String
+  groupingId     String
+  parentId       String?
+  label          String
+  /// 1 to 12 of A-Z and 0-9, unique within the grouping (imports and filters).
+  code           String
+  /// Ancestor ids joined by "/", ending with this value's own id (like OrgUnit.path).
+  path           String
+  level          Int       @default(0)
+  sortOrder      Int       @default(0)
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  organisation Organisation          @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  grouping     OrgGrouping           @relation(fields: [organisationId, groupingId], references: [organisationId, id], onDelete: Cascade)
+  parent       OrgGroupingValue?     @relation("GroupingValueTree", fields: [organisationId, parentId], references: [organisationId, id], onDelete: NoAction, onUpdate: NoAction)
+  children     OrgGroupingValue[]    @relation("GroupingValueTree")
+  memberValues MemberGroupingValue[]
+  teamScopes   TeamMemberScope[]
+  inviteScopes TeamInviteScope[]
+
+  @@unique([organisationId, id])
+  @@unique([organisationId, groupingId, id])
+  @@unique([groupingId, code])
+  @@index([organisationId, groupingId, path])
+}
+
+/// One value a member holds in one grouping. Written only through lib/groupings/memberValues.ts.
+model MemberGroupingValue {
+  id             String   @id @default(cuid())
+  organisationId String
+  memberId       String
+  groupingId     String
+  valueId        String
+  createdAt      DateTime @default(now())
+
+  organisation Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  member       Member           @relation(fields: [organisationId, memberId], references: [organisationId, id], onDelete: Cascade)
+  grouping     OrgGrouping      @relation(fields: [organisationId, groupingId], references: [organisationId, id], onDelete: Cascade)
+  value        OrgGroupingValue @relation(fields: [organisationId, groupingId, valueId], references: [organisationId, groupingId, id], onDelete: Cascade)
+
+  @@unique([memberId, valueId])
+  @@index([organisationId, groupingId, valueId])
+  @@index([memberId])
+}
+
+/// Limits a team member to a grouping value's subtree. Several rows for one grouping widen it (OR); different
+/// groupings and the unit limit narrow it (AND).
+model TeamMemberScope {
+  id             String   @id @default(cuid())
+  organisationId String
+  teamMemberId   String
+  groupingId     String
+  valueId        String
+  createdAt      DateTime @default(now())
+
+  organisation Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  teamMember   TeamMember       @relation(fields: [organisationId, teamMemberId], references: [organisationId, id], onDelete: Cascade)
+  grouping     OrgGrouping      @relation(fields: [organisationId, groupingId], references: [organisationId, id], onDelete: NoAction, onUpdate: NoAction)
+  value        OrgGroupingValue @relation(fields: [organisationId, groupingId, valueId], references: [organisationId, groupingId, id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([teamMemberId, valueId])
+  @@index([organisationId, teamMemberId])
+}
+
+model TeamInviteScope {
+  id             String   @id @default(cuid())
+  organisationId String
+  teamInviteId   String
+  groupingId     String
+  valueId        String
+  createdAt      DateTime @default(now())
+
+  organisation Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  teamInvite   TeamInvite       @relation(fields: [organisationId, teamInviteId], references: [organisationId, id], onDelete: Cascade)
+  grouping     OrgGrouping      @relation(fields: [organisationId, groupingId], references: [organisationId, id], onDelete: NoAction, onUpdate: NoAction)
+  value        OrgGroupingValue @relation(fields: [organisationId, groupingId, valueId], references: [organisationId, groupingId, id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([teamInviteId, valueId])
+  @@index([organisationId, teamInviteId])
+}
+
+/// A saved condition over members (lib/groups/conditions.ts). Computed on demand, never stored per member.
+model SmartGroup {
+  id             String   @id @default(cuid())
+  organisationId String
+  name           String
+  description    String   @default("")
+  /// A condition tree validated by smartGroupConditionSchema.
+  condition      Json
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([organisationId, id])
+  @@unique([organisationId, name])
+}
+
+/// A member-message channel's connection: the platform's (organisationId null) or an organisation's own. Secrets are
+/// encrypted in configEncrypted and never returned to the browser. SMS at platform level lives in InstanceSetting.
+model MessagingChannel {
+  id              String    @id @default(cuid())
+  organisationId  String?
+  /// SMS, WHATSAPP, TELEGRAM, SLACK, DISCORD or MATTERMOST.
+  channel         String
+  provider        String
+  configEncrypted String
+  enabled         Boolean   @default(true)
+  verifiedAt      DateTime?
+  lastError       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organisation Organisation? @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@unique([organisationId, channel])
+}
+
+/// Per-organisation routing (kind to ordered channels) and quiet hours (minutes after midnight, organisation timezone).
+model OrgMessagingSettings {
+  organisationId   String    @id
+  routing          Json      @default("{}")
+  quietStartMinute Int?
+  quietEndMinute   Int?
+  lastDigestOn     DateTime? @db.Date
+  updatedAt        DateTime  @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+}
+
+/// The approved WhatsApp template a message kind uses in one language, with the ordered placeholder names that fill it.
+model WhatsAppTemplate {
+  id             String   @id @default(cuid())
+  organisationId String?
+  kind           String
+  language       String
+  name           String
+  variables      String[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation Organisation? @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@unique([organisationId, kind, language])
+}
+
+/// A person's verified address on a channel, in the scope of the bot or sender that reaches it (organisationId null: the platform's).
+model NotificationEndpoint {
+  id                String    @id @default(cuid())
+  userId            String
+  organisationId    String?
+  channel           String
+  /// HMAC of the identity: uniqueness without storing it in the clear.
+  identityDigest    String
+  /// The identity needed to send, encrypted.
+  identityEncrypted String
+  verifiedAt        DateTime
+  revokedAt         DateTime?
+  createdAt         DateTime  @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organisation Organisation? @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// A one-time code that links a chat account (or proves a phone) to a person. Only the keyed hash is stored.
+model NotificationEndpointChallenge {
+  id             String    @id
+  userId         String
+  organisationId String?
+  channel        String
+  codeHash       String
+  attempts       Int       @default(0)
+  expiresAt      DateTime
+  consumedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organisation Organisation? @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// A person's choice, per organisation and channel: OPTED_IN, or STOPPED (a STOP reply or the stop link).
+model MessagingConsent {
+  organisationId String
+  userId         String
+  channel        String
+  status         String
+  updatedAt      DateTime @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([organisationId, userId, channel])
+}
+
+/// One row per member message, once per dedupe key: what was sent and through which channel. No text, number or address.
+model MemberMessageLog {
+  id             String   @id @default(cuid())
+  organisationId String
+  memberId       String
+  kind           String
+  dedupeKey      String
+  status         String   @default("PENDING")
+  channel        String?
+  /// Channels that refused this message for good, so a retry moves on to the next one.
+  refused        String[]
+  providerRef    String?
+  deliveryState  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  member Member @relation(fields: [organisationId, memberId], references: [organisationId, id], onDelete: Cascade)
+
+  @@unique([organisationId, memberId, dedupeKey])
+  @@index([providerRef])
+  @@index([createdAt])
+}
+
+/// An organisation's brand kit for the card designer: logo variants (its own `organisation-logos` uploads), up to
+/// 12 colours and up to 4 card fonts. `kit` is normalised on every read and write (lib/cards/brandKit.ts).
+model CardBrandKit {
+  organisationId String   @id
+  kit            Json     @default("{}")
+  updatedById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
 }

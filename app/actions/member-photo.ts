@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { orgActionAccess } from "@/lib/permissions";
-import { teamScope, unitInScope } from "@/lib/membership/scope";
+import { memberWhere, teamScope } from "@/lib/membership/scope";
 import { photoFile, replaceMemberPhoto } from "@/lib/membership/photo";
 import type { ActionResult } from "./org";
 
@@ -24,9 +24,9 @@ export async function setMemberPhoto(formData: FormData): Promise<ActionResult<{
   const access = await orgActionAccess(slug, "members.manage");
   if (!access.ok) return access;
   if (await isActionRateLimited("upload", access.userId)) return { ok: false, error: "Too many uploads. Try again later." };
-  const scope = await teamScope(access.organisation.id, access.membership.unitId);
-  const member = await prisma.member.findFirst({ where: { id: memberId, organisationId: access.organisation.id, anonymisedAt: null }, select: { id: true, organisationId: true, photoUrl: true, unit: { select: { path: true } } } });
-  if (!member || !unitInScope(scope, member.unit?.path ?? null)) return { ok: false, error: "Member not found." };
+  const scope = await teamScope(access.organisation.id, access.membership);
+  const member = await prisma.member.findFirst({ where: { AND: [memberWhere(scope), { id: memberId, anonymisedAt: null }] }, select: { id: true, organisationId: true, photoUrl: true, unit: { select: { path: true } } } });
+  if (!member) return { ok: false, error: "Member not found." };
 
   const file = remove ? null : photoFile(formData.get("file"));
   if (file && "error" in file) return { ok: false, error: file.error };

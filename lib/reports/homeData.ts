@@ -3,7 +3,7 @@ import "server-only";
 import { ANALYTICS_TTL_SECONDS, analyticsCacheKey, cached } from "@/lib/cache";
 import { prisma } from "@/lib/db";
 import { can, type StaffMembership } from "@/lib/permissions";
-import { teamScope } from "@/lib/membership/scope";
+import { limitsKey, teamScope } from "@/lib/membership/scope";
 import { dueByWeek, dueWindowEnd, seriesByCurrency } from "./analytics";
 import { loadCollections, loadOpenCharges } from "./finance/source";
 import { revenueSeries } from "./finance/revenue";
@@ -55,12 +55,12 @@ export async function loadHomeAnalytics(org: HomeOrg, membership: StaffMembershi
   const members = can(membership, "reports.membership");
   const money = can(membership, "reports.finance");
   if (!members && !money) return null;
-  const scope = await reportScope(await teamScope(org.id, membership.unitId), {});
+  const scope = await reportScope(await teamScope(org.id, membership), {});
   const period = resolvePeriod({ period: "12m" }, org, now);
   const buckets = periodBuckets(period, org.timezone, "month").slice(-12);
   const [membershipView, moneyView] = await Promise.all([
-    members ? cached(analyticsCacheKey(org.id, scope.unitId, "home-members"), ANALYTICS_TTL_SECONDS, () => membershipCharts(scope, buckets, org.timezone, now)) : null,
-    money ? cached(analyticsCacheKey(org.id, scope.unitId, "home-money"), ANALYTICS_TTL_SECONDS, () => moneyCharts(scope, buckets, org.currency, now)) : null,
+    members ? cached(analyticsCacheKey(org.id, scope.unitId, "home-members", limitsKey(scope.limits)), ANALYTICS_TTL_SECONDS, () => membershipCharts(scope, buckets, org.timezone, now)) : null,
+    money ? cached(analyticsCacheKey(org.id, scope.unitId, "home-money", limitsKey(scope.limits)), ANALYTICS_TTL_SECONDS, () => moneyCharts(scope, buckets, org.currency, now)) : null,
   ]);
   return { scoped: scope.scoped, currency: org.currency, membership: membershipView, money: moneyView };
 }

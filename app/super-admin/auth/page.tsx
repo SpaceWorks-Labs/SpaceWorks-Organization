@@ -7,6 +7,7 @@ import { InstanceSmsPanel } from "@/components/super-admin/InstanceSmsPanel";
 import { AdminPanel } from "@/components/super-admin/AdminPanel";
 import { PageHeader, StatTile } from "@/components/ui/display";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
+import { formatCount, formatUtcStamp } from "@/lib/format/datetime";
 
 export default async function SuperAdminAuthPage() {
   await requireSuperAdmin();
@@ -16,9 +17,9 @@ export default async function SuperAdminAuthPage() {
       <PageHeader title="Auth" description="Sign-in methods, single sign-on, phone codes, account creation, and recent accounts, sessions and verification tokens." />
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <StatTile className="rounded-xl" label="Accounts" value={accountsCount.toLocaleString()} />
-        <StatTile className="rounded-xl" label="Sessions" value={sessionsCount.toLocaleString()} />
-        <StatTile className="rounded-xl" label="Verification tokens" value={tokensCount.toLocaleString()} />
+        <StatTile label="Accounts" value={formatCount(accountsCount)} />
+        <StatTile label="Sessions" value={formatCount(sessionsCount)} />
+        <StatTile label="Verification tokens" value={formatCount(tokensCount)} />
       </div>
 
       <AdminPanel title="Sign-in methods" description="A method works when its switch is on and it is configured. Switching one off keeps its credentials.">
@@ -67,7 +68,7 @@ export default async function SuperAdminAuthPage() {
             {sessions.map((s) => (
               <TR key={s.id}>
                 <TD className="tabular-nums text-sm">{s.user.email ?? s.user.id}</TD>
-                <TD className="whitespace-nowrap text-ink-secondary">{s.expires.toLocaleString()}</TD>
+                <TD className="whitespace-nowrap text-ink-secondary">{formatUtcStamp(s.expires)}</TD>
                 <TD className="tabular-nums text-sm [overflow-wrap:anywhere]">{s.id}</TD>
               </TR>
             ))}
@@ -87,7 +88,7 @@ export default async function SuperAdminAuthPage() {
             {tokens.map((t) => (
               <TR key={`${t.identifier}:${t.expires.toISOString()}`}>
                 <TD>{t.identifier.startsWith("mfa:") ? "MFA enrollment" : t.identifier.startsWith("reset:") ? "Password reset" : "Other verification"}</TD>
-                <TD className="whitespace-nowrap text-ink-secondary">{t.expires.toLocaleString()}</TD>
+                <TD className="whitespace-nowrap text-ink-secondary">{formatUtcStamp(t.expires)}</TD>
               </TR>
             ))}
           </TBody>

@@ -21,7 +21,7 @@ import { NumberSlider, Section, SwatchGroup, SwitchLine, ToggleField } from "./c
 export type DesignerField = { key: string; label: string };
 
 /** Colour, text, items and watermark for the side being edited. */
-export function SideSettings({ side, current, branding, fields, uploading, update, toggleItem, onWatermark }: {
+export function SideSettings({ side, current, branding, fields, uploading, update, toggleItem, onWatermark, brandColours, documentColours }: {
   side: CardSide;
   current: CardSideSettings;
   branding: CardBranding;
@@ -30,12 +30,15 @@ export function SideSettings({ side, current, branding, fields, uploading, updat
   update: (patch: Partial<CardSideSettings>) => void;
   toggleItem: (flag: keyof CardLayoutFlags, on: boolean, element: CardElement) => void;
   onWatermark: (file: File | null) => void;
+  /** The brand kit's colours and the colours the design already uses, offered in the custom colour fields. */
+  brandColours?: readonly string[];
+  documentColours?: readonly string[];
 }) {
   const orgColour = orgAccentHex(branding.orgAccent);
   const custom = current.customColours;
   const colourOf = (own: string) => (key: string) => (key === "custom" ? own : key === "org" ? orgColour : key === "auto" ? null : BRAND[key as keyof typeof BRAND]);
   const ownColour = (which: keyof typeof custom, label: string) => (
-    <ColourField label={label} value={custom[which]} orgAccent={orgColour} onChange={(hex) => hex && update({ customColours: { ...custom, [which]: hex } })} />
+    <ColourField label={label} value={custom[which]} orgAccent={orgColour} brandColours={brandColours} documentColours={documentColours} onChange={(hex) => hex && update({ customColours: { ...custom, [which]: hex } })} />
   );
   const palette = resolveCardPalette(current, branding.orgAccent);
   const mark = current.watermark;

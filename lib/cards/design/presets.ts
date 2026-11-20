@@ -1,14 +1,9 @@
-import {
-  CARD_LINE_HEIGHT,
-  CR80,
-  DEFAULT_WATERMARK,
-  PT_TO_MM,
-  type CardLayoutFlags,
-  type CardSideSettings,
-} from "./elements";
+import { resolveCardPalette } from "@/lib/cards/palette";
+import { CR80, DEFAULT_WATERMARK, type CardLayoutFlags, type CardSideSettings } from "./elements";
 import { layoutForPaper } from "./geometry";
 import { DEFAULT_ORDER, scopeCardArtwork } from "./layers";
 import { defaultCardSideSettings, normalizeCardSide, type CardDesignContext } from "./normalize";
+import { backNote, standardBack, unitsLine } from "./sides";
 
 /*
  * A member card design: a front and a back, each an ordinary card side, so the same canvas, PDF and
@@ -40,54 +35,48 @@ export const CARD_DESIGN_MAX_BYTES = 128_000;
 
 // Saved sizes are kept to 0.1 mm, so CR80's 53.98 mm is stored as 54.
 const round1 = (mm: number) => Math.round(mm * 10) / 10;
-const LANDSCAPE = { widthMm: round1(CR80.widthMm), heightMm: round1(CR80.heightMm) };
-const PORTRAIT = { widthMm: round1(CR80.heightMm), heightMm: round1(CR80.widthMm) };
+export const LANDSCAPE = { widthMm: round1(CR80.widthMm), heightMm: round1(CR80.heightMm) };
+export const PORTRAIT = { widthMm: round1(CR80.heightMm), heightMm: round1(CR80.widthMm) };
 
-type PresetLook = Pick<CardSideSettings, "template" | "backgroundColor" | "accentColor" | "textColor" | "widthMm" | "heightMm" | "photoShape">;
+export type PresetLook = Pick<CardSideSettings, "template" | "backgroundColor" | "accentColor" | "textColor" | "widthMm" | "heightMm" | "photoShape">;
 
-const LOOKS: Record<CardPreset, PresetLook> = {
+export const LOOKS: Record<CardPreset, PresetLook> = {
   community: { template: "classic", backgroundColor: "cream", accentColor: "teal", textColor: "auto", photoShape: "rounded", ...LANDSCAPE },
   corporate: { template: "bold", backgroundColor: "white", accentColor: "ink", textColor: "auto", photoShape: "circle", ...PORTRAIT },
   night: { template: "bold", backgroundColor: "ink", accentColor: "citron", textColor: "auto", photoShape: "rounded", ...PORTRAIT },
   student: { template: "bold", backgroundColor: "white", accentColor: "sky", textColor: "auto", photoShape: "rounded", ...LANDSCAPE },
 };
 
-function side(preset: CardPreset, which: CardSide, context: CardDesignContext): CardSideSettings {
-  const look = LOOKS[preset];
+/**
+ * One side of a built-in design in `look`. `units` adds the member's units under the role on the front
+ * (templates do; presets keep the plain default layout, so turning items on and off still reflows it).
+ */
+export function lookSide(look: PresetLook, which: CardSide, context: CardDesignContext, options: { units?: boolean } = {}): CardSideSettings {
   const front = which === "front";
   const flags: Required<CardLayoutFlags> = {
     showLogo: true,
     showSymbol: !front,
     showPhoto: front,
     showRole: front,
-    showPlan: !front,
+    showPlan: true,
     showIdNumber: true,
     showValidUntil: true,
+    showQrCaption: front,
   };
   const layout = layoutForPaper(look.template, look.widthMm, look.heightMm, flags);
-  if (!front) {
-    // The back's note runs to two or three lines: lift it (and a symbol stacked above it) clear of the edge.
-    const lineMm = layout.elementTextSizes.footer * PT_TO_MM * CARD_LINE_HEIGHT.body;
-    const lift = round1(lineMm * (look.widthMm > look.heightMm ? 1 : 2));
-    const at = layout.elementPositions;
-    const symbolAbove = at.symbol.yMm < at.footer.yMm - 1;
-    at.footer = { ...at.footer, yMm: round1(at.footer.yMm - lift) };
-    if (symbolAbove) at.symbol = { ...at.symbol, yMm: round1(at.symbol.yMm - lift) };
-    // The back prints no name: start the plan, number and answers where the name would be.
-    const up = at.plan.yMm - at.name.yMm;
-    for (const item of ["plan", "idNumber", "validUntil", "details"] as const) at[item] = { ...at[item], yMm: round1(at[item].yMm - up) };
-  }
-  return {
+  const note = backNote(context.organisationName);
+  const ink = resolveCardPalette({ colorMode: "colour", ...look }, null).text;
+  const layers = !front ? standardBack(layout, look.widthMm, look.heightMm, note, ink, "lback") : options.units ? [unitsLine(layout, look.widthMm, look.heightMm, ink, "lunits")] : [];
+  // Normalised like a saved side, so the back's layers are complete.
+  return normalizeCardSide({
     ...defaultCardSideSettings(context),
     ...look,
     ...layout,
-    heading: front ? context.organisationName : context.planName || context.organisationName,
+    heading: context.organisationName,
     cardLabel: front ? "MEMBER" : "ABOUT THIS CARD",
     showCardLabel: true,
     showFooter: !front,
-    footerText: front
-      ? context.organisationName
-      : `Issued by ${context.organisationName || "the organisation named on the front"}. Scan the QR code on the front to check this card is current.`.slice(0, 240),
+    footerText: front ? context.organisationName : note,
     nameAutoFit: true,
     showGrid: true,
     gridSizeMm: 1,
@@ -97,13 +86,13 @@ function side(preset: CardPreset, which: CardSide, context: CardDesignContext): 
     printFieldKeys: [],
     printFieldLabels: {},
     watermark: { ...DEFAULT_WATERMARK },
-    layers: [],
-    order: [...DEFAULT_ORDER],
-  };
+    layers,
+    order: [...DEFAULT_ORDER, ...layers.map((layer) => layer.id)],
+  }, context);
 }
 
 export function defaultCardDesign(context: CardDesignContext, preset: CardPreset = "community"): CardDesign {
-  return { version: 1, preset, backEnabled: true, front: side(preset, "front", context), back: side(preset, "back", context) };
+  return { version: 1, preset, backEnabled: true, front: lookSide(LOOKS[preset], "front", context), back: lookSide(LOOKS[preset], "back", context) };
 }
 
 /** A fresh front and back for `preset`, keeping the watermark and printed answers already chosen. */

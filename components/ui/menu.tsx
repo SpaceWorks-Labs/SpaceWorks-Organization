@@ -72,18 +72,16 @@ export function MenuSeparator() {
   return <DropdownMenuPrimitive.Separator className="my-1.5 h-px bg-line" />;
 }
 
-export const MenuRadioGroup = DropdownMenuPrimitive.RadioGroup;
-
-/** A single choice inside a MenuRadioGroup (menuitemradio): the chosen one shows a check and its word. */
-export const MenuRadioItem = forwardRef<
-  ElementRef<typeof DropdownMenuPrimitive.RadioItem>,
-  ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.RadioItem> & { icon?: ReactNode }
->(function MenuRadioItem({ className, icon, children, ...props }, ref) {
+/** An on/off item (menuitemcheckbox), such as "Dark theme": a check shows while it is on. */
+export const MenuCheckboxItem = forwardRef<
+  ElementRef<typeof DropdownMenuPrimitive.CheckboxItem>,
+  ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.CheckboxItem> & { icon?: ReactNode }
+>(function MenuCheckboxItem({ className, icon, children, ...props }, ref) {
   return (
-    <DropdownMenuPrimitive.RadioItem
+    <DropdownMenuPrimitive.CheckboxItem
       ref={ref}
       className={cn(
-        "flex min-h-11 cursor-pointer select-none items-center gap-2.5 rounded-md px-3 py-2 text-body-ui text-ink outline-none data-[disabled]:pointer-events-none data-[disabled]:text-ink-muted data-[highlighted]:bg-muted data-[state=checked]:font-semibold [&_svg]:size-[18px] [&_svg]:shrink-0",
+        "flex min-h-11 cursor-pointer select-none items-center gap-2.5 rounded-md px-3 py-2 text-body-ui text-ink outline-none data-[disabled]:pointer-events-none data-[disabled]:text-ink-muted data-[highlighted]:bg-muted [&_svg]:size-[18px] [&_svg]:shrink-0",
         className,
       )}
       {...props}
@@ -93,7 +91,7 @@ export const MenuRadioItem = forwardRef<
       <DropdownMenuPrimitive.ItemIndicator aria-hidden className="inline-flex text-accent-text">
         <Check />
       </DropdownMenuPrimitive.ItemIndicator>
-    </DropdownMenuPrimitive.RadioItem>
+    </DropdownMenuPrimitive.CheckboxItem>
   );
 });
 

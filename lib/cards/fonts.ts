@@ -32,7 +32,8 @@ type Chains = Record<FontWeight, Font[]>;
 export type CardFonts = {
   /** The faces of `font` (the default when it isn't loaded) for one weight, in fallback order. */
   chain(font: string | undefined, weight: FontWeight): Font[];
-  shape(text: string, weight: FontWeight, font?: string): ShapedText;
+  /** `tabular`: figures of one width (OpenType tnum), for card numbers. */
+  shape(text: string, weight: FontWeight, font?: string, tabular?: boolean): ShapedText;
   measurer: TextMeasurer;
 };
 
@@ -46,6 +47,21 @@ const chains = new Map<string, Chains>();
 const loading = new Map<string, Promise<void>>();
 let fonts: CardFonts | null = null;
 
+/**
+ * Shape one run. fontkit 2.0.4 throws on an above-base mark rule with an empty anchor, which Noto Sans
+ * Malayalam has for a word-final chandrakkala ("സമദ്"); HarfBuzz skips such a rule, so shape again
+ * without above-base mark positioning rather than fail the card. fontkit writes into the features
+ * object it is given, so each call gets a fresh one.
+ */
+function layoutRun(face: Font, text: string, tabular: boolean) {
+  const features = (): Record<string, boolean> => (tabular ? { tnum: true } : {});
+  try {
+    return face.layout(text, features());
+  } catch {
+    return face.layout(text, { ...features(), abvm: false });
+  }
+}
+
 function faceFor(chain: Font[], cluster: string) {
   const codePoints = [...cluster].map((char) => char.codePointAt(0)!);
   const whole = chain.findIndex((face) => codePoints.every((cp) => cp === 32 || JOINERS.has(cp) || face.hasGlyphForCodePoint(cp)));
@@ -57,9 +73,9 @@ function buildFonts(): CardFonts {
   const chain = (font: string | undefined, weight: FontWeight) => (chains.get(font ?? DEFAULT_CARD_FONT) ?? chains.get(DEFAULT_CARD_FONT)!)[weight];
   const familyOf = (font: string | undefined) => (font && chains.has(font) ? font : DEFAULT_CARD_FONT);
 
-  const shape = (text: string, weight: FontWeight, font?: string): ShapedText => {
+  const shape = (text: string, weight: FontWeight, font?: string, tabular = false): ShapedText => {
     const family = familyOf(font);
-    const key = `${family}\u0000${weight}\u0000${text}`;
+    const key = `${family}\u0000${weight}\u0000${tabular ? "t" : ""}\u0000${text}`;
     const hit = cache.get(key);
     if (hit) return hit;
     const faces = chain(family, weight);
@@ -77,7 +93,7 @@ function buildFonts(): CardFonts {
     let advancing = 0;
     for (const run of runs) {
       const face = faces[run.face]!;
-      const laid = face.layout(run.text);
+      const laid = layoutRun(face, run.text, tabular);
       laid.glyphs.forEach((glyph, index) => {
         const position = laid.positions[index]!;
         const advances = position.xAdvance > 0;
@@ -112,8 +128,8 @@ function buildFonts(): CardFonts {
   };
   const base = metrics();
   const measurer: TextMeasurer = {
-    widthMm(text, weight, sizePt, trackingEm = 0, font) {
-      const shaped = shape(text, weight, font);
+    widthMm(text, weight, sizePt, trackingEm = 0, font, tabular) {
+      const shaped = shape(text, weight, font, tabular);
       return (shaped.widthEm + trackingEm * shaped.advancing) * sizePt * PT_TO_MM;
     },
     ascent: base.ascent,
@@ -161,8 +177,8 @@ export async function loadCardFonts(families: Iterable<string> = []): Promise<Ca
 }
 
 /** Positioned glyphs for one text op, in millimetres from the op's origin (y down), with tracking. */
-export function placeGlyphs(fonts: CardFonts, text: string, weight: FontWeight, sizePt: number, trackingEm: number, font?: string) {
-  const shaped = fonts.shape(text, weight, font);
+export function placeGlyphs(fonts: CardFonts, text: string, weight: FontWeight, sizePt: number, trackingEm: number, font?: string, tabular?: boolean) {
+  const shaped = fonts.shape(text, weight, font, tabular);
   const faces = fonts.chain(font, weight);
   const family = faces === fonts.chain(undefined, weight) ? DEFAULT_CARD_FONT : font!;
   const em = sizePt * PT_TO_MM;

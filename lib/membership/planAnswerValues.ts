@@ -10,6 +10,8 @@ export type FieldDef = {
   showIfKey?: string | null;
   showIfValue?: string | null;
   sortOrder?: number;
+  /** For GROUPING questions: the grouping answered (saved as member grouping values, not in `fieldValues`). */
+  groupingId?: string | null;
 };
 export type AnswerValue = string | boolean | number;
 export type AnswerValues = Record<string, AnswerValue>;
@@ -70,5 +72,6 @@ export function orderedFields(fields: readonly FieldDef[]): FieldDef[] {
 
 export function sameFieldShape(a: FieldDef, b: FieldDef): boolean {
   return a.type === b.type && !!a.multiple === !!b.multiple && !!a.section === !!b.section
+    && (a.type !== "GROUPING" || a.groupingId === b.groupingId)
     && (!(a.type === "SELECT" || a.multiple) || JSON.stringify(a.options) === JSON.stringify(b.options));
 }

@@ -9,18 +9,11 @@ import { recordAuditEvent } from "@/lib/audit";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { allowedTelemetryOrigins } from "@/lib/telemetry/env";
 import { parseStoredTelemetry, telemetrySchema } from "@/lib/telemetry/schema";
+import { changedFields } from "@/lib/telemetry/changes";
 import { emptyTelemetryConfig, type WebTelemetryConfig } from "@/lib/telemetry/types";
 import type { ActionResult } from "./org";
 
 const revalidatePath = trackedRevalidation(nextRevalidatePath);
-
-/** Dotted names of every field that differs, e.g. "pageview.provider". Names only, never the ids. */
-function changedFields(before: unknown, after: unknown, prefix = ""): string[] {
-  if (before && after && typeof before === "object" && typeof after === "object") {
-    return Object.keys(after).flatMap((key) => changedFields((before as Record<string, unknown>)[key], (after as Record<string, unknown>)[key], prefix ? `${prefix}.${key}` : key));
-  }
-  return Object.is(before, after) ? [] : [prefix];
-}
 
 /**
  * Save the platform's public telemetry ids (product rules §8.2). Public identifiers only: the schema is strict,

@@ -36,7 +36,7 @@ export function StaffScanPanel({ staff }: { staff: Panel }) {
       </Card>
       <MembershipPanel slug={org.slug} memberId={member.id} memberships={membershipViews(staff.memberships, org)} plans={[]} canManage={staff.canManage} delight={org.delightEnabled} />
       {staff.payments ? <MemberPaymentsSection data={staff.payments} /> : null}
-      <MemberCardPanel slug={org.slug} memberId={member.id} memberName={member.name} plans={staff.cards} canManage={staff.canManageCards} delight={org.delightEnabled} />
+      <MemberCardPanel slug={org.slug} memberId={member.id} memberName={member.name} plans={staff.cards} canManage={staff.canManageCards} delight={org.delightEnabled} timeZone={org.timezone} />
     </>
   );
 }

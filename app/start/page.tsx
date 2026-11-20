@@ -49,7 +49,7 @@ export default async function StartPage() {
           We email you about the decision, so your address needs to be verified before you apply.
         </Callout>
       ) : (
-        <div className="rounded-2xl border border-line bg-canvas p-5 shadow-raised sm:p-8">
+        <div className="rounded-xl border border-line bg-canvas p-5 sm:p-8">
           <ApplicationForm applicantEmail={applicantEmail} />
         </div>
       )}

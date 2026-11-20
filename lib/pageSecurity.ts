@@ -10,7 +10,8 @@ export function pageSecurity(request: NextRequest) {
   const csp = [
     "default-src 'self'", "base-uri 'self'", "object-src 'none'",
     "frame-ancestors 'none'",
-    // Razorpay Checkout opens in its own frame, on the member account pages and the signed pay link only.
+    // Razorpay Checkout opens in its own frame on the member account pages and the signed pay link; organisation
+    // public pages (/o/*) may open a YouTube (youtube-nocookie) or Vimeo player after a visitor presses play.
     `frame-src ${hosts.frame.length ? hosts.frame.join(" ") : "'none'"}`,
     "form-action 'self'",
     // Tenant logos and photos are https URLs, and fonts may come from a CDN: a known gap (docs/SECURITY.md).

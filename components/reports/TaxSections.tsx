@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Download } from "lucide-react";
 import { buttonClasses } from "@/components/ui/button";
+import { formatCount, formatDate, timeZoneOf } from "@/lib/format/datetime";
 import type { OrgReportsTax } from "@/lib/views/app__dashboard__orgSlug__reports__tax__page";
 import { formatAmount } from "@/lib/reports/money";
 import { Chip, EmptyState } from "@/components/ui/display";
@@ -49,7 +50,7 @@ export function DocumentRegister({ view }: { view: View }) {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 id="register-title" className="text-h4 text-ink">Documents register</h2>
-          <p className="text-label text-ink-muted">{view.register.total.toLocaleString("en-IN")} documents issued in the period{view.register.total > 100 ? "; the latest 100 shown, all in the export" : ""}.</p>
+          <p className="text-label text-ink-muted">{formatCount(view.register.total)} documents issued in the period{view.register.total > 100 ? "; the latest 100 shown, all in the export" : ""}.</p>
         </div>
         {view.shell.canExportFinance ? <ExportLink shell={view.shell} report="documents" /> : null}
       </div>
@@ -61,7 +62,7 @@ export function DocumentRegister({ view }: { view: View }) {
               <TR key={doc.id}>
                 <TD className="whitespace-nowrap font-semibold">{doc.number}{doc.cancelledAt ? <Chip size="sm" tone="neutral" className="ml-2">Cancelled</Chip> : null}</TD>
                 <TD className="text-ink-secondary">{KIND_LABELS[doc.kind]}</TD>
-                <TD className="whitespace-nowrap text-ink-secondary">{new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(new Date(doc.issuedAt))}</TD>
+                <TD className="whitespace-nowrap text-ink-secondary">{formatDate(doc.issuedAt, timeZoneOf(view))}</TD>
                 <TD className="text-right tabular-nums">{formatAmount(doc.taxableMinor, doc.currency, view.locale)}</TD>
                 <TD className="text-right tabular-nums">{formatAmount(doc.cgstMinor + doc.sgstMinor + doc.igstMinor + doc.otherTaxMinor, doc.currency, view.locale)}</TD>
                 <TD className="text-right tabular-nums">{formatAmount(doc.totalMinor, doc.currency, view.locale)}</TD>
