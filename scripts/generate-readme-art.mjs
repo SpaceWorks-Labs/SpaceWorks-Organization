@@ -1,94 +1,109 @@
 #!/usr/bin/env node
-// Draws the README artwork in docs/readme/ (after SpaceWorks-Events scripts/generate-readme-art.ts): the
-// 1280×400 banner for light and dark mode, and the brand colour swatches. Run after changing the brand
-// masters, Patch or the banner copy, and commit the outputs:
+// Draws the README artwork in docs/readme/ (design-system product rules §12.3 and §12.6), then commit the outputs:
 //
 //   node scripts/generate-readme-art.mjs
 //
-// The banner is laid out in HTML and rendered by headless Chromium (the Playwright browser the e2e tests
-// use; set PLAYWRIGHT_CHANNEL=msedge to use Edge instead), so Gilroy is embedded exactly as the app ships
-// it. The lockup is the unaltered master from public/brand/logo and Patch is public/brand/patch/patch.webp,
-// shown smaller than its native size on a Citron panel with clear space all round. Patch is the banner's
-// one bold moment, so there is no Unbounded phrase and no Workshop Orange. sharp compresses the PNG.
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+// 1. banner-light.svg and banner-dark.svg: the rounded brand banner, 1280 × 320 with a 28 px corner radius, laid out
+//    like the design system's own (brand/readme/make-banner.py, DS-1): the unaltered lockup from public/brand/logo,
+//    the product name in Gilroy ExtraBold and the line under it in Outfit 400 (the card library's static cut; fontkit cannot instance the variable WOFF2), both turned into outlined paths so
+//    GitHub shows the brand type without fonts. Light is Warm Cream, dark is solid black. The art is a fan of member
+//    cards in the brand colours, which are the same in both themes. Patch stays off the banner: it never sits beside
+//    the box logo.
+// 2. screens/<area>-light.webp and -dark.webp: the README gallery, copied from the landing and docs captures in
+//    public/screens (scripts/capture-screens.mjs, seeded demo data), so the README never shows a hand-edited image.
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "@playwright/test";
-import sharp from "sharp";
+import { create } from "fontkit";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const out = (file) => path.join(root, "docs", "readme", file);
+const out = (...parts) => path.join(root, "docs", "readme", ...parts);
 const asset = (...parts) => path.join(root, "public", "brand", ...parts);
 
-const WIDTH = 1280;
-const HEIGHT = 400;
-const PATCH = 216; // px; on the 320 px panel that leaves 52 px all round, a quarter of the badge (~94% of the frame)
+/** The README gallery, in the order "A look around" shows it. */
+export const README_SCREENS = ["public-page", "plans-and-join-forms", "members", "groupings", "member-cards", "units", "reports-and-analytics", "renewals"];
 
-/** The seven brand colours (SpaceWorks-Design tokens). */
-const BRAND = {
-  "deep-ink": "#142C2A",
-  "maker-teal": "#006E63",
-  "workshop-orange": "#FF7447",
-  citron: "#DFFF8F",
-  "sky-blue": "#B5CDFF",
-  "warm-yellow": "#FFD447",
-  "warm-cream": "#FFF4E8",
+const THEMES = {
+  light: { bg: "#FFF4E8", ink: "#142C2A", sub: "#3E5654", edge: "#142C2A", edgeOpacity: 0.18, lockup: "lockup-horizontal.svg" },
+  dark: { bg: "#000000", ink: "#FFF4E8", sub: "#C8C8C8", edge: "#3A3A3A", edgeOpacity: 1, lockup: "lockup-horizontal-reversed.svg" },
 };
+const TITLE = "Organization";
+const LINES = ["Membership software for clubs, associations,", "alumni bodies and federations. Free and open source."];
 
-const THEMES = [
-  { file: "banner.png", field: BRAND["warm-cream"], ink: BRAND["deep-ink"], muted: "#43544F", rule: "#C9CCC2", lockup: "lockup-horizontal.svg" },
-  // Dark mode uses only the brand's reversed pairings; Patch keeps its Citron panel for contrast.
-  { file: "banner-dark.png", field: BRAND["deep-ink"], ink: BRAND["warm-cream"], muted: "#D5D3CA", rule: "#4A5C58", lockup: "lockup-horizontal-reversed.svg" },
-];
+const num = (value) => Number(value.toFixed(2)).toString();
 
-const dataUrl = async (file, type) => `data:${type};base64,${(await readFile(file)).toString("base64")}`;
-
-async function bannerHtml(theme) {
-  const [light, extraBold, lockup, patch] = await Promise.all([
-    dataUrl(asset("fonts", "Gilroy-Light.woff2"), "font/woff2"),
-    dataUrl(asset("fonts", "Gilroy-ExtraBold.woff2"), "font/woff2"),
-    dataUrl(asset("logo", theme.lockup), "image/svg+xml"),
-    dataUrl(asset("patch", "patch.webp"), "image/webp"),
-  ]);
-  return `<!doctype html><html><head><meta charset="utf-8"><style>
-    @font-face { font-family: Gilroy; font-weight: 100 549; src: url(${light}) format("woff2"); }
-    @font-face { font-family: Gilroy; font-weight: 550 900; src: url(${extraBold}) format("woff2"); }
-    * { margin: 0; box-sizing: border-box; }
-    html, body { width: ${WIDTH}px; height: ${HEIGHT}px; overflow: hidden; background: ${theme.field}; }
-    body { position: relative; font-family: Gilroy; color: ${theme.ink}; font-synthesis: none; -webkit-font-smoothing: antialiased; }
-    .brand { position: absolute; left: 72px; top: 56px; display: flex; align-items: center; }
-    .brand img { width: 300px; height: 48px; display: block; }
-    .brand .rule { width: 1.5px; height: 30px; background: ${theme.rule}; margin: 0 20px 0 24px; }
-    .brand .product { font-weight: 800; font-size: 28px; line-height: 1; }
-    h1 { position: absolute; left: 72px; top: 150px; font-weight: 800; font-size: 62px; line-height: 64px; letter-spacing: -0.02em; }
-    .sub { position: absolute; left: 72px; top: 300px; width: 640px; font-weight: 300; font-size: 22px; line-height: 30px; color: ${theme.muted}; }
-    .panel { position: absolute; right: 40px; top: 40px; width: 420px; height: 320px; border-radius: 32px; background: ${BRAND.citron}; display: grid; place-items: center; }
-    .panel img { width: ${PATCH}px; height: ${PATCH}px; display: block; }
-  </style></head><body>
-    <div class="brand"><img src="${lockup}" alt=""><span class="rule"></span><span class="product">Organization</span></div>
-    <h1>Your members.<br>In good standing.</h1>
-    <p class="sub">Free, open-source membership software for clubs, associations and alumni bodies.</p>
-    <div class="panel"><img src="${patch}" alt=""></div>
-  </body></html>`;
+/** Outlines `text` with its baseline at (x, y); fontkit applies the font's kerning. */
+function outline(font, text, size, x, y, tracking = 0) {
+  const scale = size / font.unitsPerEm;
+  const run = font.layout(text);
+  let pen = x;
+  return run.glyphs.map((glyph, index) => {
+    const d = glyph.path.scale(scale, -scale).translate(pen, y).toSVG();
+    pen += run.positions[index].xAdvance * scale + tracking;
+    return d;
+  }).join("").replace(/-?\d+\.\d+/g, (value) => num(Number(value)));
 }
 
-/** A small rounded swatch for the README palette table, with a hairline so it shows on both GitHub themes. */
-const swatch = (hex) => `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="24" viewBox="0 0 48 24"><rect x="0.5" y="0.5" width="47" height="23" rx="6" fill="${hex}" stroke="#7F8C89" stroke-opacity="0.6"/></svg>\n`;
+/** The lockup master without its outer element, nested at the banner's position. */
+async function lockup(file, id) {
+  const svg = (await readFile(asset("logo", file), "utf8")).replace(/
+/g, "
+").trim();
+  const inner = svg.replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "").replace(/clip0_2_\d+/g, id);
+  return `<svg x="80" y="60" width="285" height="46" viewBox="0 0 360 58" fill="none">${inner}</svg>`;
+}
 
-await mkdir(out("screens"), { recursive: true });
-const browser = await chromium.launch(process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {});
-try {
-  const page = await browser.newPage({ viewport: { width: WIDTH, height: HEIGHT }, deviceScaleFactor: 1 });
-  for (const theme of THEMES) {
-    await page.setContent(await bannerHtml(theme), { waitUntil: "load" });
-    await page.evaluate(() => document.fonts.ready);
-    const shot = await page.screenshot({ type: "png" });
-    const png = await sharp(shot).flatten({ background: theme.field }).png({ compressionLevel: 9, palette: true, colours: 192, dither: 0.4 }).toBuffer();
-    await writeFile(out(theme.file), png);
-    console.log("wrote", path.relative(root, out(theme.file)), `${png.length} bytes`);
+/** One member card: photo, name and detail lines, and a QR block, in the card's own colours. */
+function card({ x, y, angle, fill, ink, edge, edgeOpacity }) {
+  const w = 228, h = 144, cx = x + w / 2, cy = y + h / 2;
+  const qr = [[0, 0], [0, 2], [2, 0], [1, 1], [2, 2], [1, 2]].map(([col, row]) => `<rect x="${x + 168 + col * 12}" y="${y + 84 + row * 12}" width="10" height="10" rx="2" fill="${ink}"/>`).join("");
+  return `<g transform="rotate(${angle} ${cx} ${cy})">
+<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="16" fill="${fill}" stroke="${edge}" stroke-opacity="${edgeOpacity}"/>
+<circle cx="${x + 44}" cy="${y + 50}" r="22" fill="${ink}" fill-opacity="0.18"/>
+<rect x="${x + 78}" y="${y + 36}" width="104" height="11" rx="5.5" fill="${ink}"/>
+<rect x="${x + 78}" y="${y + 56}" width="72" height="8" rx="4" fill="${ink}" fill-opacity="0.45"/>
+<rect x="${x + 22}" y="${y + 96}" width="88" height="8" rx="4" fill="${ink}" fill-opacity="0.45"/>
+<rect x="${x + 22}" y="${y + 112}" width="60" height="8" rx="4" fill="${ink}" fill-opacity="0.45"/>
+${qr}
+</g>`;
+}
+
+async function banner(name, theme, title, body) {
+  const t = THEMES[name];
+  const edges = { edge: t.edge, edgeOpacity: t.edgeOpacity };
+  const cards = [
+    card({ x: 810, y: 70, angle: -9, fill: "#006E63", ink: "#FFF4E8", ...edges }),
+    card({ x: 890, y: 92, angle: 3, fill: "#B5CDFF", ink: "#142C2A", ...edges }),
+    card({ x: 960, y: 112, angle: 12, fill: "#DFFF8F", ink: "#142C2A", ...edges }),
+  ].join("\n");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="320" viewBox="0 0 1280 320" role="img" aria-labelledby="t d">
+<title id="t">Space Works Organization</title>
+<desc id="d">Space Works Organization. ${LINES.join(" ")}</desc>
+<defs><clipPath id="card"><rect width="1280" height="320" rx="28"/></clipPath></defs>
+<g clip-path="url(#card)">
+<rect width="1280" height="320" fill="${t.bg}"/>
+${await lockup(t.lockup, `lk-${name}`)}
+<path fill="${t.ink}" d="${outline(title, TITLE, 56, 80, 188, -1.5)}"/>
+<path fill="${t.sub}" d="${outline(body, LINES[0], 20, 80, 236)}${outline(body, LINES[1], 20, 80, 262)}"/>
+${cards}
+</g>
+</svg>
+`;
+}
+
+async function main() {
+  const title = create(await readFile(asset("fonts", "Gilroy-ExtraBold.woff2")));
+  const body = create(await readFile(path.join(root, "public", "fonts", "card", "outfit", "latin-400.woff2")));
+  await mkdir(out("screens"), { recursive: true });
+  for (const name of Object.keys(THEMES)) {
+    const svg = await banner(name, THEMES[name], title, body);
+    await writeFile(out(`banner-${name}.svg`), svg);
+    console.log(`docs/readme/banner-${name}.svg`, Buffer.byteLength(svg), "bytes");
   }
-} finally {
-  await browser.close();
+  for (const area of README_SCREENS) {
+    for (const theme of ["light", "dark"]) await copyFile(path.join(root, "public", "screens", `${area}-${theme}.webp`), out("screens", `${area}-${theme}.webp`));
+  }
+  console.log(`docs/readme/screens: ${README_SCREENS.length * 2} images`);
 }
-for (const [name, hex] of Object.entries(BRAND)) await writeFile(out(`swatch-${name}.svg`), swatch(hex));
-console.log(`wrote ${Object.keys(BRAND).length} swatches`);
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();
