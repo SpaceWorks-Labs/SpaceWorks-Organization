@@ -46,9 +46,7 @@ function outline(font, text, size, x, y, tracking = 0) {
 
 /** The lockup master without its outer element, nested at the banner's position. */
 async function lockup(file, id) {
-  const svg = (await readFile(asset("logo", file), "utf8")).replace(/
-/g, "
-").trim();
+  const svg = (await readFile(asset("logo", file), "utf8")).replace(/\r\n/g, "\n").trim();
   const inner = svg.replace(/^<svg[^>]*>/, "").replace(/<\/svg>$/, "").replace(/clip0_2_\d+/g, id);
   return `<svg x="80" y="60" width="285" height="46" viewBox="0 0 360 58" fill="none">${inner}</svg>`;
 }
