@@ -84,6 +84,11 @@ export function formatMoney(minor: number, code: CurrencyCode, locale?: string):
   }).format(minor / 10 ** exponent);
 }
 
+/** Display text for an amount in any currency code; a code Space Works does not list shows as "CODE minor". */
+export function money(minor: number, currency: string, locale?: string | null): string {
+  return isCurrencyCode(currency) ? formatMoney(minor, currency, locale ?? undefined) : `${currency} ${minor}`;
+}
+
 /** Add amounts that share one currency; refuses to mix currencies. */
 export function sumMinor(amounts: Array<{ minor: number; currency: string }>, code: CurrencyCode): number {
   let total = 0;

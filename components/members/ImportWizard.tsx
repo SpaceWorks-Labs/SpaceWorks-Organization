@@ -17,7 +17,7 @@ type Membership = "none" | "start" | "verify";
 const BASE_TARGETS: Array<[ImportTarget, string]> = [["skip", "Don't import"], ["name", "Name"], ["email", "Email"], ["phone", "Phone"], ["state", "State"], ["unit", "Unit"], ["role", "Role"]];
 
 /** Bring in members from a CSV file or a shared Google Sheet: read, map columns, check every row, import. */
-export function ImportWizard({ slug, plans, fields }: { slug: string; plans: Array<{ id: string; name: string }>; fields: Array<{ key: string; label: string }> }) {
+export function ImportWizard({ slug, plans, fields, groupings = [] }: { slug: string; plans: Array<{ id: string; name: string }>; fields: Array<{ key: string; label: string }>; groupings?: Array<{ key: string; name: string }> }) {
   const [mode, setMode] = useState<"csv" | "sheet">("sheet");
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<{ name: string; text: string } | null>(null);
@@ -29,7 +29,7 @@ export function ImportWizard({ slug, plans, fields }: { slug: string; plans: Arr
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const source: Source | null = mode === "csv" ? (file ? { kind: "csv", text: file.text } : null) : url.trim() ? { kind: "sheet", url } : null;
-  const targets: Array<[ImportTarget, string]> = [...BASE_TARGETS, ...fields.map((field): [ImportTarget, string] => [`field:${field.key}`, field.label])];
+  const targets: Array<[ImportTarget, string]> = [...BASE_TARGETS, ...fields.map((field): [ImportTarget, string] => [`field:${field.key}`, field.label]), ...groupings.map((grouping): [ImportTarget, string] => [`grouping:${grouping.key}`, `${grouping.name} (grouping)`])];
   // The row checks hold for the columns they were made with; a changed match needs a fresh check.
   const checked = preview !== null && preview.mapping.join("|") === mapping.join("|") && !preview.mappingError;
 

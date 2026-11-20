@@ -29,12 +29,15 @@ export function useWidth<T extends HTMLElement>(fallback = 640) {
  */
 export function useIndexFocus(count: number, xOf: (index: number) => number) {
   const [index, setIndex] = useState<number | null>(null);
+  // Keyboard steps are announced; pointer hover only moves the visible readout.
+  const [fromKeyboard, setFromKeyboard] = useState(false);
   const onPointerMove = useCallback(
     (event: PointerEvent<SVGElement>) => {
       const box = (event.currentTarget as SVGElement).getBoundingClientRect();
       const x = event.clientX - box.left;
       let best = 0;
       for (let i = 1; i < count; i += 1) if (Math.abs(xOf(i) - x) < Math.abs(xOf(best) - x)) best = i;
+      setFromKeyboard(false);
       setIndex(count ? best : null);
     },
     [count, xOf],
@@ -52,14 +55,12 @@ export function useIndexFocus(count: number, xOf: (index: number) => number) {
       const move = keys[event.key];
       if (!move) return;
       event.preventDefault();
+      setFromKeyboard(true);
       setIndex((current) => move(current ?? count - 1));
     },
     [count],
   );
-  return { index, setIndex, onPointerMove, onPointerLeave: () => setIndex(null), onKeyDown, onBlur: () => setIndex(null) };
+  return { index, fromKeyboard, setIndex, onPointerMove, onPointerLeave: () => setIndex(null), onKeyDown, onBlur: () => setIndex(null) };
 }
 
-/** CSS variable for a categorical slot (1–6) or the de-emphasis grey. */
-export function slotColor(slot: number | "muted"): string {
-  return slot === "muted" ? "var(--chart-muted)" : `var(--chart-${Math.min(6, Math.max(1, slot))})`;
-}
+export { MAX_SERIES_SLOT, slotColor } from "./slots";

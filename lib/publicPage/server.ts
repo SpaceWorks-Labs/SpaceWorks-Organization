@@ -3,7 +3,7 @@ import "server-only";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { checkAccentContrast } from "./contrast";
-import { documentImageKeys, isPageImageKeyFor, pageDocumentSchema, readPageDocument, type PageDocument } from "./sections";
+import { documentImageKeys, isPageUploadKeyFor, pageDocumentSchema, readPageDocument, type PageDocument } from "./sections";
 
 /**
  * Validate a page document from the editor: the schema, every image belonging to this organisation and
@@ -18,10 +18,10 @@ export async function validatePageDocument(organisationId: string, input: unknow
   }
   const document = parsed.data;
   const keys = [...new Set(documentImageKeys(document))];
-  if (keys.some((key) => !isPageImageKeyFor(key, organisationId))) return { ok: false, error: "An image belongs to another organisation. Upload it again.", issues: {} };
+  if (keys.some((key) => !isPageUploadKeyFor(key, organisationId))) return { ok: false, error: "An image or file belongs to another organisation. Upload it again.", issues: {} };
   if (keys.length) {
     const stored = await prisma.asset.count({ where: { organisationId, key: { in: keys } } });
-    if (stored !== keys.length) return { ok: false, error: "An image is missing. Upload it again.", issues: {} };
+    if (stored !== keys.length) return { ok: false, error: "An image or file is missing. Upload it again.", issues: {} };
   }
   if (document.accentColor && checkAccentContrast(document.accentColor).level === "fail") {
     return { ok: false, error: "Button labels can't be read on that accent. Choose another colour.", issues: { accentColor: ["Choose another colour"] } };

@@ -11,7 +11,8 @@ import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { orgActionAccess } from "@/lib/permissions";
 import { createSafeWebpDerivative } from "@/lib/imageValidation";
 import { uploadFile } from "@/lib/storage";
-import { pageImageUrl } from "@/lib/publicPage/sections";
+import { looksLikePdf, MAX_PAGE_FILE_BYTES, PAGE_FILE_TYPE } from "@/lib/storage/pageFiles";
+import { pageFileUrl, pageImageUrl } from "@/lib/publicPage/sections";
 import { publishPage, savePageDraft, validatePageDocument } from "@/lib/publicPage/server";
 import type { ActionResult } from "./org";
 
@@ -110,5 +111,26 @@ export async function uploadPublicPageImage(formData: FormData): Promise<ActionR
   } catch {
     console.error("[media] public page image upload failed");
     return { ok: false, error: "Could not upload the image." };
+  }
+}
+
+/** Upload a PDF for the downloads section. It is checked by its first bytes and only ever served as a download. */
+export async function uploadPublicPageFile(formData: FormData): Promise<ActionResult<{ key: string; url: string }>> {
+  const access = await editor(String(formData.get("organisationSlug") ?? ""));
+  if (!access.ok) return access;
+  if (await isActionRateLimited("upload", access.userId)) return { ok: false, error: "Too many uploads. Try again later." };
+  const file = formData.get("file");
+  if (!(file instanceof File)) return { ok: false, error: "Choose a PDF to upload." };
+  if (file.size === 0 || file.size > MAX_PAGE_FILE_BYTES) return { ok: false, error: "PDFs must be 5 MB or smaller." };
+  const body = new Uint8Array(await file.arrayBuffer());
+  if (!looksLikePdf(body)) return { ok: false, error: "That file isn't a PDF." };
+  try {
+    const key = `organisations/${access.organisation.id}/page-files/${crypto.randomUUID()}.pdf`;
+    await uploadFile({ key, body, contentType: PAGE_FILE_TYPE, organisationId: access.organisation.id });
+    await recordAuditEvent({ action: "PUBLIC_PAGE_FILE_UPLOADED", actorUserId: access.userId, organisationId: access.organisation.id, targetType: "Organisation", targetId: access.organisation.id, metadata: { bytes: body.length } });
+    return { ok: true, data: { key, url: pageFileUrl(key, file.name) } };
+  } catch {
+    console.error("[media] public page file upload failed");
+    return { ok: false, error: "Could not upload the file." };
   }
 }

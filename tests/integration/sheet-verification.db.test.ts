@@ -153,9 +153,9 @@ describe.sequential("organisation email templates", () => {
     const card = await prisma.memberCard.findFirstOrThrow({ where: { organisationId: orgId, memberId: asha.memberId } });
     await deliverMembershipNotice({ termId: asha.id, organisationId: orgId, notice: "activated" }, "m2");
     expect(sent.emails[0]).toMatchObject({
-      subject: "Example Network card for Asha Menon",
+      subject: "Example Network card for Asha",
       heading: "Welcome to North 1",
-      paragraphs: [`Hi Asha Menon, card ${card.cardNumber} on Annual.`, expect.stringMatching(/^Valid until \d{1,2} \w{3} \d{4}\. \{unknown\} stays\.$/)],
+      paragraphs: [`Hi Asha, card ${card.cardNumber} on Annual.`, expect.stringMatching(/^Valid until \d{1,2} \w{3} \d{4}\. \{unknown\} stays\.$/)],
     });
   });
 

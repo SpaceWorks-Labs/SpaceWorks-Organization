@@ -44,7 +44,7 @@ export async function proxy(request: NextRequest) {
 
   // Payment gateway webhooks: one generous bucket of their own, never the per-IP global limit, so
   // gateway retries are not refused while money is being confirmed.
-  if (pathname.startsWith("/api/webhooks/")) {
+  if (pathname.startsWith("/api/webhooks/") || pathname.startsWith("/api/email/webhooks/") || pathname.startsWith("/api/sms/webhooks/") || pathname.startsWith("/api/messaging/webhooks/")) {
     if (!(await checkRateLimit(request, "webhook"))) return tooMany();
     return NextResponse.next();
   }

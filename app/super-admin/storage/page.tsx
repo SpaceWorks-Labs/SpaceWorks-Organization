@@ -19,8 +19,8 @@ export default async function SuperAdminStoragePage() {
           value={dbSizeBytes == null ? "—" : formatBytes(dbSizeBytes)}
           hint={dbSizeBytes == null ? "Unavailable (DB functions may be restricted)." : undefined}
         />
-        <StatTile className="rounded-xl" label="Stored files" value={assetSummary._count._all.toLocaleString()} />
-        <StatTile className="rounded-xl" label="Stored file size" value={formatBytes(assetSummary._sum.byteSize == null ? 0 : Number(assetSummary._sum.byteSize))} />
+        <StatTile label="Stored files" value={assetSummary._count._all.toLocaleString()} />
+        <StatTile label="Stored file size" value={formatBytes(assetSummary._sum.byteSize == null ? 0 : Number(assetSummary._sum.byteSize))} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

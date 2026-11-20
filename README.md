@@ -331,6 +331,7 @@ when an organisation or a member is approved. The README art is drawn by `node s
 ## Documentation
 
 - [Deploying on a server (VPS)](docs/DEPLOYMENT_VPS.md): installer, layout, backups, restore, update and rollback
+- [Free hosting behind Cloudflare (Tunnel, R2, Resend)](docs/DEPLOYMENT_CLOUDFLARE.md)
 - [Deploying with managed services (cloud)](docs/DEPLOYMENT_CLOUD.md)
 - [Website on Netlify (split hosting)](docs/DEPLOYMENT_NETLIFY.md)
 - [Configuration reference](docs/CONFIGURATION.md): every environment variable

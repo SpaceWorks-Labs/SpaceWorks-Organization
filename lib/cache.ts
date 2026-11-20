@@ -23,7 +23,7 @@ export const ANALYTICS_TTL_SECONDS = 300;
 export const PUBLIC_PAGE_TTL_SECONDS = 600;
 
 export type OrgCacheScope = "analytics" | "public-page";
-export type PlatformCacheScope = "analytics";
+export type PlatformCacheScope = "analytics" | "sitemap";
 
 function segments(parts: string[]): string {
   for (const part of parts) if (!SEGMENT.test(part)) throw new Error("Invalid cache key segment");

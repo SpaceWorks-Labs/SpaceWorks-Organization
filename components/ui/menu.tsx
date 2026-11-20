@@ -4,7 +4,11 @@ import { cloneElement, forwardRef, isValidElement, type ComponentPropsWithoutRef
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/cn";
+
+/* Menus, tooltips and popovers drop in from their trigger's side and fade out (sw-fx-menu: 120ms in, 90ms out;
+   app/styles/motion-overlays.css). Radix keeps them mounted until the exit ends. */
 
 /* ---------- Dropdown menu (docs/DESIGN.md §4.15) ---------- */
 
@@ -21,7 +25,7 @@ export const MenuContent = forwardRef<ElementRef<typeof DropdownMenuPrimitive.Co
         ref={ref}
         sideOffset={sideOffset}
         align={align}
-        className={cn("z-50 min-w-[200px] overflow-hidden rounded-lg border border-line bg-panel p-1.5 text-ink shadow-float", className)}
+        className={cn("sw-fx-menu z-50 min-w-[200px] overflow-hidden rounded-lg border border-line bg-panel p-1.5 text-ink shadow-float", className)}
         {...props}
       />
     </DropdownMenuPrimitive.Portal>
@@ -49,7 +53,7 @@ export const MenuItem = forwardRef<
       ref={ref}
       asChild={Boolean(slotted)}
       className={cn(
-        "flex min-h-10 cursor-pointer select-none items-center gap-2.5 rounded-md px-3 py-2 text-body-ui outline-none data-[disabled]:pointer-events-none data-[disabled]:text-ink-disabled data-[highlighted]:bg-muted [&_svg]:size-[18px] [&_svg]:shrink-0",
+        "flex min-h-11 cursor-pointer select-none items-center gap-2.5 rounded-md px-3 py-2 text-body-ui outline-none data-[disabled]:pointer-events-none data-[disabled]:text-ink-muted data-[highlighted]:bg-muted [&_svg]:size-[18px] [&_svg]:shrink-0",
         danger ? "text-danger-fg" : "text-ink",
         className,
       )}
@@ -68,6 +72,29 @@ export function MenuSeparator() {
   return <DropdownMenuPrimitive.Separator className="my-1.5 h-px bg-line" />;
 }
 
+/** An on/off item (menuitemcheckbox), such as "Dark theme": a check shows while it is on. */
+export const MenuCheckboxItem = forwardRef<
+  ElementRef<typeof DropdownMenuPrimitive.CheckboxItem>,
+  ComponentPropsWithoutRef<typeof DropdownMenuPrimitive.CheckboxItem> & { icon?: ReactNode }
+>(function MenuCheckboxItem({ className, icon, children, ...props }, ref) {
+  return (
+    <DropdownMenuPrimitive.CheckboxItem
+      ref={ref}
+      className={cn(
+        "flex min-h-11 cursor-pointer select-none items-center gap-2.5 rounded-md px-3 py-2 text-body-ui text-ink outline-none data-[disabled]:pointer-events-none data-[disabled]:text-ink-muted data-[highlighted]:bg-muted [&_svg]:size-[18px] [&_svg]:shrink-0",
+        className,
+      )}
+      {...props}
+    >
+      {icon ? <span aria-hidden className="inline-flex text-current">{icon}</span> : null}
+      <span className="min-w-0 flex-1">{children}</span>
+      <DropdownMenuPrimitive.ItemIndicator aria-hidden className="inline-flex text-accent-text">
+        <Check />
+      </DropdownMenuPrimitive.ItemIndicator>
+    </DropdownMenuPrimitive.CheckboxItem>
+  );
+});
+
 /* ---------- Tooltip ---------- */
 
 export const TooltipProvider = TooltipPrimitive.Provider;
@@ -77,7 +104,7 @@ export function Tooltip({ content, children, side = "top" }: { content: ReactNod
     <TooltipPrimitive.Root delayDuration={300}>
       <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
       <TooltipPrimitive.Portal>
-        <TooltipPrimitive.Content side={side} sideOffset={6} className="z-50 max-w-[280px] rounded-md bg-inverse px-2.5 py-1.5 text-caption text-on-inverse shadow-float">
+        <TooltipPrimitive.Content side={side} sideOffset={6} className="sw-fx-menu z-50 max-w-[280px] rounded-md bg-inverse px-2.5 py-1.5 text-caption text-on-inverse shadow-float">
           {content}
         </TooltipPrimitive.Content>
       </TooltipPrimitive.Portal>
@@ -100,7 +127,7 @@ export const PopoverContent = forwardRef<ElementRef<typeof PopoverPrimitive.Cont
         ref={ref}
         sideOffset={sideOffset}
         align={align}
-        className={cn("z-50 rounded-lg border border-line bg-panel p-3 text-ink shadow-float focus:outline-none", className)}
+        className={cn("sw-fx-menu z-50 rounded-lg border border-line bg-panel p-3 text-ink shadow-float focus:outline-none", className)}
         {...props}
       />
     </PopoverPrimitive.Portal>

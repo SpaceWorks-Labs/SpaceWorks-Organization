@@ -1,15 +1,15 @@
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
 import { can, requireOrgCapability } from "@/lib/permissions";
-import { memberWhere, teamScope } from "@/lib/membership/scope";
+import { memberWhere, teamScope, type ScopeSubject } from "@/lib/membership/scope";
 import { DIGEST_CAPABILITY } from "@/lib/reports/digest";
 import { loadHomeAnalytics } from "@/lib/reports/homeData";
 
 const DAY_MS = 86_400_000;
 
 /** Member counts for the overview, limited to what this person can see. */
-async function memberStats(organisationId: string, unitId: string | null, now: Date) {
-  const base: Prisma.MemberWhereInput = { ...memberWhere(await teamScope(organisationId, unitId)), anonymisedAt: null };
+async function memberStats(organisationId: string, who: ScopeSubject, now: Date) {
+  const base: Prisma.MemberWhereInput = { ...memberWhere(await teamScope(organisationId, who)), anonymisedAt: null };
   const count = (terms: Prisma.MembershipTermWhereInput) => prisma.member.count({ where: { AND: [base, { terms: { some: terms } }] } });
   const [active, approval, payment, renewals] = await Promise.all([
     count({ status: { in: ["ACTIVE", "GRACE"] } }),
@@ -32,7 +32,7 @@ export async function loadOrgOverviewView({ params }: { params: Promise<{ orgSlu
     }),
     prisma.teamMember.count({ where: { organisationId: organisation.id } }),
     prisma.teamInvite.count({ where: { organisationId: organisation.id, usedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] } }),
-    can(membership, "members.view") ? memberStats(organisation.id, membership.unitId, now) : null,
+    can(membership, "members.view") ? memberStats(organisation.id, membership, now) : null,
     prisma.membershipPlan.count({ where: { organisationId: organisation.id, archivedAt: null } }),
   ]);
   const steps = [

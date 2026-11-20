@@ -13,6 +13,7 @@ const row = (overrides: Partial<TeamMemberRow>): TeamMemberRow => ({
   joinedLabel: "Mar 2025",
   isYou: false,
   manageable: false,
+  limits: [],
   ...overrides,
 });
 

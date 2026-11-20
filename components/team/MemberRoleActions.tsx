@@ -26,7 +26,7 @@ export function MemberRoleActions({ organisationSlug, row, roleOptions }: {
     return <Chip size="sm" tone={row.isOwner ? "ink" : "neutral"}>{grantLabel(row.roleName, row.unitName)}</Chip>;
   }
 
-  const options = roleOptions.filter((option) => (row.unitId ? option.scoped : option.orgWide));
+  const options = roleOptions.filter((option) => (row.unitId || row.limits.length ? option.scoped : option.orgWide));
   const current = options.some((option) => option.id === row.roleId) ? null : { id: row.roleId, name: row.roleName };
 
   return (

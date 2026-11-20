@@ -33,7 +33,7 @@ export async function recordOfflinePayment(tx: Tx, args: { org: OrgForPayments; 
     recordedById: args.actorUserId,
     now,
   });
-  await recordAuditEvent({ action: "PAYMENT_RECORDED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "Payment", targetId: payment.id, metadata: { method: args.method }, client: tx });
+  await recordAuditEvent({ action: "PAYMENT_RECORDED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "Payment", targetId: payment.id, metadata: { method: args.method, memberId: payment.memberId }, client: tx });
   if (args.org.offlineConfirmationRequired) {
     await queueChatAlerts(tx, args.org.id, "payment-to-confirm", { paymentId: payment.id });
     return { payment, settled: false };
@@ -59,7 +59,7 @@ export async function confirmOfflinePayment(tx: Tx, args: { org: OrgForPayments;
   if (payment.provider !== "OFFLINE" || payment.status !== "AWAITING_CONFIRMATION") throw new PaymentError("This payment isn't waiting for confirmation.");
   if (args.org.offlineConfirmationRequired && payment.recordedById === args.actorUserId) throw new PaymentError("Someone else on the team needs to confirm a payment you recorded.");
   const result = await settlePayment(tx, { org: args.org, paymentId: payment.id, confirmedById: args.actorUserId, now: args.now });
-  await recordAuditEvent({ action: "PAYMENT_CONFIRMED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "Payment", targetId: payment.id, client: tx });
+  await recordAuditEvent({ action: "PAYMENT_CONFIRMED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "Payment", targetId: payment.id, metadata: { memberId: payment.memberId }, client: tx });
   return result.payment;
 }
 
@@ -72,7 +72,7 @@ export async function rejectOfflinePayment(tx: Tx, args: { org: OrgForPayments; 
   if (payment.provider !== "OFFLINE" || payment.status !== "AWAITING_CONFIRMATION") throw new PaymentError("This payment isn't waiting for confirmation.");
   const updated = await tx.payment.update({ where: { id: payment.id }, data: { status: "FAILED", note: args.reason.slice(0, 300) } });
   if (payment.memberClaim) await enqueueOutbox(tx, "payment-notice", { organisationId: args.org.id, paymentId: payment.id, notice: "claim-rejected" });
-  await recordAuditEvent({ action: "PAYMENT_REJECTED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "Payment", targetId: payment.id, client: tx });
+  await recordAuditEvent({ action: "PAYMENT_REJECTED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "Payment", targetId: payment.id, metadata: { memberId: payment.memberId }, client: tx });
   return updated;
 }
 
@@ -81,7 +81,7 @@ export async function cancelPayment(tx: Tx, args: { org: OrgForPayments; payment
   const payment = await lockPayment(tx, args.org.id, args.paymentId);
   if (payment.status !== "PENDING" && payment.status !== "AWAITING_CONFIRMATION") throw new PaymentError("Only an open payment can be cancelled.");
   const updated = await tx.payment.update({ where: { id: payment.id }, data: { status: "CANCELLED", note: (args.reason ?? "Cancelled.").slice(0, 300) } });
-  await recordAuditEvent({ action: "PAYMENT_CANCELLED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "Payment", targetId: payment.id, client: tx });
+  await recordAuditEvent({ action: "PAYMENT_CANCELLED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "Payment", targetId: payment.id, metadata: { memberId: payment.memberId }, client: tx });
   return updated;
 }
 
@@ -115,6 +115,6 @@ export async function waiveTermFee(tx: Tx, args: { org: OrgForPayments; termId: 
     },
   });
   if (canTransition("markPaid", statusAt(term, now))) await markTermPaid(tx, { org: args.org, termId: term.id, actorUserId: args.actorUserId, now });
-  await recordAuditEvent({ action: "PAYMENT_WAIVED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "Payment", targetId: payment.id, metadata: { amountMinor: payment.amountMinor, currency: payment.currency }, client: tx });
+  await recordAuditEvent({ action: "PAYMENT_WAIVED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "Payment", targetId: payment.id, metadata: { amountMinor: payment.amountMinor, currency: payment.currency, memberId: payment.memberId }, client: tx });
   return payment;
 }

@@ -1,11 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { MemberRoleActions } from "@/components/team/MemberRoleActions";
 import { MemberUnitScope } from "@/components/team/MemberUnitScope";
-import { filterTeam, grantLabel, matchesFilter, type TeamFilter, type TeamMemberRow, type TeamRoleOption, type TeamUnitOption } from "@/components/team/memberSummary";
+import { MemberGroupingScope } from "@/components/team/MemberGroupingScope";
+import { filterTeam, grantLabel, matchesFilter, type TeamFilter, type TeamGroupingOption, type TeamMemberRow, type TeamRoleOption, type TeamUnitOption } from "@/components/team/memberSummary";
 import { Avatar, Chip, EmptyState } from "@/components/ui/display";
-import { SearchInput } from "@/components/ui/field";
+import { Button } from "@/components/ui/button";
+import { SearchField } from "@/components/ui/search-field";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function TeamList({
@@ -16,6 +19,8 @@ export function TeamList({
   units = [],
   roleOptions = [],
   canGrantOrgWide = false,
+  groupings = [],
+  canViewActivity = false,
 }: {
   organisationSlug: string;
   rows: TeamMemberRow[];
@@ -27,6 +32,10 @@ export function TeamList({
   /** Roles the viewer may give, and at which reach. */
   roleOptions?: TeamRoleOption[];
   canGrantOrgWide?: boolean;
+  /** Groupings the viewer may limit staff to. */
+  groupings?: TeamGroupingOption[];
+  /** Whether the viewer may open the activity log, to link each person's actions. */
+  canViewActivity?: boolean;
 }) {
   const [filter, setFilter] = useState<TeamFilter>("everyone");
   const [query, setQuery] = useState("");
@@ -44,14 +53,12 @@ export function TeamList({
         <h2 id="team-title" className="text-h4 text-ink">Team</h2>
         <div className="w-full min-w-0 sm:w-[260px]">
           <label htmlFor="team-search" className="sr-only">Search members</label>
-          <SearchInput
+          <SearchField
             id="team-search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            onClear={() => setQuery("")}
             placeholder={showEmail ? "Search by name or email" : "Search by name"}
             autoComplete="off"
-            className="py-2 sm:text-sm"
           />
         </div>
       </div>
@@ -68,7 +75,15 @@ export function TeamList({
         {filters.map(({ value }) => (
           <TabsContent key={value} value={value} className="pt-3.5">
             {visible.length === 0 ? (
-              <EmptyState>{query.trim() ? "No one matches that search." : "No one here yet."}</EmptyState>
+              rows.length === 0 ? (
+                <EmptyState>No one here yet.</EmptyState>
+              ) : (
+                <EmptyState
+                  mood="sleepy"
+                  title="No one matches these filters"
+                  action={<Button variant="secondary" onClick={() => { setFilter("everyone"); setQuery(""); }}>Clear filters</Button>}
+                />
+              )
             ) : (
               <ul className="flex flex-col gap-2">
                 {visible.map((row) => (
@@ -84,9 +99,11 @@ export function TeamList({
                       </span>
                     </div>
                     <div className="ml-auto flex min-w-0 max-w-full flex-wrap justify-end gap-2">
+                      {canViewActivity ? <Link href={`/dashboard/${organisationSlug}/activity?actor=${row.userId}`} className="self-center text-caption text-ink-muted underline-offset-4 hover:text-ink hover:underline">View activity</Link> : null}
                       {row.manageable && (units.length || row.unitId) ? (
                         <MemberUnitScope organisationSlug={organisationSlug} row={row} units={units} roleOptions={roleOptions} canGrantOrgWide={canGrantOrgWide} />
                       ) : null}
+                      {row.manageable ? <MemberGroupingScope organisationSlug={organisationSlug} row={row} groupings={groupings} /> : null}
                       <MemberRoleActions organisationSlug={organisationSlug} row={row} roleOptions={roleOptions} />
                     </div>
                   </li>

@@ -10,6 +10,7 @@ const EXTENSIONS = /\.(ts|tsx|mjs|js|css|sh)$/;
 /** Generated or copied at build time; never edited by hand. */
 const SKIP = [
   "lib/frontend/registry.ts",
+  "lib/docs/content.ts",
   "app/styles/tokens.css",
   `frontend${sep}app`,
   `frontend${sep}components`,

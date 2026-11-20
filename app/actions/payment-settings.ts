@@ -10,6 +10,8 @@ import { credentialsOf, ensurePaymentSettings, GATEWAYS, looksLikeTestKey, saveP
 import { RECEIPT_PREFIX_PATTERN } from "@/lib/payments/numbering";
 import { paymentAccess, paymentFailure } from "@/lib/payments/actionContext";
 import { POLL_FOR_MS } from "@/lib/payments/reconcile";
+import { hasRecentAuthentication } from "@/lib/reauth";
+import { notifyOwners } from "@/lib/organisations";
 import type { ActionResult } from "./org";
 
 const revalidatePath = trackedRevalidation(nextRevalidatePath);
@@ -38,6 +40,7 @@ export async function savePaymentGateway(input: unknown): Promise<ActionResult> 
   if (!parsed.success) return { ok: false, error: "Check the highlighted fields.", fieldErrors: fieldErrors(parsed.error) };
   const ctx = await paymentAccess(parsed.data.organisationSlug, "payments.settings");
   if (!ctx.ok) return ctx;
+  if (!(await hasRecentAuthentication())) return { ok: false, error: "For security, sign in again before changing the payment gateway." };
   const current = await ensurePaymentSettings(ctx.org.id);
   const { provider, keyId, secret, webhookSecret } = parsed.data;
   const switching = current.provider !== provider;
@@ -136,8 +139,16 @@ export async function saveOfflinePaymentSettings(input: unknown): Promise<Action
   if (!parsed.success) return { ok: false, error: "Check the highlighted fields.", fieldErrors: fieldErrors(parsed.error) };
   const ctx = await paymentAccess(parsed.data.organisationSlug, "payments.settings");
   if (!ctx.ok) return ctx;
-  await ensurePaymentSettings(ctx.org.id);
-  await prisma.orgPaymentSettings.update({ where: { organisationId: ctx.org.id }, data: { upiVpa: parsed.data.upiVpa, upiPayeeName: parsed.data.upiPayeeName, offlineInstructions: parsed.data.offlineInstructions } });
+  if (!(await hasRecentAuthentication())) return { ok: false, error: "For security, sign in again before changing how members pay." };
+  const before = await ensurePaymentSettings(ctx.org.id);
+  const { upiVpa, upiPayeeName, offlineInstructions } = parsed.data;
+  const upiChanged = before.upiVpa !== upiVpa || before.upiPayeeName !== upiPayeeName;
+  await prisma.$transaction(async (tx) => {
+    await tx.orgPaymentSettings.update({ where: { organisationId: ctx.org.id }, data: { upiVpa, upiPayeeName, offlineInstructions } });
+    await recordAuditEvent({ action: "OFFLINE_PAYMENT_SETTINGS_SAVED", actorUserId: ctx.access.userId, organisationId: ctx.org.id, targetType: "Organisation", targetId: ctx.org.id, metadata: { upiChanged, instructionsChanged: before.offlineInstructions !== offlineInstructions }, client: tx });
+    // Members pay to this ID, so the owners are told whenever it changes (no ID in the email).
+    if (upiChanged) await notifyOwners(tx, ctx.org.id, "payee-changed");
+  });
   revalidatePath(`/dashboard/${ctx.org.slug}/settings/payments`);
   return { ok: true };
 }

@@ -1,0 +1,14 @@
+/*
+ * Public page sections (components/public/sections). Tokens only; nothing here moves.
+ * The sample member card keeps the CR80 corner (3.18 mm on 85.6 mm, about 3.7% of the long side) at any width:
+ * the figure is a size container, so the radius follows the drawn card. Portrait cards measure from the short side.
+ */
+.card {
+  container-type: inline-size;
+  width: min(100%, 440px);
+  justify-self: center;
+}
+.card img { border-radius: 3.7cqw; }
+.portrait { width: min(100%, 300px); }
+.portrait img { border-radius: 5.9cqw; }
+@media (min-width: 768px) { .card { justify-self: end; } }

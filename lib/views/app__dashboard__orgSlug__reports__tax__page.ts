@@ -28,6 +28,7 @@ export async function loadOrgReportsTax({ params, searchParams }: Props) {
   const gst = documents.some((doc) => doc.kind === "TAX_INVOICE" || doc.cgstMinor + doc.sgstMinor + doc.igstMinor > 0);
   return {
     shell: reportShell(ctx, "tax"),
+    timeZone: ctx.org.timezone,
     locale: org.locale,
     supplierState: org.stateCode,
     checks: allDocuments ? seriesChecks(allDocuments) : null,

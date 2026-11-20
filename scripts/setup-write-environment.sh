@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 # Compose dotenv single quotes suppress interpolation of operator-provided secrets.
 env_setting() {
+  # Docker Compose and repository_env_value read single-quoted values literally (no escapes), so write the value as
+  # it is. A value that can't be single-quoted (a quote or a line break) is refused rather than silently corrupted;
+  # multi-line keys such as Apple's .p8 are written on one line with literal \n, which the app turns back into lines.
   local value="$2"
-  value="${value//\\/\\\\}"
-  value="${value//\'/\\\'}"
+  if [[ "$value" == *\'* || "$value" == *$'\n'* || "$value" == *$'\r'* ]]; then
+    die "The value for $1 contains a quote or a line break, which the environment file can't hold. Enter it without them."
+  fi
   printf "%s='%s'\n" "$1" "$value" >> "$SETUP_ENV_FILE"
 }
 
@@ -16,6 +20,7 @@ write_setup_environment() {
   [[ "$HTTPS_MODE" != 1 ]] || scheme=http
   [[ "$HTTPS_MODE" != 2 ]] || layer=tls
   [[ "$HTTPS_MODE" != 3 ]] || layer=proxy
+  [[ "$HTTPS_MODE" != 4 ]] || layer=cloudflared
   app_url="$scheme://$WEBHOST"
   # Backend for a Netlify website: links, sign-in and Server Actions use the website's origin.
   [[ -z "$SITE_ORIGIN" ]] || app_url="$SITE_ORIGIN"
@@ -29,6 +34,8 @@ write_setup_environment() {
   env_setting SITE_ADDRESS "$([[ "$HTTPS_MODE" == 2 ]] && echo "$WEBHOST" || echo "http://$WEBHOST")"
   [[ "$HTTPS_MODE" != 1 ]] || env_setting ALLOW_PLAIN_HTTP 1
   [[ -z "$TLS_EMAIL" ]] || env_setting TLS_EMAIL "$TLS_EMAIL"
+  # Only the cloudflared service reads the token (docker/compose.cloudflared.yml); the app never sees it.
+  [[ "$HTTPS_MODE" != 4 ]] || env_setting CLOUDFLARE_TUNNEL_TOKEN "$CLOUDFLARE_TUNNEL_TOKEN"
   env_setting HTTP_PORT 80
   if [[ "$RUN_FRONTEND" == 2 ]]; then
     env_setting DEPLOYMENT_MODE backend
@@ -62,6 +69,24 @@ write_setup_environment() {
     env_setting AUTH_GITHUB_ID "$GITHUB_CLIENT_ID"
     env_setting AUTH_GITHUB_SECRET "$GITHUB_CLIENT_SECRET"
   fi
+  if [[ -n "${APPLE_CLIENT_ID:-}" && -n "${APPLE_PRIVATE_KEY:-}" ]]; then
+    env_setting AUTH_APPLE_ID "$APPLE_CLIENT_ID"
+    env_setting AUTH_APPLE_TEAM_ID "${APPLE_TEAM_ID:-}"
+    env_setting AUTH_APPLE_KEY_ID "${APPLE_KEY_ID:-}"
+    env_setting AUTH_APPLE_PRIVATE_KEY "$APPLE_PRIVATE_KEY"
+  fi
+  if [[ -n "${SUPABASE_URL:-}" && -n "${SUPABASE_ANON_KEY:-}" ]]; then
+    env_setting AUTH_SUPABASE_URL "$SUPABASE_URL"
+    env_setting AUTH_SUPABASE_ANON_KEY "$SUPABASE_ANON_KEY"
+  fi
+  if [[ -n "${FIREBASE_API_KEY:-}" && -n "${FIREBASE_PROJECT_ID:-}" ]]; then
+    env_setting AUTH_FIREBASE_API_KEY "$FIREBASE_API_KEY"
+    env_setting AUTH_FIREBASE_AUTH_DOMAIN "${FIREBASE_AUTH_DOMAIN:-}"
+    env_setting AUTH_FIREBASE_PROJECT_ID "$FIREBASE_PROJECT_ID"
+    env_setting AUTH_FIREBASE_PROVIDERS "${FIREBASE_PROVIDERS:-google.com}"
+  fi
+  # The deployment's own choice of sign-in methods (the super-admin switches become read-only). Unset for "none".
+  [[ "${SETUP_SOCIAL_PROVIDERS:-none}" == none ]] || env_setting LOGIN_METHODS "password,$SETUP_SOCIAL_PROVIDERS"
   if [[ "$STORAGE" == 2 ]]; then
     env_setting S3_ENDPOINT "$S3_ENDPOINT"
     env_setting S3_REGION "$S3_REGION"

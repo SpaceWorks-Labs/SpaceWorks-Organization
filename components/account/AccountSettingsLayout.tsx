@@ -11,7 +11,7 @@ type AccountHeaderData = {
   memberSinceLabel: string;
 };
 
-/** Account area frame: a summary header card, the account tabs, then the page. */
+/** Account area frame: a summary header card, the account tabs, then the page. Each page carries its own h1. */
 export function AccountSettingsLayout({ account, children }: { account: AccountHeaderData; children: React.ReactNode }) {
   const displayName = account.name?.trim() || account.email || "Your account";
   return (
@@ -20,7 +20,7 @@ export function AccountSettingsLayout({ account, children }: { account: AccountH
         <Avatar name={displayName} src={account.image} size="lg" />
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <p className="text-sm text-ink-muted">Account</p>
-          <h1 className="break-words text-h1 text-ink">{displayName}</h1>
+          <p className="break-words text-h3 text-ink">{displayName}</p>
           {account.email && account.email !== displayName ? (
             <p className="truncate text-body-ui text-ink-secondary">{account.email}</p>
           ) : null}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useSyncExternalStore, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useId, useRef, useState, useSyncExternalStore, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import * as SliderPrimitive from "@radix-ui/react-slider";
 import { Pipette, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -108,7 +108,7 @@ export function ColorPicker({
           </SliderPrimitive.Track>
           <SliderPrimitive.Thumb
             aria-label="Hue"
-            className="block size-5 rounded-full border-[3px] border-white shadow-[0_0_0_1px_rgba(0,0,0,.25),0_1px_3px_rgba(0,0,0,.3)] outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+            className="block size-5 rounded-full border-[3px] border-white shadow-[0_0_0_1px_rgba(0,0,0,.25),0_1px_3px_rgba(0,0,0,.3)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--sw-ui-focus))]"
             style={{ backgroundColor: hsvToHex({ h: hsv.h, s: 1, v: 1 }) }}
           />
         </SliderPrimitive.Root>
@@ -141,7 +141,7 @@ export function ColorPicker({
             {/* How members will see it: the button and link colours, contrast-adjusted like the public pages. */}
             <div className="flex items-center justify-between gap-3 rounded-lg bg-subtle px-3 py-2.5">
               <span
-                className="inline-flex min-h-8 items-center rounded-full px-3.5 text-[13px] font-semibold"
+                className="inline-flex min-h-8 items-center rounded-control px-3.5 text-[13px] font-semibold"
                 style={{ backgroundColor: tokens["--sw-accent"], color: tokens["--sw-on-accent"] }}
               >
                 Register
@@ -173,6 +173,7 @@ export function ColorPicker({
 /** The 2D saturation (x) × brightness (y) area, with pointer and arrow-key control. */
 function SaturationArea({ hsv, onChange }: { hsv: Hsv; onChange: (hsv: Hsv) => void }) {
   const area = useRef<HTMLDivElement>(null);
+  const hintId = useId();
 
   const fromPointer = (event: PointerEvent<HTMLDivElement>) => {
     const rect = area.current?.getBoundingClientRect();
@@ -192,34 +193,38 @@ function SaturationArea({ hsv, onChange }: { hsv: Hsv; onChange: (hsv: Hsv) => v
   };
 
   return (
-    <div
-      ref={area}
-      role="slider"
-      tabIndex={0}
-      aria-label="Saturation and brightness"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={Math.round(hsv.s * 100)}
-      aria-valuetext={`Saturation ${Math.round(hsv.s * 100)}%, brightness ${Math.round(hsv.v * 100)}%. Arrow keys adjust; hold Shift for bigger steps.`}
-      onKeyDown={onKeyDown}
-      onPointerDown={(event) => {
-        event.currentTarget.setPointerCapture(event.pointerId);
-        fromPointer(event);
-      }}
-      onPointerMove={(event) => {
-        if (event.currentTarget.hasPointerCapture(event.pointerId)) fromPointer(event);
-      }}
-      className="relative h-40 w-full cursor-crosshair touch-none rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
-      style={{
-        backgroundColor: hsvToHex({ h: hsv.h, s: 1, v: 1 }),
-        backgroundImage: "linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent)",
-      }}
-    >
-      <span
-        aria-hidden
-        className={cn("pointer-events-none absolute size-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white shadow-[0_0_0_1px_rgba(0,0,0,.3),0_1px_3px_rgba(0,0,0,.35)]")}
-        style={{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%`, backgroundColor: hsvToHex(hsv) }}
-      />
-    </div>
+    <>
+      <div
+        ref={area}
+        role="slider"
+        tabIndex={0}
+        aria-label="Saturation and brightness"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(hsv.s * 100)}
+        aria-valuetext={`Saturation ${Math.round(hsv.s * 100)}%, brightness ${Math.round(hsv.v * 100)}%`}
+        aria-describedby={hintId}
+        onKeyDown={onKeyDown}
+        onPointerDown={(event) => {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          fromPointer(event);
+        }}
+        onPointerMove={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) fromPointer(event);
+        }}
+        className="relative h-40 w-full cursor-crosshair touch-none rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--sw-ui-focus))]"
+        style={{
+          backgroundColor: hsvToHex({ h: hsv.h, s: 1, v: 1 }),
+          backgroundImage: "linear-gradient(to top, #000, transparent), linear-gradient(to right, #fff, transparent)",
+        }}
+      >
+        <span
+          aria-hidden
+          className={cn("pointer-events-none absolute size-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-white shadow-[0_0_0_1px_rgba(0,0,0,.3),0_1px_3px_rgba(0,0,0,.35)]")}
+          style={{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%`, backgroundColor: hsvToHex(hsv) }}
+        />
+      </div>
+      <p id={hintId} className="sr-only">Arrow keys adjust; hold Shift for bigger steps.</p>
+    </>
   );
 }

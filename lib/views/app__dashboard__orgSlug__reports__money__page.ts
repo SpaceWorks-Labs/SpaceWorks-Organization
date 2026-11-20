@@ -47,6 +47,7 @@ export async function loadOrgReportsMoney({ params, searchParams }: Props) {
 
   return {
     shell: reportShell(ctx, "money"),
+    timeZone: ctx.org.timezone,
     primary,
     locale: org.locale,
     currencies,

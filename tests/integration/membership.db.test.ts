@@ -118,7 +118,7 @@ describe.sequential("membership service", () => {
     await queueRenewalReminders(now);
     const logs = await prisma.reminderLog.findMany({ where: { termId: term.id } });
     expect(logs.map((log) => log.key).sort()).toEqual(["before-30", "before-7"]);
-    const queued = await prisma.$queryRaw<Array<{ count: bigint }>>`SELECT count(*) FROM "OutboxMessage" WHERE "kind" = 'renewal-reminder' AND "payload"->>'termId' = ${term.id}`;
+    const queued = await prisma.$queryRaw<Array<{ count: bigint }>>`SELECT count(*) FROM "OutboxMessage" WHERE "kind" = 'member-message' AND "payload"->>'dedupeKey' LIKE ${`reminder:${term.id}:%`}`;
     expect(Number(queued[0].count)).toBe(1);
   });
 
@@ -133,7 +133,7 @@ describe.sequential("membership service", () => {
     const inKochi = await prisma.$transaction((tx) => upsertMember(tx, org.id, { email: `midlaj-${suffix}@example.test`, name: "Midlaj C", unitId: kochi.id, source: "MANUAL" }));
     await prisma.$transaction((tx) => upsertMember(tx, org.id, { email: `ajzal-${suffix}@example.test`, name: "Ajzal P", unitId: karnataka.id, source: "MANUAL" }));
 
-    const keralaScope = await teamScope(org.id, kerala.id);
+    const keralaScope = await teamScope(org.id, { id: "scope-test", unitId: kerala.id, scopes: [] });
     const seen = await prisma.member.findMany({ where: memberWhere(keralaScope), select: { id: true } });
     expect(seen.map((row) => row.id)).toEqual([inKochi.id]);
     const everyone = await prisma.member.count({ where: memberWhere(await teamScope(org.id, null)) });

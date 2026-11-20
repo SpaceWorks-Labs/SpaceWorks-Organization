@@ -6,6 +6,7 @@ import { checkRateLimitById } from "@/lib/rateLimit";
 import { memberWhere, teamScope } from "@/lib/membership/scope";
 import type { DocumentSnapshot } from "@/lib/payments/documents";
 import { renderDocumentPdf } from "@/lib/payments/pdf";
+import { PORTAL_ORGANISATION_STATUSES } from "@/lib/portal/member";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ doc
   if (!(await checkRateLimitById("documentView", `user:${userId}`))) return refuse(429, "Too many downloads. Try again later.");
   const { documentId } = await params;
   if (!/^[a-z0-9]{10,40}$/i.test(documentId)) return refuse(404, "Not found.");
-  const document = await prisma.taxDocument.findUnique({ where: { id: documentId }, select: { organisationId: true, number: true, snapshot: true, payment: { select: { memberId: true, member: { select: { email: true } } } } } });
+  const document = await prisma.taxDocument.findUnique({ where: { id: documentId }, select: { organisationId: true, organisation: { select: { memberPortal: true, status: true } }, number: true, snapshot: true, payment: { select: { memberId: true, member: { select: { email: true } } } } } });
   if (!document?.payment) return refuse(404, "Not found.");
 
   let allowed = false;
@@ -33,13 +34,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ doc
   if (membership && (await hasAuthenticator(userId))) {
     const org = await prisma.organisation.findUniqueOrThrow({ where: { id: document.organisationId }, select: { status: true } });
     if (organisationAllows(org.status, "payments.view") && can(membership, "payments.view")) {
-      const scope = await teamScope(document.organisationId, membership.unitId);
+      const scope = await teamScope(document.organisationId, membership);
       allowed = (await prisma.member.count({ where: { ...memberWhere(scope), id: document.payment.memberId } })) > 0;
     }
   }
   if (!allowed) {
     const user = await prisma.user.findUnique({ where: { id: userId }, select: { email: true, emailVerified: true } });
-    allowed = Boolean(user?.email && user.emailVerified && user.email.toLowerCase() === document.payment.member.email);
+    // A member's own copy follows the member-accounts switch like the rest of the portal.
+    const portal = document.organisation.memberPortal && (PORTAL_ORGANISATION_STATUSES as readonly string[]).includes(document.organisation.status);
+    allowed = portal && Boolean(user?.email && user.emailVerified && user.email.toLowerCase() === document.payment.member.email);
   }
   if (!allowed) return refuse(404, "Not found.");
 

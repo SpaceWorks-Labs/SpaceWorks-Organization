@@ -5,37 +5,12 @@
 @import "./styles/charts.css";
 @import "./styles/patch.css";
 @import "./styles/eggs.css";
-
-/* Dark utilities follow the class on <html> (set on the server from the swo.theme cookie). */
-@custom-variant dark (&:where(.dark, .dark *));
-
-/*
- * Type: only the free Gilroy release (Radomir Tinkov Free Font EULA, see
- * public/brand/fonts/LICENSES). Light carries all reading and interface text; ExtraBold carries
- * headings and emphasis. Each face answers a weight range so nothing is ever synthesised:
- * 100–549 resolve to Light, 550–900 to ExtraBold. Unbounded is for one accent phrase per layout.
- */
-@font-face {
-  font-family: "Gilroy";
-  src: url("/brand/fonts/Gilroy-Light.woff2") format("woff2");
-  font-weight: 100 549;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Gilroy";
-  src: url("/brand/fonts/Gilroy-ExtraBold.woff2") format("woff2");
-  font-weight: 550 900;
-  font-style: normal;
-  font-display: swap;
-}
-@font-face {
-  font-family: "Unbounded";
-  src: url("/brand/fonts/Unbounded-Variable.woff2") format("woff2");
-  font-weight: 500 600;
-  font-style: normal;
-  font-display: swap;
-}
+@import "./styles/scroll-padding.css";
+/* Type faces (CR-TYPE-01): Outfit, Gilroy Light and ExtraBold, Unbounded. */
+@import "./styles/fonts.css";
+/* Dark utilities follow the class on <html> (set on the server from the swo.theme cookie), except inside a light
+   public-page preview (.sw-preview-light). */
+@custom-variant dark (&:where(.dark, .dark *):not(:where(.sw-preview-light, .sw-preview-light *)));
 
 /*
  * Tailwind theme mapped onto the semantic layer. `initial` removes Tailwind's default palette so no
@@ -65,6 +40,7 @@
   --color-on-primary: rgb(var(--sw-ui-on-primary));
   --color-inverse: rgb(var(--sw-ui-inverse));
   --color-on-inverse: rgb(var(--sw-ui-on-inverse));
+  --color-danger-on-inverse: rgb(var(--sw-ui-danger-on-inverse));
 
   /* Organisation accent: Maker Teal unless a public page sets its own (see .sw-accent-scope). */
   --color-accent: var(--sw-accent);
@@ -110,20 +86,31 @@
   --color-sw-sky: var(--sw-sky);
   --color-sw-yellow: var(--sw-yellow);
   --color-sw-cream: var(--sw-cream);
+  /* Scrims dim the page behind dialogs and sheets: Deep Ink in light, black in dark. Use bg-scrim/48. */
+  --color-scrim: rgb(var(--sw-color-scrim));
+
+  /* Small status marks (CR-STATUS-01): the solid brand fill and its on-* label in both themes. */
+  --color-success-mark: rgb(var(--sw-color-success));
+  --color-on-success-mark: rgb(var(--sw-color-on-success));
+  --color-warning-mark: rgb(var(--sw-color-warn));
+  --color-on-warning-mark: rgb(var(--sw-color-on-warn));
+  --color-info-mark: rgb(var(--sw-color-info));
+  --color-on-info-mark: rgb(var(--sw-color-on-info));
+
   --color-transparent: transparent;
   --color-current: currentColor;
-  /* Functional only: colour-picker handles and image scrims. */
+  /* Functional only: colour-picker handles and image overlays. */
   --color-white: #fff;
   --color-black: #000;
 
-  --font-display: "Gilroy", ui-sans-serif, system-ui, sans-serif;
-  --font-sans: "Gilroy", ui-sans-serif, system-ui, sans-serif;
-  --font-accent: "Unbounded", "Gilroy", ui-sans-serif, sans-serif;
-  /* Code, secrets and JSON only. IDs use Gilroy with tabular-nums. */
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --font-display: "Gilroy", "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-accent: "Unbounded", "Outfit", ui-sans-serif, sans-serif;
+  /* No monospace family (CR-TYPE-01): IDs and code use Outfit with tabular figures (.code-text). */
+  --font-mono: initial;
 
-  /* Controls are pills (owner decision J1); cards and windows 16px; tags fully round. */
-  --radius-control: 9999px;
+  /* Controls 10px (CR-RADIUS-01); cards and windows 16px; tags and status pills fully round. */
+  --radius-control: 10px;
   --radius-sm: 6px;
   --radius: 8px;
   --radius-md: 10px;
@@ -142,7 +129,14 @@
   --breakpoint-lg: 1024px;
   --breakpoint-xl: 1280px;
 
-  --ease-sw: cubic-bezier(0.32, 0.72, 0, 1);
+  /* Motion curves (CR-MOTION-01, tokens.css): ease-sw is the standard curve. Durations are the
+     --sw-dur-fast/base/slow tokens (120/180/240ms), e.g. duration-(--sw-dur-fast). */
+  --ease-sw: var(--sw-ease-standard);
+  --ease-sw-enter: var(--sw-ease-enter);
+  --ease-sw-exit: var(--sw-ease-exit);
+  /* A bare transition-colors (or transition) reads the tokens too: fast on the standard curve. */
+  --default-transition-duration: var(--sw-dur-fast);
+  --default-transition-timing-function: var(--sw-ease-standard);
 }
 
 /*
@@ -156,7 +150,7 @@
   --sw-accent-text: var(--sw-accent-text-light);
 }
 
-:root.dark .sw-accent-scope {
+:root.dark .sw-accent-scope:not(.sw-preview-light) {
   --sw-accent: var(--sw-accent-dark);
   --sw-accent-soft: var(--sw-accent-soft-dark);
   --sw-on-accent: var(--sw-on-accent-dark);
@@ -173,7 +167,7 @@
     background: rgb(var(--sw-ui-canvas));
     color: rgb(var(--sw-ui-ink));
     font-family: var(--font-sans);
-    font-weight: 300;
+    font-weight: 400;
     font-size: 16px;
     line-height: 1.5;
     font-synthesis: none;
@@ -181,15 +175,18 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* Product headings are Outfit 600; display roles and public h1/h2 use Gilroy 800 (.text-display-*,
+     .sw-display-headings). */
   h1, h2, h3, h4 {
-    font-family: var(--font-display);
-    font-weight: 800;
+    font-family: var(--font-sans);
+    font-weight: 600;
     letter-spacing: -0.01em;
     color: rgb(var(--sw-ui-ink));
   }
 
   code, kbd, samp, pre {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
+    font-variant-numeric: tabular-nums;
   }
 
   ::selection {
@@ -205,22 +202,28 @@
 }
 
 @layer components {
-  /* Type scale (ui-brand-spec §D). Mobile first, desktop from 640px. Headings are ExtraBold. */
+  /* Type scale (ui-brand-spec §D). Mobile first, desktop from 640px. Display roles are Gilroy ExtraBold;
+     product headings are Outfit 600. */
   .text-display-xl { font-family: var(--font-display); font-weight: 800; font-size: 44px; line-height: 1.08; letter-spacing: -0.02em; }
   .text-display-l { font-family: var(--font-display); font-weight: 800; font-size: 40px; line-height: 1.08; letter-spacing: -0.02em; }
   .text-display-m { font-family: var(--font-display); font-weight: 800; font-size: 34px; line-height: 1.12; letter-spacing: -0.015em; }
-  .text-h1 { font-family: var(--font-display); font-weight: 800; font-size: 26px; line-height: 1.22; letter-spacing: -0.01em; }
-  .text-h2 { font-family: var(--font-display); font-weight: 800; font-size: 22px; line-height: 1.25; letter-spacing: -0.01em; }
-  .text-h3 { font-family: var(--font-display); font-weight: 800; font-size: 20px; line-height: 1.3; letter-spacing: -0.005em; }
-  .text-h4 { font-family: var(--font-display); font-weight: 800; font-size: 18px; line-height: 1.33; letter-spacing: -0.005em; }
-  .text-title { font-family: var(--font-sans); font-weight: 800; font-size: 16px; line-height: 1.5; }
+  .text-h1 { font-family: var(--font-sans); font-weight: 600; font-size: 26px; line-height: 1.22; letter-spacing: -0.01em; }
+  .text-h2 { font-family: var(--font-sans); font-weight: 600; font-size: 22px; line-height: 1.25; letter-spacing: -0.01em; }
+  .text-h3 { font-family: var(--font-sans); font-weight: 600; font-size: 20px; line-height: 1.3; letter-spacing: -0.005em; }
+  .text-h4 { font-family: var(--font-sans); font-weight: 600; font-size: 18px; line-height: 1.33; letter-spacing: -0.005em; }
+  .text-title { font-family: var(--font-sans); font-weight: 600; font-size: 16px; line-height: 1.5; }
   .text-body-l { font-size: 17px; line-height: 1.55; }
   .text-body { font-size: 16px; line-height: 1.5; }
   .text-body-ui { font-size: 16px; line-height: 1.5; }
   .text-label { font-size: 14px; line-height: 1.43; }
   .text-caption { font-size: 14px; line-height: 1.4; letter-spacing: 0.01em; }
-  .text-overline { font-size: 12px; font-weight: 800; line-height: 1.33; letter-spacing: 0.08em; text-transform: uppercase; }
-  .text-mono { font-family: var(--font-mono); font-size: 13px; line-height: 1.5; }
+  .text-overline { font-family: var(--font-sans); font-size: 12px; font-weight: 600; line-height: 1.33; letter-spacing: 0.08em; text-transform: uppercase; }
+
+  /* IDs, codes, secrets and JSON: Outfit with tabular figures and a touch of tracking, no monospace family. */
+  .code-text { font-family: var(--font-sans); font-variant-numeric: tabular-nums slashed-zero; letter-spacing: 0.02em; overflow-wrap: anywhere; }
+
+  /* Public pages (marketing, about, docs, /o/…): h1 and h2 inside take the Gilroy 800 display face. */
+  .sw-display-headings :is(h1, h2) { font-family: var(--font-display); font-weight: 800; }
 
   @media (min-width: 640px) {
     .text-display-xl { font-size: 72px; line-height: 1.06; }
@@ -250,10 +253,10 @@
   top: 12px;
   z-index: 2000;
   padding: 10px 16px;
-  border-radius: 9999px;
+  border-radius: 10px;
   color: rgb(var(--sw-ui-on-primary));
   background: rgb(var(--sw-ui-primary));
-  font-weight: 800;
+  font-weight: 600;
   text-decoration: none;
   transform: translateY(-160%);
 }

@@ -3,10 +3,8 @@ import "server-only";
 import { importPKCS8, SignJWT } from "jose";
 import { prisma } from "@/lib/db";
 import { INSTANCE_SETTINGS_ID } from "@/lib/instanceSettings";
+import { OIDC_PREFIX } from "@/lib/oidc/providers";
 import { decryptInstanceConfigSecret } from "@/lib/instanceConfigSecrets";
-
-/** Sign-in providers this instance can offer besides email and password. */
-type OAuthProviderId = "google" | "github" | "apple";
 
 type OAuthSettings = {
   google: { clientId: string; clientSecret: string } | null;
@@ -71,12 +69,6 @@ export async function getOAuthSettings(): Promise<OAuthSettings> {
   };
 }
 
-/** Which providers are on, for the sign-in page. Never exposes secrets. */
-export async function enabledOAuthProviders(): Promise<OAuthProviderId[]> {
-  const settings = await getOAuthSettings();
-  return (["google", "apple", "github"] as const).filter((id) => settings[id] !== null);
-}
-
 /**
  * Whether the provider vouches for the email it returned. Only a verified email may create or link an
  * account, because accounts link by email.
@@ -84,6 +76,8 @@ export async function enabledOAuthProviders(): Promise<OAuthProviderId[]> {
 export async function providerVerifiedEmail(provider: string, profile: unknown, accessToken: string | undefined, email: string): Promise<boolean> {
   const claims = (profile ?? {}) as Record<string, unknown>;
   if (provider === "google") return claims.email_verified === true;
+  // A generic OpenID Connect provider: its email_verified claim must be true (a boolean, or the string some providers send).
+  if (provider.startsWith(OIDC_PREFIX)) return claims.email_verified === true || claims.email_verified === "true";
   // Apple sends the claim as a boolean or the string "true".
   if (provider === "apple") return claims.email_verified === true || claims.email_verified === "true";
   if (provider === "github") {

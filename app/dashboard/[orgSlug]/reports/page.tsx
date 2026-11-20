@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { FileDown } from "lucide-react";
+import Link from "next/link";
+import { BarChart3, FileDown } from "lucide-react";
 import { loadOrgReportsOverview } from "@/lib/views/app__dashboard__orgSlug__reports__page";
 import type { ReportSearch } from "@/lib/reports/context";
 import { ReportShell } from "@/components/reports/ReportShell";
@@ -19,10 +20,16 @@ export default async function OrgReportsOverviewPage({ params, searchParams }: P
       shell={view.shell}
       title="Reports"
       actions={
-        <a href={`/dashboard/${view.shell.org.slug}/reports/print${view.shell.query ? `${view.shell.query}&` : "?"}print=1`} className={buttonClasses({ variant: "secondary", className: "sw-print-hide" })}>
-          <FileDown aria-hidden className="size-4" />
-          PDF snapshot
-        </a>
+        <>
+          <Link href={`/dashboard/${view.shell.org.slug}/reports/visits`} className={buttonClasses({ variant: "secondary", className: "sw-print-hide" })}>
+            <BarChart3 aria-hidden className="size-4" />
+            Web visits
+          </Link>
+          <a href={`/dashboard/${view.shell.org.slug}/reports/print${view.shell.query ? `${view.shell.query}&` : "?"}print=1`} className={buttonClasses({ variant: "secondary", className: "sw-print-hide" })}>
+            <FileDown aria-hidden className="size-4" />
+            PDF snapshot
+          </a>
+        </>
       }
     >
       {empty ? (

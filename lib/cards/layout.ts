@@ -5,6 +5,7 @@ import {
   cardTemplateDecor,
   DETAILS_COLUMN_GAP_MM,
   DETAILS_ROW_GAP_MM,
+  NAME_FLOOR_RATIO,
   nameSizePt,
   PT_TO_MM,
   TILE_PADDING_MM,
@@ -12,9 +13,12 @@ import {
   type CardElement,
   type CardSideSettings,
 } from "./design/elements";
+import { QR_CAPTION, qrTile } from "./design/qrTile";
 import { backgroundOps, layerOps } from "./layerLayout";
 import { resolveCardPalette, SYMBOL_ASPECT, type CardSymbolVariant } from "./palette";
-import { paragraph, type CardTextOp, type FontWeight, type TextMeasurer } from "./text";
+import type { ImageArt } from "./imageArt";
+import type { ClipOp, IconOp, VectorOp } from "./vectorOps";
+import { ellipsize, fitLine, paragraph, type CardTextOp, type FontWeight, type TextMeasurer } from "./text";
 import { holderInitials, labelledLine, printableFields, validUntilLine, type CardBranding, type CardHolder } from "./types";
 
 /*
@@ -32,18 +36,25 @@ export type CardOp =
    * `photo` marks the per-person photo, which renderers don't cache across cards. `alpha` keeps the
    * image's transparency (layer artwork); `radiusMm` rounds its corners.
    */
-  | { kind: "image"; url: string; x: number; y: number; w: number; h: number; fit: "contain" | "cover"; shape: "none" | "circle" | "rounded"; grayscale: boolean; opacity?: number; photo?: true; alpha?: true; radiusMm?: number }
+  | { kind: "image"; url: string; x: number; y: number; w: number; h: number; fit: "contain" | "cover"; shape: "none" | "circle" | "rounded"; grayscale: boolean; opacity?: number; photo?: true; alpha?: true; radiusMm?: number; art?: ImageArt }
   | { kind: "ellipse"; x: number; y: number; w: number; h: number; fill?: string; stroke?: string; strokeWidth?: number }
   | { kind: "qr"; value: string; x: number; y: number; size: number; dark: string; light: string }
   | { kind: "symbol"; variant: CardSymbolVariant; x: number; y: number; w: number; h: number }
-  /** A layer: its ops turned clockwise about (cx, cy) and faded together. */
-  | { kind: "group"; rotateDeg: number; cx: number; cy: number; opacity: number; ops: CardOp[] };
+  | VectorOp
+  | ClipOp
+  | IconOp
+  /** A layer: its ops turned clockwise about (cx, cy), mirrored about it when flipped, and each faded by `opacity`. */
+  | { kind: "group"; rotateDeg: number; cx: number; cy: number; opacity: number; flipX?: boolean; flipY?: boolean; ops: CardOp[] };
 
 export type CardScene = { widthMm: number; heightMm: number; background: string; ops: CardOp[] };
 
 type CardSceneInput = { settings: CardSideSettings; holder: CardHolder; branding: CardBranding; measurer: TextMeasurer };
 
 const ptMm = (pt: number) => pt * PT_TO_MM;
+/** The hairline round photos, in millimetres. */
+export const PHOTO_BORDER_MM = 0.25;
+/** The initials stay within this share of the photo's width. */
+export const INITIALS_WIDTH = 0.62;
 
 /** Which artwork a side will draw, so callers can load only what is needed. */
 export function cardImageUrls(settings: CardSideSettings, branding: CardBranding, holder?: Pick<CardHolder, "photoUrl">) {
@@ -138,18 +149,32 @@ export function buildCardScene({ settings, holder, branding, measurer }: CardSce
     // The size estimate can miss on unusual scripts: with real measurements, shrink until the
     // wrapped name fits the room kept for it, so it never runs into the lines below.
     const room = nameBlockHeightMm(pt.name) + 0.01;
-    const floor = pt.name * 0.3;
+    const floor = pt.name * NAME_FLOOR_RATIO;
     let sizePt = nameSizePt(settings, holder.displayName);
     let block = paragraph(measurer, name, at.name.xMm, at.name.yMm, size.name, style(sizePt));
     while (settings.nameAutoFit && block.bottom - at.name.yMm > room && sizePt > floor) {
       sizePt = Math.max(floor, Math.round(sizePt * 9) / 10);
       block = paragraph(measurer, name, at.name.xMm, at.name.yMm, size.name, style(sizePt));
     }
+    // Still too long at the floor: keep the lines that fit and end the last one with an ellipsis.
+    const lineBox = ptMm(sizePt) * CARD_LINE_HEIGHT.name;
+    const fits = Math.max(1, Math.floor(room / lineBox));
+    if (settings.nameAutoFit && block.lines.length > fits) {
+      const measure = (value: string) => measurer.widthMm(value, weight(bold.name), sizePt, decor.nameTrackingEm, font.name);
+      const last = ellipsize(block.lines.slice(fits - 1).join(" "), size.name, measure);
+      block = paragraph(measurer, [...block.lines.slice(0, fits - 1), last].join(" "), at.name.xMm, at.name.yMm, size.name + 0.01, style(sizePt));
+    }
     part("name").push(...block.ops);
   }
 
+  // One line each: shrunk a little when long, and cut short with an ellipsis only past that.
   const body = (element: "role" | "plan" | "idNumber" | "validUntil", text: string, trackingEm = 0) => {
-    if (text) part(element).push(...paragraph(measurer, text, at[element].xMm, at[element].yMm, size[element], { sizePt: pt[element], weight: weight(bold[element]), color: palette.text, trackingEm, lineHeight: CARD_LINE_HEIGHT.body, font: font[element] }).ops);
+    if (!text) return;
+    const style = { sizePt: pt[element], weight: weight(bold[element]), color: palette.text, trackingEm, lineHeight: CARD_LINE_HEIGHT.body, font: font[element], tabular: element === "idNumber" };
+    const fitted = fitLine(measurer, text, size[element], style);
+    // The line box keeps the full size, so a shrunk line stays on the same baseline grid.
+    const centre = (ptMm(style.sizePt) - ptMm(fitted.sizePt)) * CARD_LINE_HEIGHT.body / 2;
+    part(element).push(...paragraph(measurer, fitted.text, at[element].xMm, at[element].yMm + centre, size[element] + 0.01, { ...style, sizePt: fitted.sizePt }).ops);
   };
   body("role", settings.showRole ? holder.role?.trim() ?? "" : "");
   body("plan", settings.showPlan ? holder.planName?.trim() ?? "" : "");
@@ -194,12 +219,16 @@ export function buildCardScene({ settings, holder, branding, measurer }: CardSce
   if (settings.showPhoto) {
     const side = size.photo;
     const shape = settings.photoShape;
+    const radius = shape === "circle" ? side / 2 : side * 0.2;
     if (images.photo) {
       part("photo").push({ kind: "image", url: images.photo, x: at.photo.xMm, y: at.photo.yMm, w: side, h: side, fit: "cover", shape, grayscale: mono, photo: true });
     } else {
-      part("photo").push({ kind: "rect", x: at.photo.xMm, y: at.photo.yMm, w: side, h: side, radius: shape === "circle" ? side / 2 : side * 0.2, fill: palette.photoPlaceholder });
+      part("photo").push({ kind: "rect", x: at.photo.xMm, y: at.photo.yMm, w: side, h: side, radius, fill: palette.photoPlaceholder });
       const initials = measurer.clean(holderInitials(holder.displayName)) || "?";
-      const sizePt = (side * 0.36) / PT_TO_MM;
+      // Two wide letters (Malayalam conjuncts) shrink to keep clear of the edge.
+      const fullPt = (side * 0.36) / PT_TO_MM;
+      const fullWidth = measurer.widthMm(initials, 700, fullPt);
+      const sizePt = fullWidth > side * INITIALS_WIDTH ? (fullPt * side * INITIALS_WIDTH) / fullWidth : fullPt;
       const width = measurer.widthMm(initials, 700, sizePt);
       part("photo").push({
         kind: "text",
@@ -208,6 +237,9 @@ export function buildCardScene({ settings, holder, branding, measurer }: CardSce
         text: initials, sizePt, weight: 700, color: palette.onPhotoPlaceholder, trackingEm: 0,
       });
     }
+    // A hairline just inside the edge, so a pale photo or the tint never melts into the card.
+    const hairline = PHOTO_BORDER_MM;
+    part("photo").push({ kind: "rect", x: at.photo.xMm + hairline / 2, y: at.photo.yMm + hairline / 2, w: side - hairline, h: side - hairline, radius: Math.max(0, radius - hairline / 2), stroke: palette.photoBorder, strokeWidth: hairline });
   }
 
   if (settings.showSymbol) {
@@ -217,7 +249,14 @@ export function buildCardScene({ settings, holder, branding, measurer }: CardSce
   }
 
   if (settings.showQr) {
-    part("qr").push({ kind: "rect", x: at.qr.xMm, y: at.qr.yMm, w: size.qr + 2 * TILE_PADDING_MM, h: size.qr + 2 * TILE_PADDING_MM, radius: 0, fill: palette.qrLight }, { kind: "qr", value: holder.verifyUrl, x: at.qr.xMm + TILE_PADDING_MM, y: at.qr.yMm + TILE_PADDING_MM, size: size.qr, dark: palette.qrDark, light: palette.qrLight });
+    const tile = qrTile(size.qr, settings.showQrCaption);
+    const qr = part("qr");
+    qr.push({ kind: "rect", x: at.qr.xMm, y: at.qr.yMm, w: tile.width, h: tile.height, radius: 0, fill: palette.qrLight }, { kind: "qr", value: holder.verifyUrl, x: at.qr.xMm + tile.code.offset, y: at.qr.yMm + tile.code.offset, size: tile.code.size, dark: palette.qrDark, light: palette.qrLight });
+    if (tile.caption) {
+      const style = { sizePt: tile.caption.sizePt, weight: 700 as const, color: palette.qrDark, trackingEm: 0.02, lineHeight: CARD_LINE_HEIGHT.label };
+      const fitted = fitLine(measurer, QR_CAPTION, tile.width - 2 * TILE_PADDING_MM, style, 0.8);
+      qr.push(...paragraph(measurer, fitted.text, at.qr.xMm, at.qr.yMm + tile.caption.top, tile.width, { ...style, sizePt: fitted.sizePt }, "center").ops);
+    }
   }
 
   const layers = new Map(settings.layers.map((layer) => [layer.id, layer]));

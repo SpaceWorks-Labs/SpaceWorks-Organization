@@ -1,257 +1,166 @@
-/* Landing page (app/page.tsx). Motion, all of it: the hero deck is dealt once, the card flips on demand,
-   the headline lines slide up on load, the sample-card strip slides past under the hero (pausable), the
-   year ruler fills as the year section crosses the screen, the receipt prints once, and the terminal
-   caret blinks. Scroll-driven reveals (the .sr-* classes) give each section its own entrance: the hero
-   deck fans apart as it leaves, headings rise, timeline rows arrive from the left, panels lift, report
-   bars grow and the terminal slides in. Each rests in its final, visible state under reduced motion and in browsers without
-   scroll-driven animation. */
+/* Landing page (/) and /features. Tokens only, after the kit's landing page and the SpaceWorks hub: Gilroy
+   ExtraBold display, Outfit text, the quiet symbol pattern, generous section rhythm, one rounded Deep Ink island
+   and reveal-on-scroll. The default rules are the static page: it is what reduced motion, phones and browsers
+   without JavaScript get. Nothing loops; the splash plays once per load. */
 
-.landing-boxes {
-  position: relative;
-  isolation: isolate;
+.sw-land {
+  --sw-land-bar: 77px; /* SiteHeader: 76px bar + hairline */
+  --sw-pattern-ink: var(--sw-ui-ink);
+  --sw-pattern-alpha: 0.045;
+  --sw-pattern-tile: 172px 160px;
 }
-.landing-boxes::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='96' viewBox='0 0 56 96'%3E%3Cpath d='M28,0 L56,16 L28,32 L0,16Z' fill='rgb%2820,44,42%29' fill-opacity='0.018'/%3E%3Cpath d='M0,16 L28,32 L28,64 L0,48Z' fill='rgb%2820,44,42%29' fill-opacity='0.04'/%3E%3Cpath d='M28,32 L56,16 L56,48 L28,64Z' fill='rgb%2820,44,42%29' fill-opacity='0.065'/%3E%3Cpath d='M0,48 L28,64 L0,80 L-28,64Z' fill='rgb%2820,44,42%29' fill-opacity='0.018'/%3E%3Cpath d='M-28,64 L0,80 L0,112 L-28,96Z' fill='rgb%2820,44,42%29' fill-opacity='0.04'/%3E%3Cpath d='M0,80 L28,64 L28,96 L0,112Z' fill='rgb%2820,44,42%29' fill-opacity='0.065'/%3E%3Cpath d='M56,48 L84,64 L56,80 L28,64Z' fill='rgb%2820,44,42%29' fill-opacity='0.018'/%3E%3Cpath d='M28,64 L56,80 L56,112 L28,96Z' fill='rgb%2820,44,42%29' fill-opacity='0.04'/%3E%3Cpath d='M56,80 L84,64 L84,96 L56,112Z' fill='rgb%2820,44,42%29' fill-opacity='0.065'/%3E%3Cpath d='M0,-48 L28,-32 L0,-16 L-28,-32Z' fill='rgb%2820,44,42%29' fill-opacity='0.018'/%3E%3Cpath d='M-28,-32 L0,-16 L0,16 L-28,0Z' fill='rgb%2820,44,42%29' fill-opacity='0.04'/%3E%3Cpath d='M0,-16 L28,-32 L28,0 L0,16Z' fill='rgb%2820,44,42%29' fill-opacity='0.065'/%3E%3Cpath d='M56,-48 L84,-32 L56,-16 L28,-32Z' fill='rgb%2820,44,42%29' fill-opacity='0.018'/%3E%3Cpath d='M28,-32 L56,-16 L56,16 L28,0Z' fill='rgb%2820,44,42%29' fill-opacity='0.04'/%3E%3Cpath d='M56,-16 L84,-32 L84,0 L56,16Z' fill='rgb%2820,44,42%29' fill-opacity='0.065'/%3E%3C/svg%3E");
-  background-size: 56px 96px;
-  /* The pattern lives at the edges, so the headline sits on calm cream. */
-  mask-image: radial-gradient(ellipse 70% 65% at 30% 45%, transparent 35%, black 85%);
+:root.dark .sw-land { --sw-pattern-ink: var(--sw-ui-ink-muted); --sw-pattern-alpha: 0.06; }
+@media (max-width: 767px) {
+  .sw-land { --sw-pattern-alpha: 0.035; --sw-pattern-tile: 120px 112px; }
+  :root.dark .sw-land { --sw-pattern-alpha: 0.05; }
+}
+.sw-land [id] { scroll-margin-top: calc(var(--sw-land-bar) + 16px); }
+.sw-land section[tabindex="-1"]:focus { outline: none; }
+
+/* Section rhythm and type. One continuous page: spacing separates sections, not bands or hairlines. */
+.sw-land-wrap { width: 100%; max-width: 1280px; margin-inline: auto; padding-inline: 16px; }
+@media (min-width: 768px) { .sw-land-wrap { padding-inline: 32px; } }
+@media (min-width: 1280px) { .sw-land-wrap { padding-inline: 48px; } }
+.sw-land-section { padding-block: 72px; }
+@media (min-width: 1024px) { .sw-land-section { padding-block: 112px; } }
+.sw-land-h2 { font-family: var(--font-display); font-weight: 800; font-size: 2rem; line-height: 1.1; letter-spacing: -0.025em;
+  text-wrap: balance; color: rgb(var(--sw-ui-ink)); }
+@media (min-width: 768px) { .sw-land-h2 { font-size: 2.75rem; } }
+@media (min-width: 1280px) { .sw-land-h2 { font-size: 3.25rem; } }
+.sw-land-lede { max-width: 40rem; font-size: 1.125rem; line-height: 1.7; color: rgb(var(--sw-ui-ink-muted)); text-wrap: pretty; }
+.sw-land-split { display: grid; gap: 16px; }
+@media (min-width: 768px) { .sw-land-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: end; gap: 40px; } }
+
+/* The Space Works symbol as a quiet tiled ground (the kit's pattern): masked so it takes a token colour, with a
+   horizontal fade that keeps the centre clean where the text sits. It never moves. */
+.sw-land-pattern { position: relative; isolation: isolate; }
+.sw-land-pattern::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background-color: rgb(var(--sw-pattern-ink)); opacity: var(--sw-pattern-alpha);
+  -webkit-mask-image: url("/brand/logo/symbol-one-colour-ink.svg"), linear-gradient(90deg, #000, transparent 30%, transparent 70%, #000);
+  mask-image: url("/brand/logo/symbol-one-colour-ink.svg"), linear-gradient(90deg, #000, transparent 30%, transparent 70%, #000);
+  -webkit-mask-size: var(--sw-pattern-tile), 100% 100%; mask-size: var(--sw-pattern-tile), 100% 100%;
+  -webkit-mask-repeat: repeat, no-repeat; mask-repeat: repeat, no-repeat;
+  -webkit-mask-composite: source-in; mask-composite: intersect;
+}
+
+/* The Deep Ink island (with .sw-dark-band). In light mode the band swaps in the dark --sw-color-* set; the role
+   aliases (--sw-ui-*) were computed on :root, so they are re-pointed here or utilities would keep the light values.
+   In dark mode the band rule does not apply and the island rejoins the black family (CR-DARK-01). */
+:root:not(.dark) .sw-land-island {
+  color-scheme: dark;
+  --sw-ui-canvas: var(--sw-color-bg); --sw-ui-panel: var(--sw-color-panel); --sw-ui-surface: var(--sw-color-surface);
+  --sw-ui-muted: var(--sw-color-hover); --sw-ui-line: var(--sw-color-line); --sw-ui-line-strong: var(--sw-color-outline);
+  --sw-ui-ink: var(--sw-color-ink); --sw-ui-ink-muted: var(--sw-color-muted); --sw-ui-focus: var(--sw-color-focus);
+  --sw-accent-soft: rgb(var(--sw-color-accent-soft)); --sw-accent-text: rgb(var(--sw-color-accent-ink));
+}
+
+/* Hero. */
+.sw-land-hero { padding-block: 56px 48px; }
+@media (min-width: 768px) { .sw-land-hero { padding-block: 96px 72px; } }
+.sw-land-title { max-width: 14ch; font-family: var(--font-display); font-weight: 800; font-size: clamp(2.5rem, 1.35rem + 4.4vw, 5.25rem);
+  line-height: 1.02; letter-spacing: -0.035em; color: rgb(var(--sw-ui-ink)); text-wrap: balance; }
+.sw-land-hero-lede { max-width: 44rem; font-size: 1.125rem; line-height: 1.65; color: rgb(var(--sw-ui-ink-muted)); text-wrap: pretty; }
+@media (min-width: 768px) { .sw-land-hero-lede { font-size: 1.25rem; } }
+/* The screenshot stage: the canvas runs into the surface behind the frame. */
+.sw-land-stage { background: linear-gradient(rgb(var(--sw-ui-canvas)) 0 38%, rgb(var(--sw-ui-surface)) 38% 100%); }
+
+/* Screenshots: one image per theme, never both (the hidden one is display: none, so lazy images never load). */
+.sw-land-shot { overflow: hidden; border: 1px solid rgb(var(--sw-ui-line-strong)); border-radius: 16px; background: rgb(var(--sw-ui-surface)); }
+.sw-land-shot img { width: 100%; height: auto; } /* display stays with the dark:hidden / hidden dark:block utilities */
+.sw-land-shot[data-crop] img { aspect-ratio: 16 / 10; object-fit: cover; object-position: top; }
+
+/* The membership story: steps scroll past while the sample record stays pinned beside them. */
+.sw-land-story { display: grid; gap: 48px; margin-top: 48px; }
+.sw-land-steps { display: grid; gap: 32px; }
+.sw-land-step { display: grid; align-content: start; gap: 8px; padding-left: 20px; border-left: 2px solid rgb(var(--sw-ui-line)); }
+.sw-land-step-index { font-family: var(--font-display); font-weight: 300; font-size: 1.125rem; line-height: 1;
+  font-variant-numeric: tabular-nums; color: rgb(var(--sw-ui-ink-muted)); }
+.sw-land-step-state { font-size: 0.8125rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sw-accent-text); }
+.sw-land-step-title { font-family: var(--font-sans); font-weight: 600; font-size: 1.5rem; line-height: 1.2; letter-spacing: -0.015em;
+  color: rgb(var(--sw-ui-ink)); text-wrap: balance; }
+.sw-land-step-body { max-width: 30rem; line-height: 1.7; color: rgb(var(--sw-ui-ink-muted)); text-wrap: pretty; }
+@media (min-width: 1024px) and (min-height: 640px) {
+  .sw-land-story { grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); gap: 96px; margin-top: 0; }
+  .sw-land-steps { gap: 0; padding-block: 8svh 22svh; }
+  .sw-land-step { min-height: 62svh; align-content: center; padding-left: 28px;
+    transition: border-color var(--sw-dur-slow) var(--sw-ease-standard); }
+  .sw-land-step :is(.sw-land-step-title, .sw-land-step-index) { transition: color var(--sw-dur-slow) var(--sw-ease-standard); }
+  .sw-land-step:not([aria-current]) .sw-land-step-title { color: rgb(var(--sw-ui-ink-muted)); }
+  .sw-land-step[aria-current] { border-left-color: var(--sw-accent-text); }
+  .sw-land-step[aria-current] .sw-land-step-index { color: var(--sw-accent-text); }
+  .sw-land-step-title { font-size: 2rem; }
+  .sw-land-pin { position: sticky; top: var(--sw-land-bar); display: grid; align-content: center; height: calc(100svh - var(--sw-land-bar)); }
+}
+
+/* The sample record. Unreached rows keep their height (proof held back) so the pinned card never jumps. */
+.sw-land-record-step { display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 14px; padding: 16px 20px; }
+.sw-land-record-step + .sw-land-record-step { border-top: 1px solid rgb(var(--sw-ui-line)); }
+.sw-land-record-dot { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 999px;
+  background: var(--sw-accent-soft); color: var(--sw-accent-text); }
+.sw-land-record-step[data-pending] .sw-land-record-dot { background: none; border: 1px dashed rgb(var(--sw-ui-line-strong)); }
+.sw-land-record-step[data-pending] .sw-land-record-label { color: rgb(var(--sw-ui-ink-muted)); }
+.sw-land-record-step[data-pending] .sw-land-record-proof { visibility: hidden; }
+@keyframes sw-land-proof-in { from { opacity: 0; transform: translate3d(0, var(--sw-enter-y), 0); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  .sw-land-record-step[data-new] .sw-land-record-proof { animation: sw-land-proof-in var(--sw-dur-slow) var(--sw-ease-enter) both; }
+}
+
+/* Sample member cards (CardShowcase, CardDeck): real renders from public/landing/cards, all SpaceWorks's own
+   samples. With reduced motion they stand still: a scroll-snap row on phones and tablets, a slightly fanned row
+   from 1024px. Otherwise they drift sideways in a seamless loop (the set twice, moved by half the track,
+   transform only): the one loop outside a loader, an owner decision of 2026-11-19 (docs/DESIGN.md). CardDeck
+   pauses it (data-motion="paused") for its Pause button, a pointer or focus on the cards, off screen and a hidden
+   tab. Corners follow the CR80 card (3.18 mm on 85.6 mm); a hairline keeps cream cards on cream and dark cards
+   on black. */
+.sw-land-cards { --sw-card-long: min(78vw, 340px); margin-inline: -16px; overflow-x: auto; overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory; scroll-padding-inline: 16px; }
+.sw-land-cards:focus-visible { outline: 2px solid rgb(var(--sw-ui-focus)); outline-offset: 2px; }
+.sw-land-cards-row { display: flex; align-items: center; gap: 16px; width: max-content; padding: 8px 16px 16px; }
+.sw-land-card { flex: none; scroll-snap-align: center; }
+.sw-land-card img { display: block; width: var(--sw-card-long); height: auto; border: 1px solid rgb(var(--sw-ui-line-strong));
+  border-radius: calc(var(--sw-card-long) * 0.037); }
+.sw-land-card[data-orientation="portrait"] img { width: calc(var(--sw-card-long) * 0.631); }
+@media (min-width: 768px) { .sw-land-cards { margin-inline: -32px; scroll-padding-inline: 32px; } .sw-land-cards-row { padding-inline: 32px; } }
+@media (min-width: 1024px) {
+  .sw-land-cards { --sw-card-long: min(238px, calc((100vw - 64px) / 5)); margin-inline: 0; overflow: visible; scroll-snap-type: none; }
+  .sw-land-cards-row { width: auto; justify-content: center; gap: 0; padding: 24px 0 32px; }
+  .sw-land-card { transform: translateY(var(--sw-card-lift)) rotate(var(--sw-card-turn)); }
+  .sw-land-card + .sw-land-card { margin-left: calc(var(--sw-card-long) * -0.06); }
+  .sw-land-card:nth-child(1) { --sw-card-turn: -3deg; --sw-card-lift: 10px; }
+  .sw-land-card:nth-child(2) { --sw-card-turn: 2deg; --sw-card-lift: -6px; }
+  .sw-land-card:nth-child(3) { --sw-card-turn: -1.5deg; --sw-card-lift: 4px; }
+  .sw-land-card:nth-child(4) { --sw-card-turn: 2.5deg; --sw-card-lift: -8px; }
+  .sw-land-card:nth-child(5) { --sw-card-turn: -2deg; --sw-card-lift: 6px; }
+  .sw-land-card:nth-child(6) { --sw-card-turn: 3deg; --sw-card-lift: -2px; }
+}
+.sw-land-cards-track { display: flex; width: max-content; }
+.sw-land-cards-row[data-copy] { display: none; }
+.sw-land-cards-controls { display: flex; justify-content: flex-end; margin-top: 4px; }
+@media (prefers-reduced-motion: reduce) { .sw-land-cards-controls { display: none; } }
+@media (prefers-reduced-motion: no-preference) {
+  .sw-land-cards[data-motion] { overflow: hidden; scroll-snap-type: none;
+    mask-image: linear-gradient(to right, transparent, #000 5%, #000 95%, transparent); }
+  .sw-land-cards[data-motion] .sw-land-cards-row { display: flex; width: max-content; justify-content: flex-start; gap: 20px; padding-inline: 0 20px; }
+  .sw-land-cards[data-motion] .sw-land-card + .sw-land-card { margin-left: 0; }
+  .sw-land-cards[data-motion] .sw-land-cards-track { animation: sw-land-drift var(--sw-card-drift, 54s) linear infinite; }
+  .sw-land-cards[data-motion="paused"] .sw-land-cards-track { animation-play-state: paused; }
+}
+@keyframes sw-land-drift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(-50%, 0, 0); } }
+
+/* Reveal on scroll: components/motion/RevealRoot.tsx, styled in app/styles/motion-route.css. */
+
+/* Cold-load splash (LandingSplash): the box opens once (the kit's `once` artwork, CR-MOTION-01's named 1600 ms
+   exception), then splashFlight.ts flies it into the header mark (transform only) while the canvas ground fades.
+   Without JavaScript the layer fades on the exit curve instead. Never takes input; nothing under reduced motion. */
+.sw-splash { --sw-splash-open: 1600ms; position: fixed; inset: 0; z-index: 60; display: grid; place-items: center;
   pointer-events: none;
-}
-.dark .landing-boxes::before {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='56' height='96' viewBox='0 0 56 96'%3E%3Cpath d='M28,0 L56,16 L28,32 L0,16Z' fill='rgb%28255,244,232%29' fill-opacity='0.02'/%3E%3Cpath d='M0,16 L28,32 L28,64 L0,48Z' fill='rgb%28255,244,232%29' fill-opacity='0.035'/%3E%3Cpath d='M28,32 L56,16 L56,48 L28,64Z' fill='rgb%28255,244,232%29' fill-opacity='0.055'/%3E%3Cpath d='M0,48 L28,64 L0,80 L-28,64Z' fill='rgb%28255,244,232%29' fill-opacity='0.02'/%3E%3Cpath d='M-28,64 L0,80 L0,112 L-28,96Z' fill='rgb%28255,244,232%29' fill-opacity='0.035'/%3E%3Cpath d='M0,80 L28,64 L28,96 L0,112Z' fill='rgb%28255,244,232%29' fill-opacity='0.055'/%3E%3Cpath d='M56,48 L84,64 L56,80 L28,64Z' fill='rgb%28255,244,232%29' fill-opacity='0.02'/%3E%3Cpath d='M28,64 L56,80 L56,112 L28,96Z' fill='rgb%28255,244,232%29' fill-opacity='0.035'/%3E%3Cpath d='M56,80 L84,64 L84,96 L56,112Z' fill='rgb%28255,244,232%29' fill-opacity='0.055'/%3E%3Cpath d='M0,-48 L28,-32 L0,-16 L-28,-32Z' fill='rgb%28255,244,232%29' fill-opacity='0.02'/%3E%3Cpath d='M-28,-32 L0,-16 L0,16 L-28,0Z' fill='rgb%28255,244,232%29' fill-opacity='0.035'/%3E%3Cpath d='M0,-16 L28,-32 L28,0 L0,16Z' fill='rgb%28255,244,232%29' fill-opacity='0.055'/%3E%3Cpath d='M56,-48 L84,-32 L56,-16 L28,-32Z' fill='rgb%28255,244,232%29' fill-opacity='0.02'/%3E%3Cpath d='M28,-32 L56,-16 L56,16 L28,0Z' fill='rgb%28255,244,232%29' fill-opacity='0.035'/%3E%3Cpath d='M56,-16 L84,-32 L84,0 L56,16Z' fill='rgb%28255,244,232%29' fill-opacity='0.055'/%3E%3C/svg%3E");
-}
+  animation: sw-splash-out var(--sw-dur-slow) var(--sw-ease-exit) calc(var(--sw-splash-open) + var(--sw-dur-fast)) forwards; }
+.sw-splash-ground { position: absolute; inset: 0; background: rgb(var(--sw-ui-canvas)); }
+.sw-splash-mark { position: relative; display: block; transform-origin: 0 0; will-change: transform; }
+@keyframes sw-splash-out { to { opacity: 0; visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { .sw-splash { display: none; } }
 
-/* ---- Hero: fills the first screen under the sticky header ---- */
-.landing-hero {
-  min-height: calc(100svh - 77px);
-}
-
-/* Headline lines slide up out of their own line box, one after the other. */
-.landing-line {
-  display: block;
-  overflow: hidden;
-  padding-bottom: 0.08em;
-  margin-bottom: -0.08em;
-}
-.landing-line > span {
-  display: block;
-  animation: landing-rise 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: var(--rise-delay, 0ms);
-}
-@keyframes landing-rise {
-  from { transform: translateY(105%); }
-}
-.landing-fade {
-  animation: landing-fade 700ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: var(--rise-delay, 0ms);
-}
-@keyframes landing-fade {
-  from { opacity: 0; transform: translateY(14px); }
-}
-
-/* ---- Sample-card strip: slides left forever, half its width per loop ---- */
-.landing-strip {
-  animation: landing-slide 45s linear infinite;
-}
-.landing-strip[data-paused="true"],
-.landing-strip-mask:hover .landing-strip,
-.landing-strip-mask:focus-within .landing-strip {
-  animation-play-state: paused;
-}
-@keyframes landing-slide {
-  /* One set of four: the track is four identical sets, so a quarter is exactly one period. */
-  to { transform: translateX(-25%); }
-}
-.landing-strip-mask {
-  mask-image: linear-gradient(90deg, transparent, black 6%, black 94%, transparent);
-}
-
-/* ---- Hero deck: three objects dealt onto the table ---- */
-.landing-deal {
-  animation: landing-deal 760ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: var(--deal-delay, 0ms);
-}
-@keyframes landing-deal {
-  from { opacity: 0; transform: translate3d(48px, 36px, 0) rotate(var(--deal-from, 10deg)); }
-}
-
-/* ---- The member card flip ---- */
-.landing-flip {
-  perspective: 1400px;
-}
-.landing-flip-inner {
-  position: relative;
-  transform-style: preserve-3d;
-  transition: transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
-}
-.landing-flip[data-flipped="true"] .landing-flip-inner {
-  transform: rotateY(180deg);
-}
-.landing-face {
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-}
-.landing-face-back {
-  position: absolute;
-  inset: 0;
-  transform: rotateY(180deg);
-}
-
-/* ---- Year ruler: fills April to March as the year section crosses the screen ---- */
-.landing-ruler-fill {
-  transform-origin: left center;
-}
-@supports (animation-timeline: view()) {
-  .landing-ruler-fill {
-    animation: landing-fill linear both;
-    animation-timeline: --landing-year;
-    animation-range: entry 40% exit 60%;
-  }
-  .landing-year {
-    view-timeline-name: --landing-year;
-  }
-  .landing-print {
-    animation: landing-print linear both;
-    animation-timeline: view();
-    animation-range: entry 20% cover 45%;
-  }
-}
-@keyframes landing-fill {
-  from { transform: scaleX(0.04); }
-  to { transform: scaleX(1); }
-}
-/* The receipt comes out of the printer top first. */
-@keyframes landing-print {
-  from { clip-path: inset(0 0 100% 0); transform: translateY(-12px); }
-  to { clip-path: inset(0 0 0 0); transform: none; }
-}
-
-/* ---- Scroll-driven reveals: content is visible by default; these only run where supported ---- */
-@supports (animation-timeline: view()) {
-  .sr-rise {
-    animation: sr-rise linear both;
-    animation-timeline: view();
-    animation-range: entry 0% cover 28%;
-  }
-  .sr-fade {
-    animation: sr-fade linear both;
-    animation-timeline: view();
-    animation-range: entry 10% cover 32%;
-  }
-  .sr-left {
-    animation: sr-left linear both;
-    animation-timeline: view();
-    animation-range: entry 5% cover 30%;
-  }
-  .sr-right {
-    animation: sr-right linear both;
-    animation-timeline: view();
-    animation-range: entry 0% cover 35%;
-  }
-  .sr-up {
-    animation: sr-up linear both;
-    animation-timeline: view();
-    animation-range: entry calc(var(--sr-offset, 0) * 1%) cover calc(30% + var(--sr-offset, 0) * 1%);
-  }
-  .sr-bar {
-    transform-origin: bottom;
-    animation: sr-bar linear both;
-    animation-timeline: view();
-    animation-range: entry calc(20% + var(--sr-offset, 0) * 1%) cover calc(45% + var(--sr-offset, 0) * 1%);
-  }
-  /* The hero deck spreads apart as the page scrolls past it. */
-  .sr-drift-up,
-  .sr-drift-down,
-  .sr-drift-card {
-    animation-timeline: scroll(root);
-    animation-range: 0 80vh;
-    animation-fill-mode: both;
-    animation-timing-function: linear;
-  }
-  .sr-drift-up { animation-name: sr-drift-up; }
-  .sr-drift-down { animation-name: sr-drift-down; }
-  .sr-drift-card { animation-name: sr-drift-card; }
-}
-@keyframes sr-rise {
-  from { opacity: 0; transform: translateY(48px); clip-path: inset(0 0 40% 0); }
-  to { opacity: 1; transform: none; clip-path: inset(0 0 -10% 0); }
-}
-@keyframes sr-fade {
-  from { opacity: 0; transform: translateY(20px); }
-}
-@keyframes sr-left {
-  from { opacity: 0; transform: translateX(-56px); }
-}
-@keyframes sr-right {
-  from { opacity: 0; transform: translateX(72px) rotate(1.5deg); }
-}
-@keyframes sr-up {
-  from { opacity: 0; transform: translateY(64px) scale(0.97); }
-}
-@keyframes sr-bar {
-  from { transform: scaleY(0.08); }
-}
-@keyframes sr-drift-up {
-  to { transform: translate3d(36px, -60px, 0) rotate(6deg); }
-}
-@keyframes sr-drift-down {
-  to { transform: translate3d(-40px, 70px, 0) rotate(-6deg); }
-}
-@keyframes sr-drift-card {
-  to { transform: translate3d(0, -24px, 0) scale(1.04) rotate(2deg); }
-}
-
-/* ---- Terminal caret ---- */
-.landing-caret {
-  animation: landing-caret 1.1s steps(1) infinite;
-}
-@keyframes landing-caret {
-  50% { opacity: 0; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .landing-deal,
-  .landing-line > span,
-  .landing-fade,
-  .landing-strip,
-  .landing-ruler-fill,
-  .sr-rise,
-  .sr-fade,
-  .sr-left,
-  .sr-right,
-  .sr-up,
-  .sr-bar,
-  .sr-drift-up,
-  .sr-drift-down,
-  .sr-drift-card,
-  .landing-print,
-  .landing-caret {
-    animation: none !important;
-  }
-  .landing-flip-inner {
-    transition: none;
-  }
-  /* Nothing moves, so there is nothing to pause. */
-  .landing-strip-toggle {
-    display: none;
-  }
-  /* Without the turn, the flip becomes a quiet swap of faces. */
-  .landing-flip .landing-face {
-    transition: opacity 200ms ease-out;
-  }
-  .landing-flip[data-flipped="true"] .landing-flip-inner {
-    transform: none;
-  }
-  .landing-flip[data-flipped="true"] .landing-face-front,
-  .landing-flip:not([data-flipped="true"]) .landing-face-back {
-    opacity: 0;
-    visibility: hidden;
-  }
-  .landing-flip .landing-face-back {
-    transform: none;
-  }
+@media print {
+  .sw-land-pattern::before, .sw-splash { display: none; }
 }

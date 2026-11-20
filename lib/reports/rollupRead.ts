@@ -14,6 +14,8 @@ type RollupPoint = { key: string; label: string; active: number; grace: number; 
  * trend needs has not been rolled up yet, so the caller computes it live instead of showing a hole.
  */
 export async function rollupTrend(scope: ReportScope, buckets: Bucket[], timezone: string, now: Date): Promise<RollupPoint[] | null> {
+  // Rollups are per unit, so a grouping limit can only be answered live.
+  if (scope.limits.length) return null;
   const live = buckets.filter((bucket) => bucket.from <= now);
   if (!live.length) return [];
   const first = localDate(live[0].from, timezone);

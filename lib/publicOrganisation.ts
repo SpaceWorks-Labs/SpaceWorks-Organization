@@ -13,7 +13,7 @@ export const loadPublicOrganisation = cache(async (slug: string) => {
     where: { slug },
     select: {
       id: true, slug: true, name: true, kind: true, description: true, logoUrl: true, accentColor: true, status: true, visibility: true,
-      city: true, stateCode: true, website: true, contactEmail: true, contactPhone: true, locale: true, financialYearStartMonth: true, unitLevels: true,
+      city: true, stateCode: true, website: true, contactEmail: true, contactPhone: true, locale: true, financialYearStartMonth: true, unitLevels: true, delightEnabled: true,
       page: { select: { accentColor: true, tagline: true, publishedAt: true } },
     },
   });

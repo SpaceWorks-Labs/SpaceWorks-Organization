@@ -33,9 +33,9 @@ export default async function OrgApplicationPage({ params }: { params: Promise<{
         description={`${organisation.name} · applied ${organisation.createdAt.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`}
       />
 
-      {/* Approval is the platform letting a new pack in, so Patch sneezes its vote once. */}
+      {/* Approval is the platform letting a new pack in, so Patch sneezes its vote once (unless playful touches are off). */}
       <div className="flex flex-col items-start gap-1 sm:flex-row sm:items-center">
-        {organisation.status === "ACTIVE" ? <Patch pose="sneeze" size={96} className="-my-3 -ml-3" /> : null}
+        {organisation.status === "ACTIVE" && organisation.delightEnabled ? <Patch pose="sneeze" size={96} className="-my-3 -ml-3" /> : null}
         <Callout
           tone={TONES[organisation.status]}
           title={explanation.title}

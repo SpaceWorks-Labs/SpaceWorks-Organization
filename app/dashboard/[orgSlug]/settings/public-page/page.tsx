@@ -23,6 +23,8 @@ export default async function OrgPublicPageSettingsPage({ params }: { params: Pr
         canEdit={view.canEdit}
         plans={view.plans}
         units={view.units}
+        counts={view.counts}
+        sampleCard={view.sampleCard}
       />
     </div>
   );

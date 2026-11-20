@@ -9,7 +9,7 @@ export const CAPABILITY_LIST = [
   "members.contact", "members.export", "payments.view", "payments.manage", "reports.finance",
   "members.manage", "cards.manage", "audit.view", "erasure.decide", "team.manage",
   "plans.manage", "payments.settings", "org.settings", "structure.manage", "cards.design", "accounts.manage", "reports.gstr1",
-  "roles.manage", "cards.approve", "org.delete", "ownership.transfer",
+  "roles.manage", "cards.approve", "org.delete", "ownership.transfer", "groupings.manage",
 ] as const;
 
 export type Capability = (typeof CAPABILITY_LIST)[number];
@@ -18,7 +18,7 @@ export type Capability = (typeof CAPABILITY_LIST)[number];
 export const ORG_WIDE_TO_CHANGE: ReadonlySet<Capability> = new Set<Capability>(["plans.manage", "payments.settings", "org.settings", "structure.manage", "cards.design", "accounts.manage", "roles.manage"]);
 
 /** ● Org-wide for any use: whole-organisation data, refused to someone holding the role for one unit. */
-export const ORG_WIDE_ONLY: ReadonlySet<Capability> = new Set<Capability>(["reports.gstr1"]);
+export const ORG_WIDE_ONLY: ReadonlySet<Capability> = new Set<Capability>(["reports.gstr1", "groupings.manage"]);
 
 /** ★ Owner only: no other role can hold these. */
 export const OWNER_ONLY: ReadonlySet<Capability> = new Set<Capability>(["cards.approve", "org.delete", "ownership.transfer"]);
@@ -33,7 +33,7 @@ export function isCapability(value: string): value is Capability {
 const MANAGER: Capability[] = [
   "org.view", "members.view", "reports.membership", "members.contact", "members.export", "payments.view", "payments.manage", "reports.finance",
   "members.manage", "cards.manage", "audit.view", "erasure.decide", "team.manage",
-  "plans.manage", "payments.settings", "org.settings", "structure.manage", "cards.design", "accounts.manage", "reports.gstr1",
+  "plans.manage", "payments.settings", "org.settings", "structure.manage", "cards.design", "accounts.manage", "reports.gstr1", "groupings.manage",
 ];
 const TREASURER: Capability[] = ["org.view", "members.view", "reports.membership", "members.contact", "members.export", "payments.view", "payments.manage", "reports.finance", "accounts.manage", "reports.gstr1"];
 const VIEWER: Capability[] = ["org.view", "members.view", "reports.membership"];
@@ -53,7 +53,10 @@ export const STARTER_ROLES: ReadonlyArray<{ key: TeamRole; name: string; descrip
 export type RoleGrant = { isOwner: boolean; capabilities: readonly string[] };
 
 /** A staff member as permission checks see them: their role, and the unit they hold it for (null: the whole organisation). */
-export type StaffActor = { orgRole: RoleGrant; unitId: string | null };
+export type StaffActor = { orgRole: RoleGrant; unitId: string | null; /** Grouping limits (TeamMemberScope rows); any makes the actor limited, like a unit. */ scopes?: readonly unknown[] };
+
+/** Whether an actor holds their role for less than the whole organisation: a unit, or any grouping limit. */
+export const isScopedActor = (actor: Pick<StaffActor, "unitId" | "scopes">): boolean => Boolean(actor.unitId) || (actor.scopes?.length ?? 0) > 0;
 
 /** What a role grants. The Owner role holds every permission, including ones added later. */
 export function roleCapabilities(role: RoleGrant): Set<Capability> {
@@ -74,7 +77,7 @@ export function effectiveCapabilities(role: RoleGrant, scoped: boolean): Set<Cap
  */
 export function can(actor: StaffActor | null | undefined, capability: Capability, options: { write?: boolean } = {}): boolean {
   if (!actor || !roleCapabilities(actor.orgRole).has(capability)) return false;
-  if (!actor.unitId) return true;
+  if (!isScopedActor(actor)) return true;
   if (ORG_WIDE_ONLY.has(capability)) return false;
   return !(options.write && ORG_WIDE_TO_CHANGE.has(capability));
 }
@@ -98,7 +101,7 @@ export function canGrant(actor: StaffActor, role: RoleGrant, scoped: boolean): b
   for (const capability of roleCapabilities(role)) {
     if ((ORG_WIDE_TO_CHANGE.has(capability) || ORG_WIDE_ONLY.has(capability)) && !held.has(capability)) return false;
   }
-  return properSubset(effectiveCapabilities(role, scoped), effectiveCapabilities(actor.orgRole, Boolean(actor.unitId)));
+  return properSubset(effectiveCapabilities(role, scoped), effectiveCapabilities(actor.orgRole, isScopedActor(actor)));
 }
 
 /**

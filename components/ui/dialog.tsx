@@ -5,21 +5,28 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button, IconButton } from "./button";
+import { BackdropDismiss, Dialog, useBackdropDismiss } from "./dialogRoot";
 import { Field, Input } from "./field";
 
-export const Dialog = DialogPrimitive.Root;
+export { Dialog };
 
 export const DialogContent = forwardRef<
   ElementRef<typeof DialogPrimitive.Content>,
   ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { size?: "sm" | "md" | "lg" | "xl"; hideClose?: boolean }
->(function DialogContent({ className, children, size = "sm", hideClose = false, ...props }, ref) {
+>(function DialogContent({ className, children, size = "sm", hideClose = false, onPointerDownOutside, ...props }, ref) {
+  const backdrop = useBackdropDismiss();
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[rgb(20_44_42/0.48)] data-[state=open]:animate-[sw-fade-in_180ms_ease-out]" />
+      <BackdropDismiss className="sw-fx-scrim fixed inset-0 z-50 bg-scrim/48" />
       <DialogPrimitive.Content
         ref={ref}
+        onPointerDownOutside={(event) => {
+          onPointerDownOutside?.(event);
+          // The backdrop closes the dialog only when press and release both land on it (BackdropDismiss).
+          if (backdrop) event.preventDefault();
+        }}
         className={cn(
-          "fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-line bg-panel text-ink shadow-float focus:outline-none data-[state=open]:animate-[sw-dialog-in_240ms_cubic-bezier(0.2,0.8,0.2,1)]",
+          "sw-fx-pop fixed left-1/2 top-1/2 z-50 flex max-h-[calc(100dvh-32px)] w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-xl border border-line bg-panel text-ink shadow-float focus:outline-none",
           size === "sm" && "max-w-[480px]",
           size === "md" && "max-w-[640px]",
           size === "lg" && "max-w-[860px]",
@@ -62,12 +69,13 @@ export function DialogFooter({ className, children }: { className?: string; chil
  * Confirmation for consequential actions (docs/DESIGN.md §4.15). Destructive
  * confirmations use the danger button. Pass `confirmText` to require typing a
  * value (e.g. the organisation name) before the action unlocks.
+ * `ConfirmationDialog` (components/feedback) re-exports this component.
  */
 export function ConfirmDialog({
   open,
   title,
   message,
-  confirmLabel = "Delete",
+  confirmLabel,
   cancelLabel = "Cancel",
   destructive = true,
   loading = false,
@@ -79,7 +87,8 @@ export function ConfirmDialog({
   open: boolean;
   title: ReactNode;
   message?: ReactNode;
-  confirmLabel?: string;
+  /** Name the action ("Revoke invite", "Archive role"); there is no generic default. */
+  confirmLabel: string;
   cancelLabel?: string;
   destructive?: boolean;
   loading?: boolean;

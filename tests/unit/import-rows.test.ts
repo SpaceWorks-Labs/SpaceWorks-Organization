@@ -77,3 +77,15 @@ describe("checking import rows", () => {
     expect(orgWide.problems).toEqual([{ row: 3, reason: "North lead isn't offered in this member's unit" }]);
   });
 });
+
+describe("the preview does not reveal members outside the importer's reach", () => {
+  it("treats a member filed elsewhere like a new email, while the import itself still refuses them", () => {
+    const rows = [["Ravi K", "ravi@example.test", "North", ""], ["New Person", "new@example.test", "North", ""]];
+    const existing = new Map<string, string | null>([["ravi@example.test", "u-south"]]);
+    const preview = checkImportRows(rows, mapping, { units, roles, scopePath: "u-north", existing, blind: true });
+    expect(preview.ready.map((entry) => entry.rowNumber)).toEqual([2, 3]);
+    expect(preview.problems).toEqual([]);
+    const commit = checkImportRows(rows, mapping, { units, roles, scopePath: "u-north", existing });
+    expect(commit.problems).toEqual([{ row: 2, reason: "Outside your unit" }]);
+  });
+});

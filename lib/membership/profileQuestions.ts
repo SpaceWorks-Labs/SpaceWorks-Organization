@@ -6,7 +6,7 @@ import { orderedFields } from "./planAnswerValues";
  * the forms show exactly what the server validates and writes.
  */
 
-export type QuestionField = FieldDef & { helpText: string };
+export type QuestionField = FieldDef & { helpText: string; groupingMultiple?: boolean; groupingValues?: Array<{ id: string; label: string }> };
 export type ProfilePlan = { id: string; fields: QuestionField[] };
 export type ProfileItem = { kind: "section"; field: QuestionField } | { kind: "question"; field: QuestionField; required: boolean };
 

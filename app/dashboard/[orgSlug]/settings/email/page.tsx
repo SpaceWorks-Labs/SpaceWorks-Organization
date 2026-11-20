@@ -11,7 +11,7 @@ import { Card, CardHeader } from "@/components/ui/display";
 export const metadata: Metadata = { title: "Email", robots: { index: false, follow: false } };
 
 export default async function OrgEmailSettingsPage({ params }: { params: Promise<{ orgSlug: string }> }) {
-  const { org, canEdit, platformSender, settings, templates } = await loadOrgEmailSettingsView({ params });
+  const { org, canEdit, platformSender, settings, templates, providerSaved, webhookUrls } = await loadOrgEmailSettingsView({ params });
   const { verifiedAt, ...initial } = settings;
   return (
     <div className="flex flex-col gap-6">
@@ -20,9 +20,9 @@ export default async function OrgEmailSettingsPage({ params }: { params: Promise
       <Card as="section" className="max-w-[860px] rounded-xl">
         <CardHeader
           title="Your own email"
-          description={`Member emails (notices, receipts, renewal reminders, invites, cards and refund replies) can go out from your own address. Without it they come from ${platformSender} in ${org.name}'s name${org.contactEmail ? `, with replies to ${org.contactEmail}` : ""}. Sign-in emails such as password resets always come from the platform.`}
+          description={`Member emails (notices, receipts, renewal reminders, invites, cards and refund replies) can go out from your own address, through your own SMTP, Amazon SES, Resend or Postmark account. Without it they come from ${platformSender} in ${org.name}'s name${org.contactEmail ? `, with replies to ${org.contactEmail}` : ""}. Sign-in emails such as password resets always come from the platform.`}
         />
-        <OrgEmailForm slug={org.slug} canEdit={canEdit} initial={initial} verified={verifiedAt ? formatCalendarDate(localDate(verifiedAt, "UTC")) : null} />
+        <OrgEmailForm slug={org.slug} canEdit={canEdit} initial={initial} saved={providerSaved} webhookUrls={webhookUrls} verified={verifiedAt ? formatCalendarDate(localDate(verifiedAt, "UTC")) : null} />
       </Card>
       <Card as="section" className="max-w-[1100px] rounded-xl">
         <CardHeader

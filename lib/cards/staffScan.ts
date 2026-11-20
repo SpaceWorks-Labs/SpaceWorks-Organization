@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { can, organisationAllows } from "@/lib/permissionRoles";
 import { getMembership, hasAuthenticator } from "@/lib/permissions";
-import { teamScope, unitInScope } from "@/lib/membership/scope";
+import { memberInScope, teamScope } from "@/lib/membership/scope";
 import { cardState, VERIFY_TOKEN_PATTERN } from "./core";
 
 /*
@@ -28,7 +28,7 @@ export async function staffScanAccess(token: string) {
   if (!card || card.member.anonymisedAt) return null;
   const membership = await getMembership(userId, card.organisationId);
   if (!membership || !organisationAllows(card.organisation.status, "members.view") || !can(membership, "members.view")) return null;
-  if (!unitInScope(await teamScope(card.organisationId, membership.unitId), card.member.unit?.path ?? null)) return null;
+  if (!(await memberInScope(await teamScope(card.organisationId, membership), card.memberId))) return null;
   return {
     userId,
     organisationId: card.organisationId,

@@ -1,0 +1,73 @@
+/*
+ * SearchField (components/ui/search-field.tsx, kit motion/search). Colours are theme roles, so light and dark follow.
+ * Hover is colour only and only where hover exists; reduced motion keeps colour changes and the spinner swap and
+ * drops all movement.
+ */
+.sw-search { position: relative; display: block; width: 100%; min-width: 0; }
+.sw-search-input { padding-inline-start: 2.5rem; padding-inline-end: 2.5rem; }
+.sw-search-input::-webkit-search-cancel-button,
+.sw-search-input::-webkit-search-decoration { appearance: none; display: none; }
+
+.sw-search-icon {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0.875rem;
+  display: grid;
+  width: 1.125rem;
+  place-items: center;
+  pointer-events: none;
+  color: rgb(var(--sw-ui-ink-muted));
+}
+.sw-search-glyph {
+  grid-area: 1 / 1;
+  opacity: 1;
+  transition: opacity var(--sw-dur-fast) var(--sw-ease-standard), transform var(--sw-dur-base) var(--sw-ease-enter);
+}
+.sw-search:focus-within .sw-search-icon { color: var(--sw-accent-text); }
+.sw-search:focus-within .sw-search-glyph { transform: translateX(2px); }
+.sw-search-icon[data-loading] .sw-search-glyph { opacity: 0; }
+.sw-search-spin { grid-area: 1 / 1; display: inline-flex; animation: sw-fade-in var(--sw-dur-fast) var(--sw-ease-standard) both; }
+
+@keyframes sw-search-clear-in { from { opacity: 0; transform: scale(0.9); } }
+.sw-search-clear {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0.25rem;
+  display: grid;
+  width: 2.25rem;
+  place-items: center;
+  border-radius: 9999px;
+  color: rgb(var(--sw-ui-ink-muted));
+  animation: sw-search-clear-in var(--sw-dur-fast) var(--sw-ease-enter) both;
+}
+.sw-search-clear:focus-visible { outline: 2px solid rgb(var(--sw-ui-focus)); outline-offset: -2px; }
+@media (hover: hover) {
+  .sw-search-clear:hover { color: rgb(var(--sw-ui-ink)); }
+}
+
+.sw-search-kbd {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0.75rem;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity var(--sw-dur-fast) var(--sw-ease-standard);
+}
+.sw-search:focus-within .sw-search-kbd,
+.sw-search-kbd[data-text] { opacity: 0; }
+
+/* Suggestion lists under a search field: the popup rises 4px and fades; the first six rows follow 20ms apart. */
+@keyframes sw-search-rise { from { opacity: 0; transform: translateY(calc(var(--sw-pop-offset))); } }
+.sw-search-pop { animation: sw-search-rise var(--sw-dur-base) var(--sw-ease-enter) both; }
+.sw-search-item {
+  animation: sw-search-rise var(--sw-dur-base) var(--sw-ease-enter) both;
+  animation-delay: calc(var(--sw-i, 0) * var(--sw-dur-fast) / 6);
+}
+.sw-search-empty { animation: sw-fade-in var(--sw-dur-base) var(--sw-ease-standard) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sw-search:focus-within .sw-search-glyph { transform: none; }
+  .sw-search-item { animation-delay: 0ms; }
+}

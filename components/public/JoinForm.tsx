@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { submitJoin } from "@/app/actions/join";
 import { INDIAN_STATES } from "@/lib/indianStates";
 import type { JoinFields } from "@/lib/membership/joinFields";
 import type { QuestionField } from "@/lib/membership/profileQuestions";
 import type { PaymentGuidance } from "@/lib/payments/unitInstructions";
+import { useFocusFirstError } from "@/components/forms/focusFirstError";
 import { Button } from "@/components/ui/button";
 import { CheckboxField } from "@/components/ui/choice";
 import { Callout } from "@/components/ui/display";
@@ -35,13 +36,28 @@ export function JoinForm({ orgSlug, planSlug, inviteToken, user, units, unitLabe
   const [error, setError] = useState<string | null>(null);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [pending, startTransition] = useTransition();
+  const formRef = useRef<HTMLFormElement>(null);
+  useFocusFirstError(formRef, errors);
   const set = (key: keyof typeof values, value: string | boolean) => setValues((current) => ({ ...current, [key]: value }));
   // A member already on record keeps their under-18 status; otherwise the plan decides whether to ask.
   const minor = ownMember ? ownMember.isMinor : joinFields.minors && values.isMinor;
 
   if (outcome) return <JoinOutcome {...outcome} />;
 
-  const submit = () => startTransition(async () => {
+  const submit = () => {
+    // Agreement is checked here, so the button never sits silently disabled.
+    const missing: Record<string, string[]> = {};
+    if (!consent) missing.consent = ["Tick the privacy notice to continue"];
+    if (minor && !guardianConsent) missing.guardianConsent = ["Your parent or guardian needs to agree"];
+    if (Object.keys(missing).length) {
+      setError("Check the highlighted fields.");
+      setErrors(missing);
+      return;
+    }
+    send();
+  };
+
+  const send = () => startTransition(async () => {
     setError(null);
     const fieldValues = Object.fromEntries(Object.entries(answers).map(([key, value]) => [key, Array.isArray(value) ? value.join("; ") : value]));
     const profile = { ...values, isMinor: minor, unitId: values.unitId || null, stateCode: values.stateCode || null, fieldValues };
@@ -58,7 +74,7 @@ export function JoinForm({ orgSlug, planSlug, inviteToken, user, units, unitLabe
   });
 
   return (
-    <form className="flex flex-col gap-5" onSubmit={(event) => { event.preventDefault(); submit(); }}>
+    <form ref={formRef} noValidate className="flex flex-col gap-5" onSubmit={(event) => { event.preventDefault(); submit(); }}>
       {error ? <Callout tone="danger" role="alert">{error}</Callout> : null}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <Field label="Full name" required error={errors.name?.[0]}><Input value={values.name} onChange={(e) => set("name", e.target.value)} autoComplete="name" maxLength={120} /></Field>
@@ -99,18 +115,18 @@ export function JoinForm({ orgSlug, planSlug, inviteToken, user, units, unitLabe
             <Field label="Guardian's phone" optional><Input type="tel" value={values.guardianPhone} onChange={(e) => set("guardianPhone", e.target.value)} /></Field>
           </div>
           <div className="flex flex-col gap-1">
-            <CheckboxField checked={guardianConsent} onCheckedChange={(c) => setGuardianConsent(c === true)} label="I am the parent or guardian and agree to this membership and the privacy notice." />
-            {errors.guardianConsent?.[0] ? <p role="alert" className="text-caption text-danger-fg">{errors.guardianConsent[0]}</p> : null}
+            <CheckboxField checked={guardianConsent} onCheckedChange={(c) => setGuardianConsent(c === true)} error={guardianConsent ? undefined : errors.guardianConsent?.[0]} label="I am the parent or guardian and agree to this membership and the privacy notice." />
           </div>
         </div>
       ) : null}
       <CheckboxField
         checked={consent}
         onCheckedChange={(c) => setConsent(c === true)}
+        error={consent ? undefined : errors.consent?.[0]}
         label={<>I agree to the <Link href="/privacy" className="underline underline-offset-4" target="_blank">privacy notice</Link></>}
         description="The organisation keeps your details to run your membership. You can see, export or ask to erase them from your account."
       />
-      <div><Button type="submit" variant="accent" size="lg" loading={pending} disabled={!consent || (minor && !guardianConsent)}>{approval && !inviteToken ? "Send application" : "Join"}</Button></div>
+      <div><Button type="submit" variant="accent" size="lg" loading={pending}>{approval && !inviteToken ? "Send application" : "Join"}</Button></div>
     </form>
   );
 }

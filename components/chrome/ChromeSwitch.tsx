@@ -6,7 +6,7 @@ import { SiteHeader, BrandHomeLink } from "./SiteHeader";
 import { SiteFooter } from "./SiteFooter";
 
 /** Space Works Organization public pages: site header + footer, centred content. */
-const SITE_PREFIXES = ["/about", "/privacy", "/terms", "/join/", "/organisations"];
+const SITE_PREFIXES = ["/about", "/features", "/docs", "/privacy", "/terms", "/join/", "/organisations"];
 /** Pages that render their own complete chrome (app shell, organisation pages, split sign-in). */
 const OWN_CHROME_PREFIXES = ["/dashboard", "/account", "/super-admin", "/login", "/o/"];
 /** Auth flows: minimal header with the logo only. */
@@ -18,11 +18,11 @@ function matches(pathname: string, prefixes: string[]) {
 }
 
 /** Full-bleed marketing pages that lay out their own sections. */
-const FULL_BLEED = ["/"];
+const FULL_BLEED = ["/", "/features"];
 
-type ChromeKind = "site" | "auth" | "own";
+export type ChromeKind = "site" | "auth" | "own";
 
-function chromeFor(pathname: string): ChromeKind {
+export function chromeFor(pathname: string): ChromeKind {
   if (pathname === "/") return "site";
   if (matches(pathname, AUTH_PREFIXES)) return "auth";
   if (matches(pathname, OWN_CHROME_PREFIXES)) return "own";
@@ -45,7 +45,7 @@ export function ChromeSwitch({ children }: { children: ReactNode }) {
       <>
         <a className="skip-link" href="#main-content">Skip to main content</a>
         <SiteHeader />
-        <main id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">
+        <main id="main-content" tabIndex={-1} className="sw-display-headings flex-1 focus:outline-none">
           {FULL_BLEED.includes(pathname) ? children : <div className="mx-auto w-full max-w-[1160px] px-4 py-8 sm:px-6 sm:py-10">{children}</div>}
         </main>
         <SiteFooter />

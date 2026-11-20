@@ -1,9 +1,9 @@
 import { connection } from "next/server";
 import { isNewUserRegistrationEnabled } from "@/lib/instanceSettings";
-import { enabledOAuthProviders } from "@/lib/oauthProviders";
+import { loginPageMethods } from "@/lib/loginMethods";
 
 export async function loadLoginView() {
   await connection();
-  const [accountCreationEnabled, providers] = await Promise.all([isNewUserRegistrationEnabled(), enabledOAuthProviders()]);
-  return { providers, accountCreationEnabled };
+  const [accountCreationEnabled, { passwordEnabled, passkeyEnabled, phoneEnabled, providers, singleSignOn, emailAvailable }] = await Promise.all([isNewUserRegistrationEnabled(), loginPageMethods()]);
+  return { providers, singleSignOn, passwordEnabled, passkeyEnabled, phoneEnabled, accountCreationEnabled, emailAvailable };
 }

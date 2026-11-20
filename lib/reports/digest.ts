@@ -9,7 +9,7 @@ import { addMonths, localDate, startOfLocalDay } from "@/lib/membership/periods"
 import { teamScope } from "@/lib/membership/scope";
 import { prepareDataset } from "./dataset";
 import { membershipSummary, type MembershipSummary } from "./metrics/flows";
-import { loadReportRows, reportScope } from "./source";
+import { loadReportRows, reportScope, scopedMemberWhere } from "./source";
 import { loadFinanceRows } from "./finance/source";
 import { revenueSummary, type RevenueSummary } from "./finance/revenue";
 
@@ -72,7 +72,7 @@ type Digest = {
 export async function buildDigest(payload: { organisationId: string; userId: string; month: string }, now = new Date()): Promise<Digest | null> {
   const member = await prisma.teamMember.findUnique({
     where: { userId_organisationId: { userId: payload.userId, organisationId: payload.organisationId } },
-    select: { orgRole: { select: { isOwner: true, capabilities: true } }, unitId: true, reportDigest: true, user: { select: { email: true, name: true, emailVerified: true } }, organisation: { select: { name: true, slug: true, status: true, timezone: true, locale: true, currency: true } }, unit: { select: { name: true } } },
+    select: { id: true, orgRole: { select: { isOwner: true, capabilities: true } }, unitId: true, scopes: { select: { groupingId: true, valueId: true } }, reportDigest: true, user: { select: { email: true, name: true, emailVerified: true } }, organisation: { select: { name: true, slug: true, status: true, timezone: true, locale: true, currency: true } }, unit: { select: { name: true } } },
   });
   if (!member?.reportDigest || !member.user.email || !member.user.emailVerified || member.organisation.status !== "ACTIVE" || !can(member, DIGEST_CAPABILITY)) return null;
   const [year, month] = payload.month.split("-").map(Number);
@@ -80,11 +80,11 @@ export async function buildDigest(payload: { organisationId: string; userId: str
   const org = member.organisation;
   const first = { year, month, day: 1 };
   const window = { from: startOfLocalDay(first, org.timezone), to: startOfLocalDay(addMonths(first, 1), org.timezone) };
-  const scope = await reportScope(await teamScope(payload.organisationId, member.unitId), {});
+  const scope = await reportScope(await teamScope(payload.organisationId, member), {});
   const members = can(member, "reports.membership");
   const membership = members ? membershipSummary(prepareDataset(await loadReportRows(scope)), window, now) : null;
   const money = can(member, "reports.finance") ? revenueSummary(await loadFinanceRows(scope), window, org.currency) : null;
-  const waitingForApproval = !members ? 0 : await prisma.membershipTerm.count({ where: { organisationId: payload.organisationId, status: "PENDING_APPROVAL", member: { is: scope.unitPath ? { unit: { is: { OR: [{ path: scope.unitPath }, { path: { startsWith: `${scope.unitPath}/` } }] } } } : {} } } });
+  const waitingForApproval = !members ? 0 : await prisma.membershipTerm.count({ where: { organisationId: payload.organisationId, status: "PENDING_APPROVAL", member: { is: scopedMemberWhere(scope) } } });
   return {
     organisation: { name: org.name, slug: org.slug, locale: org.locale, currency: org.currency },
     to: member.user.email,

@@ -36,7 +36,7 @@ describe("card layers", () => {
     expect(layers.map((layer) => layer.id)).toEqual(["ltext1", "limage2", "lshape1"]);
     expect(layers[0]).toMatchObject({ sizePt: 96, opacityPct: 0, font: "gilroy", color: "#ABCDEF", rotationDeg: 180 });
     expect(layers[2]).toMatchObject({ fill: null, stroke: "#000000" });
-    expect(normalizeLayers(Array.from({ length: 50 }, (_, index) => text(`lmany${index}`)), card)).toHaveLength(MAX_LAYERS);
+    expect(normalizeLayers(Array.from({ length: 80 }, (_, index) => text(`lmany${index}`)), card)).toHaveLength(MAX_LAYERS);
   });
 
   it("keeps a library font by id", () => {

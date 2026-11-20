@@ -26,3 +26,16 @@ export async function lockMemberByEmail(tx: Tx, organisationId: string, email: s
   // The email may have changed while we waited for the lock.
   return member?.email === address ? member : null;
 }
+
+/**
+ * Room for one more member, checked under a per-organisation advisory lock held to the end of the transaction, so
+ * concurrent joins, imports and additions can't all pass the count and exceed `memberLimit`. Call it only when the
+ * transaction is about to create a member, after `lockMemberByEmail` (always in that order, so locks never cross).
+ * Returns false when the organisation is full.
+ */
+export async function hasRoomForMember(tx: Tx, organisationId: string) {
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`swo:member-limit:${organisationId}`}))`;
+  const org = await tx.organisation.findUnique({ where: { id: organisationId }, select: { memberLimit: true } });
+  if (!org?.memberLimit) return true;
+  return (await tx.member.count({ where: { organisationId } })) < org.memberLimit;
+}

@@ -42,15 +42,15 @@ export function LedgerPanel({ slug, rows, currencies, today, locale, canManage }
       ) : (
         <ul className="flex flex-col divide-y divide-line">
           {rows.map((row) => (
-            <li key={row.id} className={cn("flex flex-wrap items-center gap-x-4 gap-y-1.5 py-3", row.voided && "opacity-60")}>
+            <li key={row.id} className="flex flex-wrap items-center gap-x-4 gap-y-1.5 py-3">
               <span className="min-w-0 flex-[1_1_220px]">
-                <span className={cn("block text-label font-semibold text-ink", row.voided && "line-through")}>{row.category}{row.party ? ` · ${row.party}` : ""}</span>
+                <span className={cn("block text-label font-semibold", row.voided ? "text-ink-muted line-through" : "text-ink")}>{row.category}{row.party ? ` · ${row.party}` : ""}</span>
                 <span className="text-caption text-ink-muted">
                   {[row.date, LEDGER_METHOD_LABELS[row.method as LedgerMethod] ?? row.method, row.reference, row.description].filter(Boolean).join(" · ")}
                   {row.voided ? ` · voided: ${row.voided.reason}` : ""}
                 </span>
               </span>
-              <span className={cn("text-right text-label tabular-nums", row.direction === "RECEIPT" ? "text-ink" : "text-ink-secondary", row.voided && "line-through")}>
+              <span className={cn("text-right text-label tabular-nums", row.voided ? "text-ink-muted line-through" : row.direction === "RECEIPT" ? "text-ink" : "text-ink-secondary")}>
                 {row.direction === "RECEIPT" ? "+" : "−"}{money(row.amountMinor, row.currency, locale)}
               </span>
               <Chip size="sm" tone={row.voided ? "outline" : row.direction === "RECEIPT" ? "success" : "outline"}>{row.voided ? "Voided" : row.direction === "RECEIPT" ? "Received" : "Paid"}</Chip>

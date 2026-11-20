@@ -49,6 +49,10 @@ describe("split frontend protocol", () => {
   it("rejects known secret fields at any nesting level", () => {
     expect(() => assertSafeView({ nested: [{ passwordHash: "forbidden" }] })).toThrow();
     expect(() => assertSafeView({ users: new Map([["id", { mfaSecretEncrypted: "forbidden" }]]) })).toThrow();
+    for (const key of ["secretEncrypted", "webhookSecretEncrypted", "configEncrypted", "smtpPasswordEncrypted", "clientSecretEncrypted", "applePrivateKeyEncrypted", "accessTokenEncrypted", "verifyToken", "someNewHash", "signingSecret", "inviteTokenHash"]) {
+      expect(() => assertSafeView({ rows: [{ [key]: "forbidden" }] }), key).toThrow();
+    }
+    expect(() => assertSafeView({ hasSecret: true, hasWebhookSecret: false, token: "join-link" })).not.toThrow();
   });
   it("requires both the peer credential and exact origin", async () => {
     mocks.peer.mockReturnValue(false);

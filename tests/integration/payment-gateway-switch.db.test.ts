@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ userId: null as string | null }));
 vi.mock("@/lib/auth", () => ({ auth: async () => (mocks.userId ? { user: { id: mocks.userId } } : null) }));
+vi.mock("@/lib/reauth", () => ({ hasRecentAuthentication: async () => true }));
 vi.mock("@/lib/actionRateLimit", () => ({ isActionRateLimited: async () => false }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 

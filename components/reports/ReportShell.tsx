@@ -40,7 +40,7 @@ export function ReportShell({ shell, title, description, actions, children, hide
       />
       <ReportTabs slug={shell.org.slug} query={shell.query} finance={shell.tabs.finance} activity={shell.tabs.activity} units={shell.tabs.units} />
       {hideFilters ? null : <ReportFilters plans={shell.plans} units={shell.units} initial={shell.filters} unitLabel={unitLabel} />}
-      <div className="flex flex-col gap-5 transition-opacity duration-200 [[data-pending]~&]:opacity-60">{children}</div>
+      <div className="flex flex-col gap-5">{children}</div>
     </div>
   );
 }

@@ -22,7 +22,19 @@ export type CardHolder = {
   validUntil: string | null;
   /** The member's unit and its ancestors, top level first (lib/cards/units.ts). Absent or empty: no unit. */
   units?: CardUnit[];
+  /** The organisation's public contact details, for `{website}`, `{email}` and `{phone}` on the back. */
+  contact?: CardContact;
+  /** The organisation's name, for the `{organisation}` placeholder. */
+  organisationName?: string | null;
 };
+
+export type CardContact = { website: string | null; email: string | null; phone: string | null };
+
+/** A website as a card prints it: no scheme, no trailing slash ("spaceworks.example"). */
+export function printableWebsite(url: string | null | undefined) {
+  const text = url?.trim().replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+  return text || null;
+}
 
 /** Organisation artwork for cards. Every URL is an application-managed upload URL. */
 export type CardBranding = {

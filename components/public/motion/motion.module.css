@@ -1,0 +1,71 @@
+/*
+ * Public-page motion (CR-MOTION-01), beside the shared components/motion.
+ * Tokens only: --sw-dur-*, --sw-ease-*, --sw-enter-y. Transform and opacity only. Every animation is wrapped in
+ * prefers-reduced-motion: no-preference, so reduced motion reaches the end state at once.
+ */
+
+/* Route transition on an organisation's public pages (app/o/[orgSlug]/template.tsx): the shared RouteTransition
+   decides when (a real pathname change, never the first load) and moves focus; this redirects what moves. The
+   tenant header sits outside and stays still, and a block holding the tenant logo never moves either (tenant logos
+   stay still): only its `data-route-enter` parts enter. Blocks without a logo enter whole. */
+.route :global(.sw-route-enter) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .route :global(.sw-route-enter) > :not(:has([data-tenant-logo])),
+  .route :global(.sw-route-enter) [data-route-enter] {
+    animation: route-enter var(--sw-dur-base) var(--sw-ease-enter) backwards;
+  }
+}
+
+@keyframes route-enter {
+  from { opacity: 0; transform: translateY(var(--sw-enter-y)); }
+}
+
+/* Result arrival (the join outcome, the card check): a short scale-in, delight only. */
+@media (prefers-reduced-motion: no-preference) {
+  .arrive { animation: result-arrive calc(var(--sw-dur-slow) * 1.5) var(--sw-ease-enter) both; }
+}
+
+@keyframes result-arrive {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+
+/* The one-off stamp on a card check (the kit's PassState / cardVerify): no translate, a short scale-in. */
+@media (prefers-reduced-motion: no-preference) {
+  .stamp { animation: verify-stamp calc(var(--sw-dur-slow) * 1.75) var(--sw-ease-enter) both; }
+}
+
+@keyframes verify-stamp {
+  0% { opacity: 0; transform: scale(1.35) rotate(-8deg); }
+  70% { opacity: 1; transform: scale(0.96) rotate(1deg); }
+  100% { opacity: 1; transform: none; }
+}
+
+/* Sign-in brand facets (the kit's page-enter BrandFacets): the flaps open along their own edge slope and the
+   showcase objects rise. Once, at page load, never on hover. */
+@media (prefers-reduced-motion: no-preference) {
+  .facets path {
+    transform-box: fill-box;
+    animation: facet-in calc(var(--sw-dur-slow) * 8 / 3) var(--sw-ease-enter) var(--sw-dur-fast) both;
+  }
+
+  .facets path:nth-of-type(2) { animation-delay: calc(var(--sw-dur-base) * 1.11); }
+
+  .showcase > * { animation: showcase-rise calc(var(--sw-dur-slow) * 2) var(--sw-ease-enter) both; }
+  .showcase > :nth-child(2) { animation-delay: calc(var(--sw-dur-fast) / 4); }
+  .showcase > :nth-child(3) { animation-delay: calc(var(--sw-dur-fast) / 2); }
+}
+
+@keyframes facet-in {
+  from { opacity: 0; translate: 8px 6px; }
+  to { opacity: 1; translate: 0 0; }
+}
+
+@keyframes showcase-rise {
+  from { opacity: 0; translate: 0 12px; }
+  to { opacity: 1; translate: 0 0; }
+}
+

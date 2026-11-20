@@ -7,6 +7,7 @@ import * as SwitchPrimitive from "@radix-ui/react-switch";
 import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group";
 import { Check, Minus } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { FieldError } from "./field";
 
 /* ---------- Checkbox ---------- */
 
@@ -18,7 +19,7 @@ export const Checkbox = forwardRef<ElementRef<typeof CheckboxPrimitive.Root>, Co
     <CheckboxPrimitive.Root
       ref={ref}
       className={cn(
-        "peer inline-flex size-5 shrink-0 items-center justify-center rounded-[6px] border-[1.5px] border-line-strong bg-panel transition-colors duration-[120ms] ease-sw hover:border-ink disabled:cursor-not-allowed disabled:border-line disabled:bg-surface data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-on-primary data-[state=indeterminate]:border-primary data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-on-primary",
+        "peer inline-flex size-5 shrink-0 items-center justify-center rounded-[6px] border-[1.5px] border-line-strong bg-panel transition-colors duration-(--sw-dur-fast) ease-sw hover:border-ink aria-[invalid=true]:border-danger-fg disabled:cursor-not-allowed disabled:border-line disabled:bg-surface data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-on-primary data-[state=indeterminate]:border-primary data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-on-primary",
         className,
       )}
       {...props}
@@ -30,23 +31,32 @@ export const Checkbox = forwardRef<ElementRef<typeof CheckboxPrimitive.Root>, Co
   );
 });
 
-/** Checkbox with a label (and optional description) on the right; the whole row is clickable. */
+/**
+ * Checkbox with a label (and optional description) on the right; the whole row is clickable. `error` shows the
+ * field's error under the label, linked with aria-describedby, and marks the box aria-invalid.
+ */
 export function CheckboxField({
   label,
   description,
+  error,
   className,
   id,
   ...props
-}: ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root> & { label: ReactNode; description?: ReactNode }) {
+}: ComponentPropsWithoutRef<typeof CheckboxPrimitive.Root> & { label: ReactNode; description?: ReactNode; error?: ReactNode }) {
   const generatedId = useId();
   const controlId = id ?? generatedId;
+  const errorId = error ? `${controlId}-error` : undefined;
+  const describedBy = [errorId, props["aria-describedby"], description ? `${controlId}-desc` : undefined].filter(Boolean).join(" ") || undefined;
   return (
     <div className={cn("flex items-start gap-3", className)}>
-      <Checkbox id={controlId} aria-describedby={description ? `${controlId}-desc` : undefined} className="mt-0.5" {...props} />
-      <label htmlFor={controlId} className="min-w-0 cursor-pointer select-none text-body-ui text-ink">
-        {label}
-        {description ? <span id={`${controlId}-desc`} className="block text-caption text-ink-muted">{description}</span> : null}
-      </label>
+      <Checkbox {...props} id={controlId} aria-describedby={describedBy} aria-invalid={error ? true : props["aria-invalid"]} className="mt-0.5" />
+      <div className="flex min-w-0 flex-col gap-1">
+        <label htmlFor={controlId} className="cursor-pointer select-none text-body-ui text-ink">
+          {label}
+          {description ? <span id={`${controlId}-desc`} className="block text-caption text-ink-muted">{description}</span> : null}
+        </label>
+        {error ? <FieldError id={errorId}>{error}</FieldError> : null}
+      </div>
     </div>
   );
 }
@@ -102,7 +112,7 @@ export function RadioCard({ value, label, description, disabled, className }: { 
       value={value}
       disabled={disabled}
       className={cn(
-        "flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg border border-line bg-panel px-3 py-3 text-center transition-colors duration-[120ms] ease-sw hover:bg-subtle disabled:cursor-not-allowed disabled:border-line disabled:bg-surface disabled:[&_span]:text-ink-muted data-[state=checked]:border-[1.5px] data-[state=checked]:border-accent data-[state=checked]:bg-accent-soft",
+        "flex min-h-14 min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg border border-line bg-panel px-3 py-3 text-center transition-colors duration-(--sw-dur-fast) ease-sw hover:bg-subtle disabled:cursor-not-allowed disabled:border-line disabled:bg-surface disabled:[&_span]:text-ink-muted data-[state=checked]:border-[1.5px] data-[state=checked]:border-accent data-[state=checked]:bg-accent-soft",
         className,
       )}
     >
@@ -122,12 +132,12 @@ export const Switch = forwardRef<ElementRef<typeof SwitchPrimitive.Root>, Compon
     <SwitchPrimitive.Root
       ref={ref}
       className={cn(
-        "relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full bg-line-strong transition-colors duration-[180ms] ease-sw disabled:cursor-not-allowed disabled:bg-line data-[state=checked]:bg-primary",
+        "relative inline-flex h-7 w-12 shrink-0 cursor-pointer items-center rounded-full bg-line-strong transition-colors duration-(--sw-dur-base) ease-sw disabled:cursor-not-allowed disabled:bg-line data-[state=checked]:bg-primary",
         className,
       )}
       {...props}
     >
-      <SwitchPrimitive.Thumb className="block size-[22px] translate-x-[3px] rounded-full bg-panel shadow-segment transition-transform duration-[180ms] ease-sw data-[state=checked]:translate-x-[23px]" />
+      <SwitchPrimitive.Thumb className="block size-[22px] translate-x-[3px] rounded-full bg-panel shadow-segment transition-transform duration-(--sw-dur-base) ease-sw data-[state=checked]:translate-x-[23px]" />
     </SwitchPrimitive.Root>
   );
 });
@@ -186,7 +196,7 @@ export function SegmentedControl<T extends string>({
           value={option.value}
           aria-label={option.ariaLabel}
           className={cn(
-            "inline-flex items-center justify-center gap-1.5 rounded-md font-semibold text-ink-muted transition-[background-color,color,box-shadow] duration-[120ms] ease-sw hover:text-ink data-[state=on]:bg-panel data-[state=on]:text-ink data-[state=on]:shadow-segment [&_svg]:size-4",
+            "inline-flex items-center justify-center gap-1.5 rounded-md font-semibold text-ink-muted transition-[background-color,color,box-shadow] duration-(--sw-dur-fast) ease-sw hover:text-ink data-[state=on]:bg-panel data-[state=on]:text-ink data-[state=on]:shadow-segment [&_svg]:size-4",
             size === "sm" ? "min-h-8 px-3 text-[13px]" : "min-h-9 px-4 text-sm",
           )}
         >

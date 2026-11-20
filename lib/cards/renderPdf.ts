@@ -6,6 +6,8 @@ import { loadCardFonts, type CardFonts } from "./fonts";
 import type { CardOp, CardScene } from "./layout";
 import type { CardSymbolVariant } from "./palette";
 import { drawShapedText, glyphContext, opacityState, type GlyphContext } from "./pdfGlyphs";
+import { clipPdf, iconPdf, vectorPdf } from "./pdfVector";
+import { bleedPage } from "./bleed";
 import { cropMarks, mmToPt, PT_PER_MM, sheetPlacer } from "./sheet";
 
 /*
@@ -63,65 +65,76 @@ async function drawScene(context: Context, page: PDFPage, scene: CardScene, orig
   const pageHeight = page.getHeight();
   const x = (mm: number) => mmToPt(originXMm + mm);
   const y = (mm: number) => pageHeight - mmToPt(originYMm + mm);
-  const svg = (d: string, options: { fill?: string; stroke?: string; strokeWidth?: number }) =>
+  const at = { x, y };
+  const svg = (d: string, options: { fill?: string; stroke?: string; strokeWidth?: number; alpha?: number }) =>
     page.drawSvgPath(d, {
       x: x(0),
       y: y(0),
       scale: PT_PER_MM,
       ...(options.fill ? { color: hex(options.fill) } : {}),
       ...(options.stroke ? { borderColor: hex(options.stroke), borderWidth: options.strokeWidth ?? 0.2 } : {}),
+      ...(options.alpha !== undefined && options.alpha < 1 ? { opacity: options.alpha, borderOpacity: options.alpha } : {}),
     });
 
   svg(roundedRectPath(0, 0, scene.widthMm, scene.heightMm, 0), { fill: scene.background });
-  const draw = async (ops: CardOp[]) => {
+  const draw = async (ops: CardOp[], alpha = 1) => {
     for (const op of ops) {
       if (op.kind === "group") {
-        // Turn about the centre (clockwise on the page, so anticlockwise in PDF space) and fade as one.
+        // Turn about the centre (clockwise on the page, so anticlockwise in PDF space), mirror when flipped,
+        // and fade each part by the layer's opacity (as the PNG does).
         const state: PDFOperator[] = [pushGraphicsState()];
-        if (op.opacity < 1) state.push(setGraphicsState(opacityState(context.glyphs, page, op.opacity)));
         if (op.rotateDeg) {
           const angle = (-op.rotateDeg * Math.PI) / 180;
           const [cos, sin, px, py] = [Math.cos(angle), Math.sin(angle), x(op.cx), y(op.cy)];
           state.push(concatTransformationMatrix(cos, sin, -sin, cos, px - cos * px + sin * py, py - sin * px - cos * py));
         }
+        if (op.flipX || op.flipY) state.push(concatTransformationMatrix(op.flipX ? -1 : 1, 0, 0, op.flipY ? -1 : 1, op.flipX ? 2 * x(op.cx) : 0, op.flipY ? 2 * y(op.cy) : 0));
         page.pushOperators(...state);
-        await draw(op.ops);
+        await draw(op.ops, alpha * op.opacity);
         page.pushOperators(popGraphicsState());
+      } else if (op.kind === "vector") {
+        vectorPdf(context.glyphs, page, op, alpha, at);
+      } else if (op.kind === "clip") {
+        clipPdf(context.glyphs, page, op, alpha, at);
+      } else if (op.kind === "icon") {
+        iconPdf(context.glyphs, page, op, alpha, at);
       } else if (op.kind === "ellipse") {
-        if (op.fill) svg(ellipsePath(op.x, op.y, op.w, op.h), { fill: op.fill });
+        if (op.fill) svg(ellipsePath(op.x, op.y, op.w, op.h), { fill: op.fill, alpha });
         if (op.stroke) {
           const half = (op.strokeWidth ?? 0.2) / 2;
-          svg(ellipsePath(op.x + half, op.y + half, op.w - 2 * half, op.h - 2 * half), { stroke: op.stroke, strokeWidth: op.strokeWidth });
+          svg(ellipsePath(op.x + half, op.y + half, op.w - 2 * half, op.h - 2 * half), { stroke: op.stroke, strokeWidth: op.strokeWidth, alpha });
         }
       } else if (op.kind === "rect") {
-        if (op.fill) svg(roundedRectPath(op.x, op.y, op.w, op.h, op.radius), { fill: op.fill });
+        if (op.fill) svg(roundedRectPath(op.x, op.y, op.w, op.h, op.radius), { fill: op.fill, alpha });
         // Strokes are centred on the path, as a CSS border inset by half its width would be.
         if (op.stroke) {
           const half = (op.strokeWidth ?? 0.2) / 2;
-          svg(roundedRectPath(op.x + half, op.y + half, op.w - 2 * half, op.h - 2 * half, Math.max(0, op.radius - half)), { stroke: op.stroke, strokeWidth: op.strokeWidth });
+          svg(roundedRectPath(op.x + half, op.y + half, op.w - 2 * half, op.h - 2 * half, Math.max(0, op.radius - half)), { stroke: op.stroke, strokeWidth: op.strokeWidth, alpha });
         }
       } else if (op.kind === "text") {
-        drawShapedText(context.glyphs, context.fonts, page, op, x(op.x), y(op.baseline), hex(op.color));
+        const textAlpha = (op.opacity ?? 1) * alpha;
+        drawShapedText(context.glyphs, context.fonts, page, textAlpha < 1 ? { ...op, opacity: textAlpha } : op, x(op.x), y(op.baseline), hex(op.color));
       } else if (op.kind === "image") {
-        const box = { wMm: op.w, hMm: op.h, fit: op.fit, shape: op.shape, grayscale: op.grayscale, background: scene.background, ...(op.alpha ? { alpha: true, radiusMm: op.radiusMm ?? 0 } : {}) };
+        const box = { wMm: op.w, hMm: op.h, fit: op.fit, shape: op.shape, grayscale: op.grayscale, background: scene.background, ...(op.alpha ? { alpha: true, radiusMm: op.radiusMm ?? 0 } : {}), ...(op.art ? { art: op.art } : {}) };
         const prepared = await context.prepare(op.url, box, !op.photo);
         const image = await embedImage(context, prepared, op.photo ? null : JSON.stringify([op.url, box]));
         if (!image || !prepared) continue;
         const at = op.fit === "cover" ? { x: op.x, y: op.y, w: op.w, h: op.h } : containBox(op, prepared.widthPx, prepared.heightPx);
-        page.drawImage(image, { x: x(at.x), y: y(at.y + at.h), width: mmToPt(at.w), height: mmToPt(at.h), ...(op.opacity !== undefined ? { opacity: op.opacity } : {}) });
+        page.drawImage(image, { x: x(at.x), y: y(at.y + at.h), width: mmToPt(at.w), height: mmToPt(at.h), ...((op.opacity ?? 1) * alpha < 1 ? { opacity: (op.opacity ?? 1) * alpha } : {}) });
       } else if (op.kind === "qr") {
         // One rectangle per run of dark modules keeps large documents light.
         const qr = qrModules(op.value);
         const cell = op.size / qr.size;
         page.pushOperators(
           pushGraphicsState(),
+          ...(alpha < 1 ? [setGraphicsState(opacityState(context.glyphs, page, alpha))] : []),
           setFillingColor(hex(op.dark)),
           ...qr.runs.map(([column, row, length]) => rectangle(x(op.x + column * cell), y(op.y + (row + 1) * cell), mmToPt(length * cell), mmToPt(cell))),
           fill(),
           popGraphicsState(),
         );
       } else if (op.kind === "symbol") {
-        page.drawPage(await symbolForm(context, op.variant), { x: x(op.x), y: y(op.y + op.h), width: mmToPt(op.w), height: mmToPt(op.h) });
+        page.drawPage(await symbolForm(context, op.variant), { x: x(op.x), y: y(op.y + op.h), width: mmToPt(op.w), height: mmToPt(op.h), ...(alpha < 1 ? { opacity: alpha } : {}) });
       }
     }
   };
@@ -133,7 +146,7 @@ async function drawScene(context: Context, page: PDFPage, scene: CardScene, orig
  * async iterable so callers can stream members from the database in batches; only the document itself is
  * held in memory.
  */
-export async function renderCardsPdf(cards: AsyncIterable<CardScene[]> | Iterable<CardScene[]>, options: { layout: CardPdfLayout; title: string }) {
+export async function renderCardsPdf(cards: AsyncIterable<CardScene[]> | Iterable<CardScene[]>, options: { layout: CardPdfLayout; title: string; /** Card layout only: 0 (default) or 2–5 mm of bleed with crop marks (lib/cards/bleed.ts). */ bleedMm?: number }) {
   const pdf = await PDFDocument.create();
   pdf.setTitle(options.title);
   pdf.setCreator("Space Works Organization");
@@ -148,7 +161,12 @@ export async function renderCardsPdf(cards: AsyncIterable<CardScene[]> | Iterabl
     for (const [side, scene] of sides.entries()) {
       const at = placements[side];
       if (!at) {
-        await drawScene(context, pdf.addPage([mmToPt(scene.widthMm), mmToPt(scene.heightMm)]), scene, 0, 0);
+        const bleed = bleedPage(scene.widthMm, scene.heightMm, options.bleedMm ?? 0);
+        const page = pdf.addPage([mmToPt(bleed.pageWidthMm), mmToPt(bleed.pageHeightMm)]);
+        // The background runs into the bleed; the marks go on top, outside the card.
+        if (bleed.bleedMm) page.drawRectangle({ x: 0, y: 0, width: page.getWidth(), height: page.getHeight(), color: hex(scene.background) });
+        await drawScene(context, page, scene, bleed.originXMm, bleed.originYMm);
+        for (const mark of bleed.marks) page.drawLine({ start: { x: mmToPt(mark.x1), y: page.getHeight() - mmToPt(mark.y1) }, end: { x: mmToPt(mark.x2), y: page.getHeight() - mmToPt(mark.y2) }, thickness: 0.25, color: rgb(0, 0, 0) });
         continue;
       }
       if (at.newSheet || !sheetPage) {

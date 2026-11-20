@@ -2,6 +2,7 @@ import "server-only";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import type { Adapter } from "next-auth/adapters";
 import { prisma } from "@/lib/db";
+import { auditIdentityLinked } from "@/lib/authAudit";
 
 const base = PrismaAdapter(prisma);
 export const authAdapter: Adapter = {
@@ -14,13 +15,14 @@ export const authAdapter: Adapter = {
     if (!user?.email) return null;
     return { id: user.id, email: user.email, name: user.name, image: user.image, emailVerified: user.emailVerified };
   },
-  linkAccount(account) {
-    // Google is used only for identity. Do not retain reusable OAuth tokens.
-    return base.linkAccount!({
+  async linkAccount(account) {
+    // The provider is used only for identity. Do not retain reusable OAuth tokens.
+    await base.linkAccount!({
       userId: account.userId,
       type: account.type,
       provider: account.provider,
       providerAccountId: account.providerAccountId,
     });
+    await auditIdentityLinked(account.userId, account.provider);
   },
 };

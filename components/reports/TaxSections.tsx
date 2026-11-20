@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Download } from "lucide-react";
 import { buttonClasses } from "@/components/ui/button";
+import { formatCount, formatDate, timeZoneOf } from "@/lib/format/datetime";
 import type { OrgReportsTax } from "@/lib/views/app__dashboard__orgSlug__reports__tax__page";
 import { formatAmount } from "@/lib/reports/money";
 import { Chip, EmptyState } from "@/components/ui/display";
@@ -49,7 +50,7 @@ export function DocumentRegister({ view }: { view: View }) {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 id="register-title" className="text-h4 text-ink">Documents register</h2>
-          <p className="text-label text-ink-muted">{view.register.total.toLocaleString("en-IN")} documents issued in the period{view.register.total > 100 ? "; the latest 100 shown, all in the export" : ""}.</p>
+          <p className="text-label text-ink-muted">{formatCount(view.register.total)} documents issued in the period{view.register.total > 100 ? "; the latest 100 shown, all in the export" : ""}.</p>
         </div>
         {view.shell.canExportFinance ? <ExportLink shell={view.shell} report="documents" /> : null}
       </div>
@@ -58,10 +59,10 @@ export function DocumentRegister({ view }: { view: View }) {
           <THead><tr><TH>Number</TH><TH>Type</TH><TH>Issued</TH><TH className="text-right">Taxable</TH><TH className="text-right">Tax</TH><TH className="text-right">Total</TH></tr></THead>
           <TBody>
             {view.register.rows.map((doc) => (
-              <TR key={doc.id} className={cn(doc.cancelledAt && "opacity-70")}>
+              <TR key={doc.id}>
                 <TD className="whitespace-nowrap font-semibold">{doc.number}{doc.cancelledAt ? <Chip size="sm" tone="neutral" className="ml-2">Cancelled</Chip> : null}</TD>
                 <TD className="text-ink-secondary">{KIND_LABELS[doc.kind]}</TD>
-                <TD className="whitespace-nowrap text-ink-secondary">{new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric" }).format(new Date(doc.issuedAt))}</TD>
+                <TD className="whitespace-nowrap text-ink-secondary">{formatDate(doc.issuedAt, timeZoneOf(view))}</TD>
                 <TD className="text-right tabular-nums">{formatAmount(doc.taxableMinor, doc.currency, view.locale)}</TD>
                 <TD className="text-right tabular-nums">{formatAmount(doc.cgstMinor + doc.sgstMinor + doc.igstMinor + doc.otherTaxMinor, doc.currency, view.locale)}</TD>
                 <TD className="text-right tabular-nums">{formatAmount(doc.totalMinor, doc.currency, view.locale)}</TD>
@@ -102,7 +103,7 @@ export function GstSection({ view }: { view: View }) {
         ) : null}
       </div>
       <nav aria-label="Return month" className="flex flex-wrap gap-1.5">
-        {view.months.map((month) => <Link key={month.key} href={monthHref(month.key)} aria-current={view.month?.key === month.key ? "page" : undefined} className={cn("inline-flex min-h-9 items-center rounded-full border px-3 text-sm", view.month?.key === month.key ? "border-primary bg-primary font-semibold text-on-primary" : "border-line bg-panel text-ink hover:bg-muted")}>{month.label}</Link>)}
+        {view.months.map((month) => <Link key={month.key} href={monthHref(month.key)} aria-current={view.month?.key === month.key ? "page" : undefined} className={cn("inline-flex min-h-11 items-center rounded-control border px-3 text-sm", view.month?.key === month.key ? "border-primary bg-primary font-semibold text-on-primary" : "border-line bg-panel text-ink hover:bg-muted")}>{month.label}</Link>)}
       </nav>
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <ChartFrame title="GSTR-3B 3.1(a) outward taxable supplies" description={`Nil-rated and exempt (3.1(c)): ${inr(r3.nilExempt, l)}`}>

@@ -2,94 +2,41 @@
 
 import { SessionProvider } from "next-auth/react";
 import type { Session } from "next-auth";
-import { createContext, useContext, useMemo, useSyncExternalStore } from "react";
+import { createContext, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
 import { flushSync } from "react-dom";
 import { ToastProvider } from "@/components/feedback/ToastProvider";
 import { TooltipProvider } from "@/components/ui/menu";
-import { COLOR_MODE_COOKIE, type ColorMode } from "@/lib/colorMode";
+import { installAriaDisabledGuard } from "@/lib/ariaDisabled";
+import { oppositeColorMode, type ColorMode } from "@/lib/colorMode";
+import { paintColorMode, readColorMode, readPaintedColorMode, saveColorMode, watchColorMode } from "@/lib/colorModeClient";
+import { switchColorMode } from "@/lib/themeTransition";
 
 const CHANGE_EVENT = "swo:theme-change";
-
-function readMode(): ColorMode {
-  return document.documentElement.classList.contains("dark") ? "dark" : "light";
-}
 
 function subscribe(onStoreChange: () => void) {
   window.addEventListener(CHANGE_EVENT, onStoreChange);
   return () => window.removeEventListener(CHANGE_EVENT, onStoreChange);
 }
 
-type ColorModeOrigin = { x: number; y: number };
+/** Tell React (and anything else listening for swo:theme-change) in the same frame the tokens change. */
+function announce() {
+  flushSync(() => window.dispatchEvent(new Event(CHANGE_EVENT)));
+}
 
 const ColorModeContext = createContext<{
+  /** The painted mode: light or dark (owner decision 2026-11-19; there is no System). */
   mode: ColorMode;
-  /** Pass the click point to reveal the new mode from there. */
-  toggleColorMode: (origin?: ColorModeOrigin) => void;
-  setColorMode: (next: ColorMode, origin?: ColorModeOrigin) => void;
+  /** Switch to `next`, revealing it as a circle from `origin` (the control that asked). */
+  setColorMode: (next: ColorMode, origin?: Element | null) => void;
+  /** Flip light and dark, revealed from `origin`. */
+  toggleColorMode: (origin?: Element | null) => void;
 } | null>(null);
 
-function applyColorMode(next: ColorMode) {
-  const root = document.documentElement;
-  root.classList.toggle("dark", next === "dark");
-  root.style.colorScheme = next;
-}
-
-function prefersReducedMotion() {
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
-/** The feathered edge animates a registered custom property (see globals.css). */
-function supportsFeatheredReveal() {
-  return typeof CSS !== "undefined" && typeof CSS.registerProperty === "function" && CSS.supports("mask-image", "radial-gradient(circle, #000, transparent)");
-}
-
-/**
- * Switch modes in a single frame, then animate: a soft-edged circle grows from
- * the toggle where View Transitions are supported, otherwise a gentle colour
- * cross-fade. Reduced-motion users get an instant switch.
- */
-function transitionColorMode(commit: () => void, origin?: ColorModeOrigin) {
-  const root = document.documentElement;
-  if (prefersReducedMotion()) {
-    commit();
-    return;
-  }
-  type ViewTransitionDocument = Document & { startViewTransition?: (update: () => void | Promise<void>) => { ready: Promise<void>; finished: Promise<void> } };
-  const doc = document as ViewTransitionDocument;
-  if (typeof doc.startViewTransition !== "function") {
-    root.classList.add("sw-theme-fade");
-    commit();
-    window.setTimeout(() => root.classList.remove("sw-theme-fade"), 460);
-    return;
-  }
-  const x = origin?.x ?? window.innerWidth - 40;
-  const y = origin?.y ?? 32;
-  const feather = 160;
-  const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y)) + feather;
-  const feathered = supportsFeatheredReveal();
-  root.style.setProperty("--sw-reveal-x", `${x}px`);
-  root.style.setProperty("--sw-reveal-y", `${y}px`);
-  root.classList.add(feathered ? "sw-theme-reveal-soft" : "sw-theme-reveal");
-  const cleanUp = () => {
-    root.classList.remove("sw-theme-reveal", "sw-theme-reveal-soft");
-    root.style.removeProperty("--sw-reveal-x");
-    root.style.removeProperty("--sw-reveal-y");
-  };
-  const transition = doc.startViewTransition(commit);
-  // Hold the final frame: without fill the mask snaps back to 0 for a frame
-  // before the transition tears down, flashing the old mode.
-  const timing: KeyframeAnimationOptions = { duration: 720, easing: "cubic-bezier(0.45, 0, 0.2, 1)", fill: "forwards", pseudoElement: "::view-transition-new(root)" };
-  transition.ready
-    .then(() => {
-      root.animate(
-        feathered
-          ? { "--sw-reveal": ["0px", `${radius}px`] }
-          : { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
-        timing,
-      );
-    })
-    .catch(cleanUp);
-  transition.finished.finally(cleanUp);
+/** Tokens and React state (icons, labels) change in the same frame, inside the reveal's view transition. */
+function paint(next: ColorMode) {
+  saveColorMode(next);
+  paintColorMode(next);
+  announce();
 }
 
 export function useAppColorMode() {
@@ -99,33 +46,33 @@ export function useAppColorMode() {
 }
 
 /**
- * Light unless the person picks dark. The choice lives in the swo.theme cookie, which the root layout
- * reads to render the right class on <html>; there is no operating-system fallback.
+ * Light unless the person picks Dark (owner decision 2026-11-19, overriding CR-THEME-01's System option). The choice
+ * lives in the swo.theme cookie, which the root layout reads to paint <html>; its boot script re-applies a saved
+ * choice before first paint. Other tabs follow through the storage event. A switch plays the kit's theme reveal
+ * (lib/themeTransition.ts).
  */
 export function Providers({ children, initialColorMode, session }: { children: React.ReactNode; initialColorMode: ColorMode; session?: Session | null }) {
-  const mode = useSyncExternalStore<ColorMode>(subscribe, readMode, () => initialColorMode);
+  const mode = useSyncExternalStore<ColorMode>(subscribe, readPaintedColorMode, () => initialColorMode);
+
+  useEffect(() => {
+    // Re-sync after hydration (the meta colour may have rendered after the boot script), then keep in step.
+    paintColorMode(readColorMode());
+    window.dispatchEvent(new Event(CHANGE_EVENT));
+    const stopWatching = watchColorMode(announce);
+    const stopGuard = installAriaDisabledGuard();
+    return () => {
+      stopWatching();
+      stopGuard();
+    };
+  }, []);
 
   const colorMode = useMemo(() => {
-    const setColorMode = (next: ColorMode, origin?: ColorModeOrigin) => {
-      const secure = window.location.protocol === "https:" ? "; Secure" : "";
-      document.cookie = `${COLOR_MODE_COOKIE}=${next}; Path=/; Max-Age=31536000; SameSite=Lax${secure}`;
-      const commit = () => {
-        // Tokens and React state (icons, labels) change in the same frame.
-        applyColorMode(next);
-        flushSync(() => window.dispatchEvent(new Event(CHANGE_EVENT)));
-      };
-      if (next === mode) commit();
-      else transitionColorMode(commit, origin);
-    };
-    return {
-      mode,
-      setColorMode,
-      toggleColorMode: (origin?: ColorModeOrigin) => setColorMode(mode === "dark" ? "light" : "dark", origin),
-    };
+    const setColorMode = (next: ColorMode, origin?: Element | null) => void switchColorMode(next, origin, paint);
+    return { mode, setColorMode, toggleColorMode: (origin?: Element | null) => setColorMode(oppositeColorMode(mode), origin) };
   }, [mode]);
 
   return (
-    <SessionProvider session={session}>
+    <SessionProvider session={session} refetchOnWindowFocus={false}>
       <ColorModeContext.Provider value={colorMode}>
         <TooltipProvider delayDuration={300}>
           <ToastProvider>{children}</ToastProvider>

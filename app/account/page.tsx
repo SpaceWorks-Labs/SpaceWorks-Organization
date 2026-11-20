@@ -11,7 +11,7 @@ export default async function AccountWalletPage() {
   const { wallet, emailVerified, cards } = await loadAccountWalletView();
   return (
     <div className="flex flex-col gap-6">
-      <SectionHeading title="Your memberships" description="Every organisation you belong to, in one place." />
+      <SectionHeading as="h1" title="Your memberships" description="Every organisation you belong to, in one place." />
       {!emailVerified ? (
         <Callout
           tone="warning"

@@ -1,0 +1,50 @@
+/*
+ * Box-open layout (CR-MOTION-01, CR-LOGO-01). Every line of SpaceWorks-Design motion/box-open/box-open.css except
+ * the four sampled keyframe lines (once, loop, hover and the coloured SW-412 set), copied unaltered: which SVG
+ * shows in light, dark, mono and forced colours, the resting flap state and the reduced-motion stills. The full
+ * file, keyframes included, is public/brand/motion/box-open.css (components/brand/boxOpen/stylesheet.ts), loaded
+ * only where a box animates; until it arrives the box rests as the still, open logo.
+ */
+.sw-box{position:relative;--sw-under:#354845;--sw-spark:#142C2A}
+html.dark .sw-box{--sw-under:#66625D;--sw-spark:#FFF4E8}
+.sw-box svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.sw-box .dk,html.dark .sw-box .lt{display:none}
+html.dark .sw-box .dk{display:block}
+.sw-box .f{transform-origin:0 0;stroke:var(--sw-ground,#FFF4E8);stroke-width:0;stroke-linejoin:round;paint-order:stroke;--sw-gap-w:0px;--sw-ramp-w:3.8px}
+.sw-box .dk .f{stroke:var(--sw-ground,#000);--sw-gap-w:3.8px;--sw-ramp-w:0px}
+.sw-box .f.z1{opacity:0}
+.sw-box .w{fill:#354845;opacity:0}
+html.dark .sw-box .w{fill:#FFF4E8;fill-opacity:.14}
+.sw-box .a,.sw-box .k,.sw-box .r,.sw-box .p{opacity:0}
+.sw-box .a,.sw-box .r{fill:none;stroke:var(--sw-spark);stroke-width:1.1;stroke-linecap:round}
+.sw-box .k{fill:var(--sw-spark);transform-box:fill-box;transform-origin:center}
+@keyframes sw-box-spark{0%,66%{opacity:0;transform:scale(.3)}77%{opacity:1;transform:scale(1.15)}85%{transform:scale(1)}91%{opacity:1}100%{opacity:0;transform:scale(1)}}
+@keyframes sw-box-tick{0%,64%{opacity:0}74%,88%{opacity:1}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.sw-box .f,.sw-box .w,.sw-box .p,.sw-box .a,.sw-box .k,.sw-box .r{animation:none!important}}
+.sw-box .colour{display:none}
+@media (forced-colors:none){
+.sw-box:not(.mono) .lt{display:none!important}
+html:not(.dark) .sw-box:not(.mono):not(.g-dark) .colour,html.dark .sw-box.g-light:not(.mono) .colour{display:block}
+}
+@media (forced-colors:active){.sw-box{--sw-ground:Canvas!important}.sw-box .f,.sw-box .p path,.sw-box .c,.sw-box svg>path{fill:CanvasText!important}}
+@media (prefers-reduced-motion:reduce){.sw-box .colour .f,.sw-box .colour .w{animation:none!important}}
+.sw-box.mono{--sw-under:color-mix(in srgb,currentColor 35%,transparent)!important;--sw-spark:currentColor}
+.sw-box.mono .dk{display:none!important}.sw-box.mono .lt{display:block!important}
+.sw-box.mono svg>path:not(.f){fill:currentColor!important}
+.sw-box.mono svg>path:not(.f):nth-child(1){fill-opacity:.45}.sw-box.mono svg>path:not(.f):nth-child(2){fill-opacity:.7}
+.sw-box.mono .c{fill-opacity:1}
+.sw-box.mono .f{--c:currentColor!important;--alt:currentColor!important;--sw-gap-w:0px;--sw-ramp-w:0px}
+.sw-box.mono .w{fill:currentColor!important;fill-opacity:.25}
+/* Ground overrides for the logo hover cycle (boxGroundCss): force the artwork for a surface that is always dark (g-dark) or light (g-light). */
+.sw-box.g-dark{--sw-under:#66625D;--sw-spark:#FFF4E8}
+.sw-box.g-dark .lt{display:none}.sw-box.g-dark .dk{display:block}.sw-box.g-dark .w{fill:#FFF4E8;fill-opacity:.14}
+html.dark .sw-box.g-light{--sw-under:#354845;--sw-spark:#142C2A}
+html.dark .sw-box.g-light .dk{display:none}html.dark .sw-box.g-light .lt{display:block}html.dark .sw-box.g-light .w{fill:#354845;fill-opacity:1}
+
+/* Logo hover/focus overlay (components/brand/boxOpen/LogoBoxOverlay.tsx): laid over the symbol part of the mark,
+   mounted only while the 2200ms cycle plays. The static symbol paths hide underneath, so nothing changes size. */
+.sw-logo-box { display: block; position: absolute; pointer-events: none; }
+.sw-logo-box > .sw-box { display: block; width: 100%; height: 100%; }
+[data-logo-playing] .sw-logo-sym { visibility: hidden; }
+@media (prefers-reduced-motion: reduce) { .sw-logo-box { display: none; } }
+@media (forced-colors: active) { .sw-logo-flap { fill: CanvasText; } }

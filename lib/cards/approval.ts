@@ -6,6 +6,7 @@ import type { CardDesignContext } from "./design/normalize";
 import { withOwnArtwork } from "./design/presets";
 import { readDraft } from "./draft";
 import { managedImageUrl } from "./imageUrl";
+import { recordCardVersion } from "./versions";
 
 type Tx = Prisma.TransactionClient;
 
@@ -20,10 +21,11 @@ export async function approveCardDraft(tx: Tx, args: { organisationId: string; r
   const current = await tx.cardDesign.findUniqueOrThrow({ where: { id: row.id } });
   if (!current.draft) return false;
   const draft = readDraft(current, args.context);
+  const design = withOwnArtwork(draft.design, args.organisationId);
   await tx.cardDesign.update({
     where: { id: current.id },
     data: {
-      design: withOwnArtwork(draft.design, args.organisationId) as unknown as Prisma.InputJsonValue,
+      design: design as unknown as Prisma.InputJsonValue,
       numberPrefix: draft.numberPrefix,
       numberFormat: draft.numberFormat,
       watermarkUrl: managedImageUrl(draft.watermarkUrl, { kind: "organisation", organisationId: args.organisationId, category: "member-id-watermarks" }),
@@ -34,6 +36,8 @@ export async function approveCardDraft(tx: Tx, args: { organisationId: string; r
       approvedById: args.actorUserId,
     },
   });
+  // Every approval is kept in the version history (lib/cards/versions.ts).
+  await recordCardVersion(tx, { organisationId: args.organisationId, cardDesignId: current.id, kind: "APPROVED", design, numberPrefix: draft.numberPrefix, numberFormat: draft.numberFormat, createdById: args.actorUserId });
   await recordAuditEvent({ action: "CARD_DESIGN_APPROVED", actorUserId: args.actorUserId, organisationId: args.organisationId, targetType: "CardDesign", targetId: current.id, client: tx });
   return true;
 }

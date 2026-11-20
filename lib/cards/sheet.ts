@@ -36,7 +36,7 @@ const CROP_MARK_LENGTH_MM = 5;
  * least `minMarginMm` on every side for crop marks. CR80 cards fit 2 × 5 on
  * A4 portrait. Returns at least one card per sheet even for oversized stock.
  */
-export function sheetLayout(cardWidthMm: number, cardHeightMm: number, sheet: { widthMm: number; heightMm: number } = A4, minMarginMm = SHEET_MIN_MARGIN_MM): SheetLayout {
+function sheetLayout(cardWidthMm: number, cardHeightMm: number, sheet: { widthMm: number; heightMm: number } = A4, minMarginMm = SHEET_MIN_MARGIN_MM): SheetLayout {
   const columns = Math.max(1, Math.floor((sheet.widthMm - 2 * minMarginMm) / cardWidthMm));
   const rows = Math.max(1, Math.floor((sheet.heightMm - 2 * minMarginMm) / cardHeightMm));
   return {
@@ -53,7 +53,7 @@ export function sheetLayout(cardWidthMm: number, cardHeightMm: number, sheet: { 
 }
 
 /** Top-left corner of the `index`-th card on its sheet, and which sheet it is on. */
-export function sheetSlot(layout: SheetLayout, index: number) {
+function sheetSlot(layout: SheetLayout, index: number) {
   const sheet = Math.floor(index / layout.perSheet);
   const slot = index % layout.perSheet;
   const column = slot % layout.columns;

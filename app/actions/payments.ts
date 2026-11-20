@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { membershipChanged } from "@/lib/membership/afterChange";
 import { revalidatePath as nextRevalidatePath } from "next/cache";
 import { trackedRevalidation } from "@/lib/frontend/revalidation";
 import { prisma } from "@/lib/db";
@@ -14,7 +15,9 @@ const revalidatePath = trackedRevalidation(nextRevalidatePath);
 const id = z.string().trim().min(1).max(64);
 const slug = z.string().trim().min(1).max(64);
 
-function refresh(orgSlug: string, memberId?: string | null, paymentId?: string) {
+async function refresh(org: { id: string; slug: string }, memberId?: string | null, paymentId?: string) {
+  const orgSlug = org.slug;
+  await membershipChanged(org.id);
   revalidatePath(`/dashboard/${orgSlug}/payments`);
   revalidatePath(`/dashboard/${orgSlug}`);
   if (paymentId) revalidatePath(`/dashboard/${orgSlug}/payments/${paymentId}`);
@@ -40,7 +43,7 @@ export async function recordPayment(input: unknown): Promise<ActionResult<{ paym
   if (!term) return { ok: false, error: "Membership not found." };
   try {
     const result = await prisma.$transaction((tx) => recordOfflinePayment(tx, { org: ctx.org, termId: term.id, method: parsed.data.method, utr: parsed.data.utr?.toUpperCase() || null, reference: parsed.data.reference || null, note: parsed.data.note, actorUserId: ctx.access.userId }));
-    refresh(ctx.org.slug, term.memberId, result.payment.id);
+    await refresh(ctx.org, term.memberId, result.payment.id);
     return { ok: true, data: { paymentId: result.payment.id, settled: result.settled } };
   } catch (error) {
     return paymentFailure(error);
@@ -59,7 +62,7 @@ export async function confirmPayment(input: unknown): Promise<ActionResult> {
   if (!payment) return { ok: false, error: "Payment not found." };
   try {
     await prisma.$transaction((tx) => confirmOfflinePayment(tx, { org: ctx.org, paymentId: payment.id, actorUserId: ctx.access.userId }));
-    refresh(ctx.org.slug, payment.memberId, payment.id);
+    await refresh(ctx.org, payment.memberId, payment.id);
     return { ok: true };
   } catch (error) {
     return paymentFailure(error);
@@ -75,7 +78,7 @@ export async function rejectPayment(input: unknown): Promise<ActionResult> {
   if (!payment) return { ok: false, error: "Payment not found." };
   try {
     await prisma.$transaction((tx) => rejectOfflinePayment(tx, { org: ctx.org, paymentId: payment.id, actorUserId: ctx.access.userId, reason: parsed.data.reason }));
-    refresh(ctx.org.slug, payment.memberId, payment.id);
+    await refresh(ctx.org, payment.memberId, payment.id);
     return { ok: true };
   } catch (error) {
     return paymentFailure(error);
@@ -91,7 +94,7 @@ export async function cancelOpenPayment(input: unknown): Promise<ActionResult> {
   if (!payment) return { ok: false, error: "Payment not found." };
   try {
     await prisma.$transaction((tx) => cancelPayment(tx, { org: ctx.org, paymentId: payment.id, actorUserId: ctx.access.userId }));
-    refresh(ctx.org.slug, payment.memberId, payment.id);
+    await refresh(ctx.org, payment.memberId, payment.id);
     return { ok: true };
   } catch (error) {
     return paymentFailure(error);
@@ -110,7 +113,7 @@ export async function waiveFee(input: unknown): Promise<ActionResult> {
   if (!term) return { ok: false, error: "Membership not found." };
   try {
     await prisma.$transaction((tx) => waiveTermFee(tx, { org: ctx.org, termId: term.id, actorUserId: ctx.access.userId, reason: parsed.data.reason }));
-    refresh(ctx.org.slug, term.memberId);
+    await refresh(ctx.org, term.memberId);
     return { ok: true };
   } catch (error) {
     return paymentFailure(error);
@@ -127,7 +130,7 @@ export async function releaseDocument(input: unknown): Promise<ActionResult> {
   if (!payment) return { ok: false, error: "Payment not found." };
   try {
     await prisma.$transaction((tx) => releaseHeldDocument(tx, { org: ctx.org, paymentId: payment.id, actorUserId: ctx.access.userId }));
-    refresh(ctx.org.slug, payment.memberId, payment.id);
+    await refresh(ctx.org, payment.memberId, payment.id);
     return { ok: true };
   } catch (error) {
     if (error instanceof Error && error.message === "This payment has no held document.") return { ok: false, error: error.message };
@@ -144,7 +147,7 @@ export async function clearFlag(input: unknown): Promise<ActionResult> {
   if (!payment) return { ok: false, error: "Payment not found." };
   try {
     await prisma.$transaction((tx) => clearPaymentFlag(tx, { org: ctx.org, paymentId: payment.id, actorUserId: ctx.access.userId }));
-    refresh(ctx.org.slug, payment.memberId, payment.id);
+    await refresh(ctx.org, payment.memberId, payment.id);
     return { ok: true };
   } catch (error) {
     if (error instanceof Error && error.message === "Nothing to clear on this payment.") return { ok: false, error: error.message };

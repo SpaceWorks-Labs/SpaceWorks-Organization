@@ -7,7 +7,7 @@ import { formatValidUntil, memberDetails, verifyPath, type DetailField } from ".
 import { normalizeCardDesign, withOwnArtwork, type CardDesign } from "./design/presets";
 import { managedImageUrl, memberPhotoUrl } from "./imageUrl";
 import type { CardInput } from "./render";
-import type { CardBranding, CardHolder } from "./types";
+import { printableWebsite, type CardBranding, type CardHolder } from "./types";
 import { roleCardRows } from "./roleCards";
 import { missingAncestorIds, unitChain, type CardUnitRow } from "./units";
 
@@ -35,7 +35,7 @@ export const CARD_INCLUDE = {
 type CardRecord = Prisma.MemberCardGetPayload<{ include: typeof CARD_INCLUDE }>;
 
 export type CardOrgContext = {
-  organisation: { id: string; name: string; slug: string; logoUrl: string | null; accentColor: string | null; timezone: string; status: string; unitLevels: string[] };
+  organisation: { id: string; name: string; slug: string; logoUrl: string | null; accentColor: string | null; timezone: string; status: string; unitLevels: string[]; delightEnabled: boolean; website?: string | null; contactEmail?: string | null; contactPhone?: string | null };
   designs: Array<{ planId: string | null; roleId: string | null; design: unknown; watermarkUrl: string | null; numberPrefix: string; numberFormat: string }>;
   fields: Map<string, DetailField[]>;
   /** Ancestor units loaded so far by `loadCardUnits`, by id. */
@@ -51,7 +51,7 @@ function cardVerifyUrl(token: string) {
 export async function loadCardOrgContext(organisationId: string): Promise<CardOrgContext | null> {
   const organisation = await prisma.organisation.findUnique({
     where: { id: organisationId },
-    select: { id: true, name: true, slug: true, logoUrl: true, accentColor: true, timezone: true, status: true, unitLevels: true },
+    select: { id: true, name: true, slug: true, logoUrl: true, accentColor: true, timezone: true, status: true, unitLevels: true, delightEnabled: true, website: true, contactEmail: true, contactPhone: true },
   });
   if (!organisation) return null;
   const [designs, fields] = await Promise.all([
@@ -127,6 +127,8 @@ export function holderFor(card: CardRecord, ctx: CardOrgContext, now = new Date(
     idNumber: card.cardNumber,
     validUntil: current?.startsAt ? formatValidUntil(current.endsAt, ctx.organisation.timezone) : null,
     units: unitChain(card.member.unit, ctx.units, ctx.organisation.unitLevels),
+    contact: { website: printableWebsite(ctx.organisation.website), email: ctx.organisation.contactEmail ?? null, phone: ctx.organisation.contactPhone ?? null },
+    organisationName: ctx.organisation.name,
   };
 }
 

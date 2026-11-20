@@ -34,11 +34,11 @@ export async function leaveOrganisation(input: unknown): Promise<ActionResult> {
 
   const parsed = leaveOrganisationSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false, error: "Invalid input.", fieldErrors: flattenZodErrors(parsed.error) };
+    return { ok: false, error: "Check the highlighted fields.", fieldErrors: flattenZodErrors(parsed.error) };
   }
 
   if (await isActionRateLimited("action", userId)) {
-    return { ok: false, error: "Too many attempts. Please try again later." };
+    return { ok: false, error: "Too many attempts. Try again later." };
   }
 
   const org = await prisma.organisation.findUnique({

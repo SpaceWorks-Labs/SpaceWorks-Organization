@@ -19,7 +19,7 @@ export async function queueManualReminders(scope: TeamScope, timezone: string, t
     where: {
       id: { in: termIds },
       organisationId: scope.organisationId,
-      member: { is: { ...scopedMemberWhere({ organisationId: scope.organisationId, unitPath: scope.unitPath }), anonymisedAt: null } },
+      member: { is: { ...scopedMemberWhere({ organisationId: scope.organisationId, unitPath: scope.unitPath, limits: scope.limits }), anonymisedAt: null } },
       status: { in: ["ACTIVE", "GRACE", "LAPSED"] },
       endsAt: { not: null },
       renewals: { none: { status: { notIn: ["CANCELLED", "EXPIRED", "REJECTED"] } } },

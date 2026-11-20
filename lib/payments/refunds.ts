@@ -28,7 +28,7 @@ export async function createRefund(tx: Tx, args: { org: OrgForPayments; paymentI
   const refund = await tx.refund.create({
     data: { organisationId: args.org.id, paymentId: payment.id, currency: payment.currency, amountMinor: args.amountMinor, reason: args.reason.slice(0, 300), createdById: args.actorUserId },
   });
-  await recordAuditEvent({ action: "REFUND_CREATED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "Refund", targetId: refund.id, metadata: { amountMinor: refund.amountMinor, currency: refund.currency, provider: payment.provider }, client: tx });
+  await recordAuditEvent({ action: "REFUND_CREATED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "Refund", targetId: refund.id, metadata: { amountMinor: refund.amountMinor, currency: refund.currency, provider: payment.provider, memberId: payment.memberId, paymentId: payment.id }, client: tx });
   if (payment.provider === "OFFLINE") return { refund: await processRefund(tx, { org: args.org, refundId: refund.id, now }), gateway: null };
   return { refund, gateway: { provider: payment.provider, gatewayPaymentId: payment.gatewayPaymentId } };
 }

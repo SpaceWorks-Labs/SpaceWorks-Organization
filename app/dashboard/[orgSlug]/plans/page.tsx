@@ -43,7 +43,7 @@ export default async function OrgPlansPage({ params }: { params: Promise<{ orgSl
               <li key={plan.id}>
                 <Link
                   href={`${base}/${plan.id}`}
-                  className={cn("flex h-full flex-col gap-4 rounded-2xl border border-line bg-panel p-5 transition-colors hover:border-line-strong hover:bg-subtle", plan.archivedAt && "opacity-70")}
+                  className={cn("flex h-full flex-col gap-4 rounded-xl border border-line p-5 transition-colors duration-(--sw-dur-fast) ease-sw hover:border-line-strong hover:bg-subtle", plan.archivedAt ? "bg-surface" : "bg-panel")}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">

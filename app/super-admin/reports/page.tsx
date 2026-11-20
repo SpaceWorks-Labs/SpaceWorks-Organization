@@ -13,12 +13,14 @@ import { KpiTile, Meter } from "@/components/reports/charts/Figures";
 import { TrendChart } from "@/components/reports/charts/TrendChart";
 import { Chip, PageHeader } from "@/components/ui/display";
 import { cn } from "@/lib/cn";
+import { formatCount, formatUtcStamp } from "@/lib/format/datetime";
 
 type Props = { searchParams: Promise<{ window?: string }> };
 
 const WINDOW_LABELS = { "30d": "30 days", "90d": "90 days", "12m": "12 months" } as const;
 const JOB_LABELS: Record<string, string> = { "outbox-scheduler": "Email and membership sweep", "report-rollup": "Report rollup" };
-const when = (date: Date | null) => (date ? new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(date)) : "Never");
+/** Platform page: times are UTC and say so. */
+const when = (date: Date | null) => (date ? formatUtcStamp(date) : "Never");
 
 export default async function SuperAdminReportsPage({ searchParams }: Props) {
   await requireSuperAdmin();
@@ -30,7 +32,7 @@ export default async function SuperAdminReportsPage({ searchParams }: Props) {
       <PageHeader title="Platform reports" description="Organisations, members across them, usage, payments and the health of the instance. Counts only, never personal data." />
       <nav aria-label="Window" className="flex flex-wrap gap-2">
         {(Object.keys(WINDOW_LABELS) as Array<keyof typeof WINDOW_LABELS>).map((key) => (
-          <Link key={key} href={`/super-admin/reports?window=${key}`} aria-current={view.window === key ? "page" : undefined} className={cn("inline-flex min-h-9 items-center rounded-full border px-3.5 text-sm", view.window === key ? "border-primary bg-primary font-semibold text-on-primary" : "border-line bg-panel text-ink hover:bg-muted")}>Last {WINDOW_LABELS[key]}</Link>
+          <Link key={key} href={`/super-admin/reports?window=${key}`} aria-current={view.window === key ? "page" : undefined} className={cn("inline-flex min-h-11 items-center rounded-control border px-3.5 text-sm", view.window === key ? "border-primary bg-primary font-semibold text-on-primary" : "border-line bg-panel text-ink hover:bg-muted")}>Last {WINDOW_LABELS[key]}</Link>
         ))}
       </nav>
 
@@ -94,7 +96,7 @@ export default async function SuperAdminReportsPage({ searchParams }: Props) {
               </li>
             ))}
             <li className="flex justify-between gap-2"><span className="text-ink">Database</span><span className="text-ink-secondary">{health.databaseOk ? formatBytes(health.databaseBytes) : "Not reachable"}</span></li>
-            <li className="flex justify-between gap-2"><span className="text-ink">Stored files</span><span className="text-ink-secondary">{health.storageObjects.toLocaleString("en-IN")} · {formatBytes(health.storageBytes)}</span></li>
+            <li className="flex justify-between gap-2"><span className="text-ink">Stored files</span><span className="text-ink-secondary">{formatCount(health.storageObjects)} · {formatBytes(health.storageBytes)}</span></li>
             <li className="flex justify-between gap-2"><span className="text-ink">Payment webhooks</span><span className="text-ink-secondary">{view.financeReady ? "See Operations" : "Not in use yet"}</span></li>
           </ul>
         </AdminPanel>

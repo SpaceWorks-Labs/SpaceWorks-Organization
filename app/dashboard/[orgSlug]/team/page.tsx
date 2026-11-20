@@ -28,7 +28,7 @@ export const metadata: Metadata = {
 
 
 export default async function OrgMembersPage({ params, searchParams }: Props) {
-  const { organisation, profile, adminView, memberCount, roleCounts, recentCount, recentHint, openInviteCount, rows, memberPages, memberPage, baseUrl, invites, units, roleOptions, canGrantOrgWide, transfer, offer, roles, canManageRoles, now } = await loadOrgMembersView({ params, searchParams });
+  const { organisation, profile, adminView, memberCount, roleCounts, recentCount, recentHint, openInviteCount, rows, memberPages, memberPage, baseUrl, invites, units, roleOptions, canGrantOrgWide, groupings, transfer, offer, roles, canManageRoles, canViewActivity, now } = await loadOrgMembersView({ params, searchParams });
   return (
     <div className="flex flex-col gap-7 pb-4">
       <OrgPageHeader
@@ -48,7 +48,7 @@ export default async function OrgMembersPage({ params, searchParams }: Props) {
           {rows.length === 0 ? (
             <EmptyState mood="sleepy">No members found.</EmptyState>
           ) : (
-            <TeamList organisationSlug={organisation.slug} rows={rows} roles={roleCounts.filter((role) => role.count > 0)} showEmail={adminView} units={units} roleOptions={roleOptions} canGrantOrgWide={canGrantOrgWide} />
+            <TeamList organisationSlug={organisation.slug} rows={rows} roles={roleCounts.filter((role) => role.count > 0)} showEmail={adminView} units={units} roleOptions={roleOptions} canGrantOrgWide={canGrantOrgWide} groupings={groupings} canViewActivity={canViewActivity} />
           )}
           {memberPages > 1 ? (
             <nav aria-label="Member pages" className="flex flex-wrap items-center justify-end gap-2">
@@ -76,6 +76,7 @@ export default async function OrgMembersPage({ params, searchParams }: Props) {
               roleOptions={roleOptions}
               units={units}
               canGrantOrgWide={canGrantOrgWide}
+              groupings={groupings}
               invites={invites.map((invite) => ({
                 id: invite.id,
                 token: invite.token,

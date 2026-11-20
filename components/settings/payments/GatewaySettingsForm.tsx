@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { savePaymentGateway, testPaymentGateway } from "@/app/actions/payment-settings";
 import { CopyField } from "@/components/settings/payments/CopyField";
+import { useFocusFirstError } from "@/components/forms/focusFirstError";
+import { useUnsavedChangesGuard } from "@/components/forms/useUnsavedChangesGuard";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/choice";
 import { Callout, Chip } from "@/components/ui/display";
@@ -27,8 +29,13 @@ export function GatewaySettingsForm({ slug, initial, canEdit, secretsReady }: { 
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [pending, startTransition] = useTransition();
+  const [savedSetup, setSavedSetup] = useState({ provider: initial.provider, keyId: initial.keyId ?? "" });
+  const rootRef = useRef<HTMLDivElement>(null);
+  useFocusFirstError(rootRef, errors);
   const sameProvider = provider === initial.provider;
   const locked = !canEdit || !secretsReady;
+  // Typed secrets, or a changed provider or key id, are lost on leaving.
+  useUnsavedChangesGuard(!locked && !pending && (provider !== savedSetup.provider || keyId !== savedSetup.keyId || secret !== "" || webhookSecret !== ""));
 
   const save = () =>
     startTransition(async () => {
@@ -37,6 +44,7 @@ export function GatewaySettingsForm({ slug, initial, canEdit, secretsReady }: { 
       setErrors(result.ok ? {} : result.fieldErrors ?? {});
       setStatus(result.ok ? { ok: true, text: provider === "NONE" ? "Online payments are off." : "Saved. Test the connection to check the keys." } : { ok: false, text: result.error });
       if (result.ok) {
+        setSavedSetup({ provider, keyId });
         setSecret("");
         setWebhookSecret("");
         router.refresh();
@@ -50,7 +58,7 @@ export function GatewaySettingsForm({ slug, initial, canEdit, secretsReady }: { 
     });
 
   return (
-    <div className="flex flex-col gap-5">
+    <div ref={rootRef} className="flex flex-col gap-5">
       {!secretsReady ? <Callout tone="warning" title="Online payments can't be switched on yet">The server needs PAYMENT_SECRETS_KEY set before gateway keys can be stored safely. Ask whoever runs this instance.</Callout> : null}
       {status ? <Callout tone={status.ok ? "success" : "danger"} role={status.ok ? "status" : "alert"}>{status.text}</Callout> : null}
       <SegmentedControl<Provider>

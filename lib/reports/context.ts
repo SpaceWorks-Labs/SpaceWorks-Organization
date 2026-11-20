@@ -9,7 +9,7 @@ import { resolvePeriod, type ReportPeriod } from "./period";
 import { reportScope, type ReportScope } from "./source";
 
 /** Query parameters every report understands. Unknown values fall back to defaults; nothing widens scope. */
-export type ReportSearch = { period?: string; from?: string; to?: string; plan?: string; unit?: string; days?: string; page?: string };
+export type ReportSearch = { period?: string; from?: string; to?: string; plan?: string; unit?: string; days?: string; page?: string; grouping?: string };
 
 type ReportAccess = { organisation: { id: string; slug: string }; membership: StaffMembership; userId: string };
 
@@ -27,7 +27,7 @@ export async function buildReportContext(access: ReportAccess, search: ReportSea
   // The supplier state for GST reports is the registration's state, as on the invoices themselves.
   const { taxSettings, ...rest } = found;
   const org = { ...rest, stateCode: taxSettings?.stateCode ?? rest.stateCode };
-  const team = await teamScope(org.id, access.membership.unitId);
+  const team = await teamScope(org.id, access.membership);
   const scope: ReportScope = await reportScope(team, { unit: search.unit, plan: search.plan });
   const period: ReportPeriod = resolvePeriod(search, org, now);
   const [plans, units, roles] = await Promise.all([

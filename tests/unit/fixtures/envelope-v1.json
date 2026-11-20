@@ -1,0 +1,25 @@
+{
+  "mfa": {
+    "plain": "JBSWY3DPEHPK3PXP",
+    "sealed": "v1.Y2ycrSM2kV_pfnfe.JzIx8pHGM4ESh0HNgNH-nA.-jW-VgKrdzMzJQW4lfP2fQ"
+  },
+  "instance": {
+    "plain": "smtp-password-ü",
+    "sealed": "v1.AV-ll2aBgFgerrXD.Vvwb2cIlrQFXNlgwSSTcTg.Qsl__2QA7I_obEqU8dk1Aw"
+  },
+  "orgEmail": {
+    "plain": "org-smtp",
+    "org": "org_1",
+    "sealed": "v1.xpCG7-XjC5TdxQco.NS5Wnzx6wVd5EnZ1nruvFg.BCXi7cz3cAE"
+  },
+  "orgChat": {
+    "plain": "https://hooks.example/x",
+    "org": "org_1",
+    "sealed": "v1.6QS1cpwEsZxWbWU4.mj9EokMkq8O2VmeK2o-eTw.jjcr0Vd2PG1YKDXN3Vb_-Ea_i_TKjNg"
+  },
+  "payment": {
+    "plain": "rzp_secret_123",
+    "org": "org_1",
+    "sealed": "v1.QJzHyzsc_u36TCkl.awPzhdqac6j6a3VuWy66Xw.ILE-raxLrtKKdg_VuhM"
+  }
+}

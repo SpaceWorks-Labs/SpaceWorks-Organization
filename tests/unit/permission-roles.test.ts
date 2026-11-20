@@ -34,12 +34,14 @@ const SPLIT_FROM: Partial<Record<Capability, string>> = {
   "cards.design": "org.settings",
   "accounts.manage": "payments.manage",
   "reports.gstr1": "reports.finance",
+  "groupings.manage": "org.settings",
 };
 
 /** Brand new, owner-held permissions. */
 const OWNER_HELD: Capability[] = ["roles.manage", "ownership.transfer"];
 
 /** Old gates that refused staff limited to a unit inline (the `ORG_WIDE_ONLY` checks), now ◆ and ● in the list. */
+const ORG_WIDE_ONLY_USE = new Set(["reports.gstr1", "groupings.manage"]);
 const ORG_WIDE_WRITES = new Set(["org.settings", "plans.manage", "payments.settings", "structure.manage", "cards.design", "accounts.manage"]);
 
 const starter = (key: TeamRole) => STARTER_ROLES.find((role) => role.key === key)!;
@@ -57,8 +59,8 @@ describe("starter roles reproduce the fixed roles", () => {
         if (key === "OWNER") return;
         // Holders limited to a unit read what they did; they never change ◆ and never use ●.
         const scoped = actor(key, "unit");
-        expect(can(scoped, capability)).toBe(before && capability !== "reports.gstr1");
-        expect(can(scoped, capability, { write: true })).toBe(before && capability !== "reports.gstr1" && !ORG_WIDE_WRITES.has(capability) && capability !== "roles.manage");
+        expect(can(scoped, capability)).toBe(before && !ORG_WIDE_ONLY_USE.has(capability));
+        expect(can(scoped, capability, { write: true })).toBe(before && !ORG_WIDE_ONLY_USE.has(capability) && !ORG_WIDE_WRITES.has(capability) && capability !== "roles.manage");
       });
     }
   }

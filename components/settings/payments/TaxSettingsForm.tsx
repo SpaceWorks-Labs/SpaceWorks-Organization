@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveTaxSettings } from "@/app/actions/payment-settings";
 import { INDIAN_STATES } from "@/lib/indianStates";
 import { formatDocumentNumber } from "@/lib/payments/numbering";
+import { useFocusFirstError } from "@/components/forms/focusFirstError";
+import { useUnsavedChangesGuard } from "@/components/forms/useUnsavedChangesGuard";
 import { Button } from "@/components/ui/button";
 import { CheckboxField, SegmentedControl } from "@/components/ui/choice";
 import { Callout } from "@/components/ui/display";
@@ -21,15 +23,20 @@ const GST_RATES = [0, 500, 1200, 1800, 2800];
 export function TaxSettingsForm({ slug, initial, canEdit }: { slug: string; initial: TaxValues; canEdit: boolean }) {
   const router = useRouter();
   const [values, setValues] = useState(initial);
+  const [saved, setSaved] = useState(initial);
   const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   const [pending, startTransition] = useTransition();
+  const formRef = useRef<HTMLFormElement>(null);
+  useFocusFirstError(formRef, errors);
+  useUnsavedChangesGuard(canEdit && !pending && JSON.stringify(values) !== JSON.stringify(saved));
   const set = <K extends keyof TaxValues>(key: K, value: TaxValues[K]) => setValues((current) => ({ ...current, [key]: value }));
   const gst = values.mode === "GST";
   const example = formatDocumentNumber(values.receiptPrefix.toUpperCase(), "R", "2026-27", 42);
 
   return (
     <form
+      ref={formRef}
       className="flex flex-col gap-5"
       onSubmit={(event) => {
         event.preventDefault();
@@ -37,7 +44,10 @@ export function TaxSettingsForm({ slug, initial, canEdit }: { slug: string; init
           const result = await saveTaxSettings({ organisationSlug: slug, ...values });
           setErrors(result.ok ? {} : result.fieldErrors ?? {});
           setStatus(result.ok ? { ok: true, text: "Saved. New payments use these settings; earlier receipts keep theirs." } : { ok: false, text: result.error });
-          if (result.ok) router.refresh();
+          if (result.ok) {
+            setSaved(values);
+            router.refresh();
+          }
         });
       }}
     >

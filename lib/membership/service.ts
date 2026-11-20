@@ -5,9 +5,12 @@ import { recordAuditEvent } from "@/lib/audit";
 import { enqueueOutbox } from "@/lib/outbox";
 import { queueChatAlerts } from "@/lib/chat/notify";
 import { issueCardOnActivation } from "@/lib/cards/issue";
+import { endLiveCards, restoreCardOnReinstate } from "./termCards";
 import { canTransition, chargesJoiningFee, statusAt, type TermAction } from "./lifecycle";
+import { MembershipError } from "./errors";
+import { effectiveGraceDays } from "./lapsePolicy";
+import { evaluateRenewal, type RenewalReask } from "./renewalRules";
 import { graceUntil, localDate, renewalStartDay, termWindow } from "./periods";
-import { lockMemberByEmail } from "./memberLock";
 
 type Tx = Prisma.TransactionClient;
 type OrgClock = Pick<Organisation, "id" | "timezone" | "financialYearStartMonth">;
@@ -18,75 +21,10 @@ const PAYMENT_DUE_DAYS = 14;
 /** Statuses the database's no-overlap rule covers: a member holds at most one of these per plan at a time. */
 const LIVE: TermStatus[] = ["UPCOMING", "ACTIVE", "GRACE"];
 
-export class MembershipError extends Error {
-  override name = "MembershipError";
-}
+export { MembershipError };
 
-/** Next value of a gapless per-organisation counter, allocated inside the caller's transaction. */
-export async function nextCounter(tx: Tx, organisationId: string, name: string): Promise<number> {
-  const [row] = await tx.$queryRaw<Array<{ value: number }>>`
-    INSERT INTO "OrgCounter" ("organisationId", "name", "next") VALUES (${organisationId}, ${name}, 2)
-    ON CONFLICT ("organisationId", "name") DO UPDATE SET "next" = "OrgCounter"."next" + 1
-    RETURNING "next" - 1 AS value`;
-  return Number(row.value);
-}
-
-type MemberInput = {
-  email: string;
-  name: string;
-  phone?: string | null;
-  stateCode?: string | null;
-  unitId?: string | null;
-  userId?: string | null;
-  fieldValues?: Record<string, unknown>;
-  /**
-   * "merge" (default) adds `fieldValues` to the stored answers. "replace" stores `fieldValues` as the member's
-   * whole answer object: the caller built it from the row it read with `lockMemberByEmail` in this transaction.
-   */
-  fieldValuesMode?: "merge" | "replace";
-  source: "JOIN_FORM" | "MANUAL" | "IMPORT";
-  isMinor?: boolean;
-  guardianName?: string | null;
-  guardianEmail?: string | null;
-  guardianPhone?: string | null;
-  /** Leave an existing member's unit as it is (a join form never moves anyone). */
-  keepExistingUnit?: boolean;
-};
-
-/**
- * The organisation's record for this email, created on first sight with the next member number. The row is
- * locked first. Omitted (undefined) details keep their stored values; null clears them.
- */
-export async function upsertMember(tx: Tx, organisationId: string, input: MemberInput) {
-  const email = input.email.trim().toLowerCase();
-  const existing = await lockMemberByEmail(tx, organisationId, email);
-  // Prisma leaves undefined columns untouched on update and at their defaults on create.
-  const profile = {
-    name: input.name.trim(),
-    phone: input.phone,
-    stateCode: input.stateCode,
-    ...(input.unitId !== undefined && !(input.keepExistingUnit && existing?.unitId) ? { unitId: input.unitId } : {}),
-    isMinor: input.isMinor,
-    guardianName: input.guardianName,
-    guardianEmail: input.guardianEmail,
-    guardianPhone: input.guardianPhone,
-  };
-  if (existing) {
-    const fieldValues = input.fieldValuesMode === "replace" ? input.fieldValues : input.fieldValues && { ...(existing.fieldValues as Record<string, unknown>), ...input.fieldValues };
-    return tx.member.update({
-      where: { id: existing.id },
-      data: {
-        ...profile,
-        ...(input.userId && !existing.userId ? { userId: input.userId } : {}),
-        ...(fieldValues ? { fieldValues: fieldValues as Prisma.InputJsonValue } : {}),
-      },
-    });
-  }
-  const memberNumber = await nextCounter(tx, organisationId, "member");
-  return tx.member.create({
-    data: { organisationId, email, memberNumber, source: input.source, userId: input.userId ?? null, fieldValues: (input.fieldValues ?? {}) as Prisma.InputJsonValue, ...profile },
-  });
-}
+export { nextCounter } from "./counter";
+export { upsertMember } from "./upsertMember";
 
 async function recordEvent(tx: Tx, term: Pick<MembershipTerm, "id" | "organisationId">, from: TermStatus | null, to: TermStatus, effectiveAt: Date, actorUserId: string | null, cause: string) {
   await tx.termStatusEvent.create({ data: { organisationId: term.organisationId, termId: term.id, from, to, effectiveAt, actorUserId, cause } });
@@ -113,7 +51,7 @@ async function lockTerm(tx: Tx, organisationId: string, termId: string) {
  */
 export async function openTerm(
   tx: Tx,
-  args: { org: OrgClock; plan: MembershipPlan; memberId: string; kind?: TermKind; renewedFromId?: string | null; byManager: boolean; needsVerification?: boolean; actorUserId: string | null; now?: Date },
+  args: { org: OrgClock; plan: MembershipPlan; memberId: string; kind?: TermKind; renewedFromId?: string | null; renewalNeedsApproval?: boolean; byManager: boolean; needsVerification?: boolean; actorUserId: string | null; now?: Date },
 ) {
   const now = args.now ?? new Date();
   const { plan, org } = args;
@@ -122,12 +60,14 @@ export async function openTerm(
   const history = await tx.membershipTerm.findMany({ where: { memberId: args.memberId, planId: plan.id }, select: { id: true, status: true, startsAt: true, endsAt: true, graceUntil: true, createdAt: true } });
   // A term in grace has ended, so registering again then (rather than renewing) overlaps nothing.
   if (kind === "NEW" && history.some((term) => ["UPCOMING", "ACTIVE"].includes(statusAt(term, now)))) throw new MembershipError("This email already holds a current membership on this plan. Renew it instead.");
-  const joiningFeeMinor = kind === "NEW" && plan.joiningFeeMinor > 0 && chargesJoiningFee(plan.rejoinFeeRule, history, now, plan.rejoinAfterDays) ? plan.joiningFeeMinor : 0;
-  const priceMinor = kind === "RENEWAL" ? plan.priceRenewalMinor : plan.priceNewMinor;
+  // A free plan charges nothing, whatever its stored prices say.
+  const free = plan.paymentMode === "FREE";
+  const joiningFeeMinor = kind === "NEW" && !free && plan.joiningFeeMinor > 0 && chargesJoiningFee(plan.rejoinFeeRule, history, now, plan.rejoinAfterDays) ? plan.joiningFeeMinor : 0;
+  const priceMinor = free ? 0 : kind === "RENEWAL" ? plan.priceRenewalMinor : plan.priceNewMinor;
   const due = priceMinor + joiningFeeMinor;
 
   const verify = kind === "NEW" && Boolean(args.needsVerification);
-  const needsApproval = verify || (kind === "NEW" && !args.byManager && plan.joinMode === "APPROVAL");
+  const needsApproval = verify || (kind === "NEW" && !args.byManager && plan.joinMode === "APPROVAL") || (kind === "RENEWAL" && Boolean(args.renewalNeedsApproval));
   const waitsForPayment = !needsApproval && due > 0 && plan.paymentTiming === "PAY_THEN_ACTIVATE";
   const status: TermStatus = needsApproval ? "PENDING_APPROVAL" : waitsForPayment ? "PENDING_PAYMENT" : "PENDING_PAYMENT";
 
@@ -168,7 +108,7 @@ export async function activateTerm(tx: Tx, args: { org: OrgClock; termId: string
   const startDay = previous ? renewalStartDay(previous, term.plan, now, timeZone) : localDate(now, timeZone);
   const window = termWindow(term.plan, startDay, timeZone, args.org.financialYearStartMonth);
   if (!window) throw new MembershipError("This plan's end date has passed, so it can't start a membership.");
-  const grace = graceUntil(window.endsAt, term.plan.graceDays, timeZone);
+  const grace = graceUntil(window.endsAt, effectiveGraceDays(term.plan), timeZone);
   const status = statusAt({ ...term, status: "ACTIVE", startsAt: window.startsAt, endsAt: window.endsAt, graceUntil: grace }, now);
   const endsPrevious = Boolean(previous && previous.endsAt && now >= previous.endsAt && ["ACTIVE", "GRACE", "LAPSED"].includes(previous.status));
 
@@ -242,7 +182,9 @@ export async function decideTerm(
       break;
     }
   }
-  await recordAuditEvent({ action: `MEMBERSHIP_${args.action.toUpperCase()}`, actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "MembershipTerm", targetId: term.id, client: tx });
+  await recordAuditEvent({ action: `MEMBERSHIP_${args.action.toUpperCase()}`, actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "MembershipTerm", targetId: term.id, metadata: { memberId: term.memberId, planId: term.planId, ...(args.reason ? { reason: args.reason.slice(0, 200) } : {}) }, client: tx });
+  if (args.action === "revoke" || args.action === "cancel" || args.action === "withdraw") await endLiveCards(tx, { organisationId: args.org.id, memberId: term.memberId, planId: term.planId, actorUserId: args.actorUserId });
+  if (args.action === "reinstate") await restoreCardOnReinstate(tx, { organisationId: args.org.id, memberId: term.memberId, planId: term.planId, actorUserId: args.actorUserId });
   return result;
 }
 
@@ -253,11 +195,11 @@ export async function extendTerm(tx: Tx, args: { org: OrgClock; termId: string; 
   const current = statusAt(term, now);
   if (!canTransition("extend", current)) throw new MembershipError("Only a started membership can be extended.");
   if (!term.startsAt || args.endsAt <= term.startsAt) throw new MembershipError("The new end date must be after the start date.");
-  const grace = graceUntil(args.endsAt, term.plan.graceDays, args.org.timezone);
+  const grace = graceUntil(args.endsAt, effectiveGraceDays(term.plan), args.org.timezone);
   const status = statusAt({ ...term, status: "ACTIVE", endsAt: args.endsAt, graceUntil: grace }, now);
   const result = await tx.membershipTerm.update({ where: { id: term.id }, data: { endsAt: args.endsAt, graceUntil: grace, status, reason: args.reason } });
   await recordEvent(tx, result, current, status, now, args.actorUserId, "extended");
-  await recordAuditEvent({ action: "MEMBERSHIP_EXTENDED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "MembershipTerm", targetId: term.id, metadata: { endsAt: args.endsAt.toISOString() }, client: tx });
+  await recordAuditEvent({ action: "MEMBERSHIP_EXTENDED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "MembershipTerm", targetId: term.id, metadata: { endsAt: args.endsAt.toISOString(), memberId: term.memberId, planId: term.planId, reason: args.reason.slice(0, 200) }, client: tx });
   return result;
 }
 
@@ -275,9 +217,11 @@ export async function markTermPaid(tx: Tx, args: { org: OrgClock; termId: string
 
 /**
  * Begin a renewal for a member on a plan: from the latest term that can be renewed. A member whose last
- * term lapsed past grace rejoins with a new term instead.
+ * term lapsed past grace rejoins with a new term instead. The plan's renewal conditions are checked here
+ * (lib/membership/renewalRules.ts): the window, who may renew, the details asked again, approval, and
+ * renewing into another plan. Staff skip the window, eligibility and the questions asked again.
  */
-export async function startRenewal(tx: Tx, args: { org: OrgClock; plan: MembershipPlan; memberId: string; byManager: boolean; actorUserId: string | null; now?: Date }) {
+export async function startRenewal(tx: Tx, args: { org: OrgClock; plan: MembershipPlan; memberId: string; byManager: boolean; actorUserId: string | null; reask?: RenewalReask; now?: Date }) {
   const now = args.now ?? new Date();
   const latest = await tx.membershipTerm.findFirst({
     where: { memberId: args.memberId, planId: args.plan.id, status: { in: ["UPCOMING", "ACTIVE", "GRACE", "LAPSED"] } },
@@ -287,7 +231,15 @@ export async function startRenewal(tx: Tx, args: { org: OrgClock; plan: Membersh
   const status = statusAt(latest, now);
   if (status === "UPCOMING") throw new MembershipError("The next year is already paid for.");
   if (status === "LAPSED") return openTerm(tx, { ...args, kind: "NEW" });
+  const waiting = await tx.membershipTerm.count({ where: { renewedFromId: latest.id, status: { notIn: ["CANCELLED", "EXPIRED", "REJECTED", "REVOKED"] } } });
+  if (waiting > 0) throw new MembershipError("This membership already has a renewal in progress.");
+  const checked = await evaluateRenewal(tx, { org: args.org, plan: args.plan, memberId: args.memberId, latest, byManager: args.byManager, reask: args.reask, now });
   const startDay = renewalStartDay(latest, args.plan, now, args.org.timezone);
-  if (!termWindow(args.plan, startDay, args.org.timezone, args.org.financialYearStartMonth)) throw new MembershipError("This plan's end date has passed, so it can't be renewed.");
-  return openTerm(tx, { ...args, kind: "RENEWAL", renewedFromId: latest.id });
+  if (!termWindow(checked.plan, startDay, args.org.timezone, args.org.financialYearStartMonth)) throw new MembershipError("This plan's end date has passed, so it can't be renewed.");
+  const term = await openTerm(tx, { ...args, plan: checked.plan, kind: "RENEWAL", renewedFromId: latest.id, renewalNeedsApproval: checked.needsApproval });
+  if (checked.intoPlan) {
+    await recordEvent(tx, term, term.status, term.status, now, args.actorUserId, "renewed-into-plan");
+    await recordAuditEvent({ action: "MEMBERSHIP_RENEWED_INTO_PLAN", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "MembershipTerm", targetId: term.id, metadata: { fromPlanId: args.plan.id, toPlanId: checked.plan.id, memberId: args.memberId, planId: checked.plan.id }, client: tx });
+  }
+  return term;
 }

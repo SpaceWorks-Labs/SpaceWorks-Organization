@@ -17,6 +17,7 @@ const HELP: Record<ChatKind, string> = {
   DISCORD: "In Discord, open the channel's settings, Integrations, Webhooks, New webhook, then Copy webhook URL.",
   MATTERMOST: "In Mattermost, Integrations, Incoming webhooks, Add, then copy the URL. Your server must be reachable over HTTPS.",
   TELEGRAM: "Create a bot with @BotFather, add it to your group or channel, and use the chat's ID (or @channelname).",
+  WEBHOOK: "Your own address, on a public host over HTTPS. Each alert is posted as JSON ({ \"text\": … }) with x-spaceworks-timestamp and x-spaceworks-signature headers: sha256= and the HMAC-SHA256 of the timestamp, a full stop and the body, using your secret.",
   WHATSAPP: `Needs the WhatsApp Business Cloud API: create and get approved a utility template named ${WHATSAPP_TEMPLATE.name} whose body is just ${WHATSAPP_TEMPLATE.body}, then use a permanent access token.`,
 };
 
@@ -24,6 +25,7 @@ const FIELDS: Record<ChatKind, Array<{ key: string; label: string; secret?: bool
   SLACK: [{ key: "webhookUrl", label: "Webhook URL", secret: true }],
   DISCORD: [{ key: "webhookUrl", label: "Webhook URL", secret: true }],
   MATTERMOST: [{ key: "webhookUrl", label: "Webhook URL", secret: true }],
+  WEBHOOK: [{ key: "url", label: "Address", secret: true }, { key: "secret", label: "Signing secret", secret: true, hint: "At least 16 characters. Shown only once." }],
   TELEGRAM: [{ key: "botToken", label: "Bot token", secret: true }, { key: "chatId", label: "Chat ID", hint: "A number such as -1001234567890, or @channelname." }],
   WHATSAPP: [
     { key: "phoneNumberId", label: "Phone number ID" },

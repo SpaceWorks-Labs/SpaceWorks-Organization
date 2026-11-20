@@ -54,7 +54,7 @@ function endOfCentralDirectory(count: number, centralSize: number, centralOffset
 }
 
 /** A reader that takes nothing for `idleMs`, or a download still going after `totalMs`, is stopped. */
-export const ZIP_DEADLINES = { idleMs: 2 * 60_000, totalMs: 15 * 60_000 };
+const ZIP_DEADLINES = { idleMs: 2 * 60_000, totalMs: 15 * 60_000 };
 
 /**
  * A ZIP written as `entries` yields: one entry is read per pull, so a slow reader slows the producer.

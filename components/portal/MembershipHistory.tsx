@@ -25,7 +25,7 @@ export function MembershipHistory({ terms, timeZone, locale }: { terms: HistoryT
   return (
     <ol className="flex flex-col gap-4">
       {terms.map((term) => (
-        <li key={term.id} className="flex flex-col gap-3 rounded-lg border border-line p-4">
+        <li key={term.id} className="flex flex-col gap-3 rounded-xl border border-line p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-label font-semibold text-ink">

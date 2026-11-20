@@ -7,7 +7,6 @@ import { reorderStaffRoles } from "@/app/actions/staff-roles";
 import { useToast } from "@/components/feedback/ToastProvider";
 import { Button, IconButton } from "@/components/ui/button";
 import { Chip } from "@/components/ui/display";
-import { cn } from "@/lib/cn";
 import type { Capability } from "@/lib/permissionRoles";
 import { capabilityLabel } from "@/lib/team/capabilities";
 import { StaffRoleForm, type StaffRoleRow } from "./StaffRoleForm";
@@ -53,7 +52,7 @@ export function StaffRolesEditor({ slug, roles, allowed, canEdit }: { slug: stri
               {editing === role.id ? (
                 <StaffRoleForm slug={slug} role={role} allowed={allowed} onDone={() => setEditing(null)} />
               ) : (
-                <div className={cn("flex flex-wrap items-start gap-3", role.archived && "opacity-60")}>
+                <div className="flex flex-wrap items-start gap-3">
                   <div className="flex min-w-0 flex-[1_1_260px] flex-col gap-1">
                     <span className="flex flex-wrap items-center gap-2">
                       <span className="font-bold text-ink">{role.name}</span>

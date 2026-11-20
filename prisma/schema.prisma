@@ -48,18 +48,27 @@ model User {
   /// Platform operators. SUPER_ADMIN_EMAIL bootstraps the first one.
   isSuperAdmin       Boolean   @default(false)
   createdAt          DateTime  @default(now())
+  /// A verified phone number (E.164) for phone-code sign-in. Set only once verified; unique across accounts.
+  phoneE164          String?   @unique
+  phoneVerifiedAt    DateTime?
 
   accounts          Account[]
   sessions          Session[]
   knownDevices      KnownDevice[]
+  passkeys          Passkey[]
+  userSessions      UserSession[]
   teamMembers       TeamMember[]
   teamInvitesCreated TeamInvite[] @relation("TeamInviteCreatedBy")
   teamInvitesUsed    TeamInvite[] @relation("TeamInviteUsedBy")
+  smartGroups        SmartGroup[]
   ownershipTransfersFrom OwnershipTransfer[] @relation("OwnershipTransferFrom")
   ownershipTransfersTo   OwnershipTransfer[] @relation("OwnershipTransferTo")
   auditEvents       AuditEvent[]
   organisationReviews OrganisationReview[]
   members           Member[]
+  notificationEndpoints NotificationEndpoint[]
+  endpointChallenges NotificationEndpointChallenge[]
+  messagingConsents MessagingConsent[]
 }
 
 model Account {
@@ -87,6 +96,32 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([expires])
+}
+
+/// A signed-in browser or device (product rules section 15, Sessions). The JWT carries this row's id (`sid`); every
+/// request checks that the row exists, belongs to the user, is not revoked and was made under the user's current
+/// `sessionVersion`. `userAgent` is a short label ("Chrome on Windows"), never the full string; `ipPrefix` is the
+/// first two octets of an IPv4 address or the first /48 of an IPv6 one, never the whole address.
+model UserSession {
+  id             String    @id @default(cuid())
+  userId         String
+  createdAt      DateTime  @default(now())
+  lastSeenAt     DateTime  @default(now())
+  revokedAt      DateTime?
+  sessionVersion Int       @default(0)
+  userAgent      String    @default("")
+  ipPrefix       String?
+  method         String
+  knownDeviceId  String?
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  knownDevice KnownDevice? @relation(fields: [knownDeviceId], references: [id], onDelete: SetNull)
+
+  @@index([userId, revokedAt, lastSeenAt])
+  @@index([lastSeenAt])
+  @@index([revokedAt])
 }
 
 model VerificationToken {
@@ -95,6 +130,7 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+  @@index([expires])
 }
 
 // ─── Tenants ─────────────────────────────────────────────────────────────────
@@ -147,6 +183,13 @@ enum PaymentTiming {
   ACTIVATE_THEN_CHARGE
 }
 
+/// How a plan is paid: nothing, online or in hand (the organisation's gateway if it has one), or in hand only.
+enum PaymentMode {
+  FREE
+  ONLINE_OR_IN_HAND
+  IN_HAND_ONLY
+}
+
 enum PlanFieldType {
   TEXT
   LONG_TEXT
@@ -156,6 +199,8 @@ enum PlanFieldType {
   PHONE
   NUMBER
   CHECKBOX
+  /// A choice from one of the organisation's groupings (PlanField.groupingId); saved as MemberGroupingValue rows.
+  GROUPING
 }
 
 enum MemberSource {
@@ -213,6 +258,10 @@ model Organisation {
   /// Members can sign in to their own portal (memberships, payments, profile). Off: the organisation just keeps
   /// records; "Pay now" emails carry a secure pay link instead, and /verify still checks cards.
   memberPortal Boolean            @default(true)
+  /// Playful touches (Patch, confetti, card tilt) on this organisation's member and public pages; staff can turn them off (CR-MOTION-01).
+  delightEnabled Boolean          @default(true)
+  /// Public ids for this organisation's optional outside analytics providers on its own public pages (product rules §8.2). Validated by lib/telemetry; never secrets.
+  webTelemetry   Json?
   contactPhone String?
   addressLine String?
   city        String?
@@ -250,6 +299,12 @@ model Organisation {
   assets        Asset[]
   auditEvents   AuditEvent[]
   units         OrgUnit[]
+  groupings     OrgGrouping[]
+  groupingValues OrgGroupingValue[]
+  memberGroupingValues MemberGroupingValue[]
+  teamMemberScopes TeamMemberScope[]
+  teamInviteScopes TeamInviteScope[]
+  smartGroups   SmartGroup[]
   memberRoles   MemberRole[]
   plans         MembershipPlan[]
   members       Member[]
@@ -262,6 +317,8 @@ model Organisation {
   taxDocuments    TaxDocument[]
   documentCounters DocumentCounter[]
   cardDesigns   CardDesign[]
+  cardTemplates CardTemplate[]
+  cardBrandKit  CardBrandKit?
   memberCards   MemberCard[]
   cardExports   CardExportJob[]
   page          OrganisationPage?
@@ -271,8 +328,16 @@ model Organisation {
   openingBalances OpeningBalance[]
   refundRequests RefundRequest[]
   emailSettings  OrgEmailSettings?
+  emailSuppressions EmailSuppression[]
   chatChannels   ChatChannel[]
   statsDirtyDays OrgStatsDirtyDay[]
+  webVisits      WebVisitDaily[]
+  messagingChannels MessagingChannel[]
+  messagingSettings OrgMessagingSettings?
+  whatsappTemplates WhatsAppTemplate[]
+  notificationEndpoints NotificationEndpoint[]
+  endpointChallenges NotificationEndpointChallenge[]
+  messagingConsents MessagingConsent[]
 
   @@index([status, createdAt])
   @@index([visibility, status])
@@ -313,16 +378,21 @@ model TeamInvite {
   expiresAt       DateTime?
   usedAt          DateTime?
   usedByUserId    String?
+  /// The one email an account was created for through this invite while new sign-ups were off (one account per invite).
+  signupEmail     String?
 
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   orgRole      OrgRole      @relation(fields: [organisationId, roleId], references: [organisationId, id], onDelete: Restrict, onUpdate: Restrict)
   unit         OrgUnit?     @relation(fields: [organisationId, unitId], references: [organisationId, id], onDelete: Restrict, onUpdate: Restrict)
   createdBy    User?        @relation("TeamInviteCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
   usedBy       User?        @relation("TeamInviteUsedBy", fields: [usedByUserId], references: [id], onDelete: SetNull)
+  scopes       TeamInviteScope[]
 
+  @@unique([organisationId, id])
   @@index([organisationId])
   @@index([organisationId, roleId])
   @@index([organisationId, createdAt])
+  @@index([expiresAt])
   @@index([usedAt])
 }
 
@@ -344,7 +414,10 @@ model TeamMember {
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   orgRole      OrgRole      @relation(fields: [organisationId, roleId], references: [organisationId, id], onDelete: Restrict, onUpdate: Restrict)
   unit         OrgUnit?     @relation(fields: [organisationId, unitId], references: [organisationId, id], onDelete: Restrict, onUpdate: Restrict)
+  /// Grouping limits, ANDed with the unit limit (lib/membership/scope.ts).
+  scopes       TeamMemberScope[]
 
+  @@unique([organisationId, id])
   @@unique([userId, organisationId])
   @@index([organisationId])
   @@index([organisationId, roleId])
@@ -435,6 +508,7 @@ model OutboxMessage {
 
   @@index([status, availableAt])
   @@index([createdAt])
+  @@index([status, sentAt])
 }
 
 /// One-row operational state for scheduled work, separate from the human audit trail.
@@ -448,13 +522,50 @@ model OperationalHeartbeat {
   updatedAt       DateTime  @updatedAt
 }
 
+/// In-house page-visit counts (product rules §8.1): counts only, never people. No IP, user id, session id or URL.
+/// organisationId is null for platform pages. NULLs are distinct in the composite unique index, so platform rows are
+/// kept unique by the partial index WebVisitDaily_platform_key (migration 0022): upsert them with raw SQL
+/// INSERT ... ON CONFLICT ("day","route","channel") WHERE "organisationId" IS NULL DO UPDATE.
+model WebVisitDaily {
+  id             String        @id @default(cuid())
+  organisationId String?
+  /// UTC day.
+  day            DateTime      @db.Date
+  /// Approved route template only, e.g. "/o/:orgSlug".
+  route          String
+  channel        String        @default("web")
+  count          Int           @default(0)
+  organisation   Organisation? @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@unique([organisationId, day, route, channel])
+  @@index([day])
+}
+
 /// Instance-wide, super-admin-managed controls. The singleton row is created on first change.
 model InstanceSetting {
   id                    String   @id
+  /// Public ids for optional outside analytics providers (product rules §8.2). Validated by lib/telemetry; never secrets.
+  webTelemetry          Json?
   allowNewUserSignups   Boolean  @default(true)
   /// Self-service organisation applications (/start). Super-admins can always create organisations.
   allowOrganisationApplications Boolean @default(true)
-  emailFrom             String?
+  /// Sign-in method switches (one platform singleton). Each is an AND in front of that method's configuration:
+  /// switching one on never makes an unconfigured method work, and switching one off never deletes credentials.
+  /// passwordSignIn never applies to super admins, who always sign in with a password.
+  /// Password is on by default; every other method is off until the operator switches it on (product rules §15).
+  passwordSignIn        Boolean  @default(true)
+  googleSignIn          Boolean  @default(false)
+  appleSignIn           Boolean  @default(false)
+  githubSignIn          Boolean  @default(false)
+  supabaseSignIn        Boolean  @default(false)
+  firebaseSignIn        Boolean  @default(false)
+  /// Generic OIDC and SAML switches; each provider's own `enabled` flag is its switch (OidcProvider, SamlProvider).
+  oidcSignIn            Boolean  @default(false)
+  samlSignIn            Boolean  @default(false)
+  /// Passkeys and phone codes: switches reserved now; the methods are not installed yet.
+  passkeySignIn         Boolean  @default(false)
+  phoneSignIn           Boolean  @default(false)
+  emailFrom            String?
   smtpService           String?
   smtpHost              String?
   smtpPort              Int?
@@ -462,7 +573,21 @@ model InstanceSetting {
   smtpUser              String?
   smtpPasswordEncrypted String?
   smtpAllowUnauthenticated Boolean @default(false)
-  googleClientId        String?
+  /// Outgoing email provider (product rules §16): smtp, ses, resend or postmark. Null: the environment decides.
+  emailProvider         String?
+  /// Encrypted JSON of the provider fields and secrets (lib/email/providerConfig.ts); never returned to the browser.
+  emailProviderConfigEncrypted String?
+  emailVerifiedAt       DateTime?
+  emailLastError        String?
+  /// Outgoing SMS provider (product rules §16): twilio or msg91. Null: the environment decides.
+  smsProvider           String?
+  /// Encrypted JSON of the SMS provider fields and secrets (lib/sms/config.ts); never returned to the browser.
+  smsConfigEncrypted    String?
+  smsVerifiedAt         DateTime?
+  smsLastError          String?
+  /// Organisations may send member messages through the platform's own channels when they have none of their own.
+  messagingOrgsMayUsePlatform Boolean @default(true)
+  googleClientId       String?
   googleClientSecretEncrypted String?
   githubClientId        String?
   githubClientSecretEncrypted String?
@@ -583,6 +708,9 @@ model MembershipPlan {
   joinPhoto           String           @default("OFF")
   joinFields          Json             @default("{}")
   paymentTiming       PaymentTiming    @default(PAY_THEN_ACTIVATE)
+  paymentMode         PaymentMode      @default(ONLINE_OR_IN_HAND)
+  /// Renewal conditions, validated by lib/membership/renewalPolicy.ts.
+  renewalPolicy       Json             @default("{}")
   /// When false, only members of the units in PlanUnit may join.
   allUnits            Boolean          @default(true)
   sortOrder           Int              @default(0)
@@ -632,8 +760,11 @@ model PlanField {
   /// Only managers see and fill it; never on the public form.
   adminOnly      Boolean       @default(false)
   sortOrder      Int           @default(0)
+  /// For GROUPING questions: the grouping the answer chooses from.
+  groupingId     String?
 
   plan MembershipPlan @relation(fields: [organisationId, planId], references: [organisationId, id], onDelete: Cascade)
+  grouping OrgGrouping? @relation(fields: [organisationId, groupingId], references: [organisationId, id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([planId, key])
 }
@@ -675,9 +806,11 @@ model Member {
   refundRequests RefundRequest[]
   cards        MemberCard[]
   erasureRequests ErasureRequest[]
+  groupingValues MemberGroupingValue[]
 
   @@unique([organisationId, id])
   @@unique([organisationId, email])
+  messageLogs MemberMessageLog[]
   @@unique([organisationId, memberNumber])
   @@index([userId])
   @@index([organisationId, unitId])
@@ -735,6 +868,11 @@ model MembershipTerm {
 
   @@unique([organisationId, id])
   @@index([organisationId, status, endsAt])
+  @@index([status, endsAt])
+  @@index([status, startsAt])
+  @@index([status, graceUntil])
+  @@index([status, paymentDueBy])
+  @@index([renewedFromId, status])
   @@index([organisationId, createdAt])
   @@index([memberId, planId])
 }
@@ -1128,10 +1266,46 @@ model CardDesign {
   organisation Organisation    @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   plan         MembershipPlan? @relation(fields: [organisationId, planId], references: [organisationId, id], onDelete: Cascade)
   role         MemberRole?     @relation(fields: [organisationId, roleId], references: [organisationId, id], onDelete: Cascade)
+  versions     CardDesignVersion[]
 
   @@unique([organisationId, id])
   @@unique([organisationId, planId])
   @@unique([organisationId, roleId])
+}
+
+/// A saved state of a card design (lib/cards/versions.ts): DRAFT snapshots are coalesced to one per 10 minutes,
+/// every approval is kept as APPROVED, and each design keeps its 30 newest.
+model CardDesignVersion {
+  id             String   @id @default(cuid())
+  organisationId String
+  cardDesignId   String
+  /// DRAFT or APPROVED.
+  kind           String
+  design         Json
+  numberPrefix   String
+  numberFormat   String
+  createdById    String?
+  createdAt      DateTime @default(now())
+
+  cardDesign CardDesign @relation(fields: [organisationId, cardDesignId], references: [organisationId, id], onDelete: Cascade)
+
+  @@index([organisationId, cardDesignId, createdAt])
+}
+
+/// An organisation's own card template (app/actions/card-templates.ts): both sides, at most 50 per organisation.
+model CardTemplate {
+  id             String   @id @default(cuid())
+  organisationId String
+  /// 1 to 60 characters.
+  name           String
+  design         Json
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@index([organisationId, createdAt])
 }
 
 /// A member's card for one plan. The verify token sits in the QR and is unguessable; renewals keep the
@@ -1393,6 +1567,9 @@ model OrgEmailSettings {
   smtpSecure            Boolean   @default(false)
   smtpUser              String?
   smtpPasswordEncrypted String?
+  /// smtp, ses, resend or postmark; the provider fields live encrypted in providerConfigEncrypted.
+  emailProvider         String    @default("smtp")
+  providerConfigEncrypted String?
   verifiedAt            DateTime?
   updatedAt             DateTime  @updatedAt
 
@@ -1405,6 +1582,28 @@ enum ChatChannelKind {
   MATTERMOST
   TELEGRAM
   WHATSAPP
+  WEBHOOK
+}
+
+enum EmailSuppressionReason {
+  BOUNCE
+  COMPLAINT
+}
+
+/// Addresses a provider reported as bounced or complained about; sends skip them. organisationId null is the
+/// platform account's list; an organisation with its own provider keeps its own (lib/email/suppression.ts).
+model EmailSuppression {
+  id             String                 @id @default(cuid())
+  organisationId String?
+  address        String
+  reason         EmailSuppressionReason
+  provider       String
+  createdAt      DateTime               @default(now())
+
+  organisation Organisation? @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@unique([organisationId, address])
+  @@index([createdAt])
 }
 
 /// A chat destination for team alerts. Webhook URLs, bot tokens and WhatsApp credentials live encrypted in
@@ -1433,6 +1632,39 @@ model ChatChannel {
 
 /// A browser that has signed in to an account before, recognised by a long-lived cookie stored only as a hash.
 /// A sign-in from anywhere else needs an emailed code (accounts without an authenticator) and sends an alert.
+/// A WebAuthn credential a person registered from a signed-in session. Only the public key is stored.
+model Passkey {
+  id           String    @id @default(cuid())
+  userId       String
+  /// Base64url credential id.
+  credentialId String    @unique
+  publicKey    Bytes
+  /// The authenticator's signature counter; 0 for authenticators that do not count.
+  counter      BigInt    @default(0)
+  transports   String[]  @default([])
+  /// "singleDevice" or "multiDevice".
+  deviceType   String
+  backedUp     Boolean   @default(false)
+  name         String
+  createdAt    DateTime  @default(now())
+  lastUsedAt   DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// A short-lived, single-use WebAuthn challenge: `reg:<userId>` for registration, `sin:<hash of cookie token>` for sign-in.
+model PasskeyChallenge {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  kind      String
+  challenge String
+  expiresAt DateTime
+
+  @@index([expiresAt])
+}
+
 model KnownDevice {
   id          String   @id @default(cuid())
   userId      String
@@ -1443,6 +1675,7 @@ model KnownDevice {
   lastSeenAt  DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userSessions UserSession[]
 
   @@index([userId, lastSeenAt])
 }
@@ -1455,10 +1688,360 @@ model OrgEmailTemplate {
   subject        String
   heading        String
   body           String
+  /// Short text for SMS, WhatsApp, Telegram, Slack, Discord and Mattermost; empty uses the standard short text.
+  shortText      String   @default("")
   updatedById    String?
   updatedAt      DateTime @updatedAt
 
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
 
   @@id([organisationId, kind])
+}
+
+// ── Sign-in and identity (D1a, product rules §15) ─────────────────────────────
+
+/// An operator-level OpenID Connect provider. The client secret is write-only (encrypted like other instance secrets).
+model OidcProvider {
+  id                    String   @id @default(cuid())
+  /// Lowercase letters, digits and hyphens. The Auth.js provider id and Account.provider are "oidc:<id>" (this row's id, never the slug); callbacks are /api/auth/callback/oidc:<id>.
+  slug                  String   @unique
+  name                  String
+  /// https issuer; its discovery document is fetched at sign-in.
+  issuer                String
+  clientId              String
+  clientSecretEncrypted String
+  scopes                String   @default("openid email profile")
+  enabled               Boolean  @default(false)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+}
+
+/// An operator-level SAML 2.0 identity provider (service-provider side only). The certificate is the IdP's public key.
+model SamlProvider {
+  id                    String   @id @default(cuid())
+  slug                  String   @unique
+  name                  String
+  /// The IdP's entity id (issuer of its assertions).
+  entityId              String
+  ssoUrl                String
+  idpCertificate        String   @db.Text
+  /// Our entity id towards this IdP; defaults to the metadata URL when empty.
+  spEntityId            String?
+  enabled               Boolean  @default(false)
+  wantAssertionsSigned  Boolean  @default(true)
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  loginStates           SamlLoginState[]
+}
+
+/// Short-lived, single-use SAML state: "request" rows hold an AuthnRequest id (checked as InResponseTo); "ticket" rows
+/// hold the validated identity between the ACS route and Auth.js, keyed by the sha256 of a random ticket.
+model SamlLoginState {
+  id          String       @id @default(cuid())
+  kind        String
+  /// Request id, or the ticket's sha256.
+  key         String       @unique
+  providerId  String
+  /// Request: the validated same-site callback path. Ticket: { email, name, subject }.
+  payload     Json
+  expiresAt   DateTime
+  provider    SamlProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+/// One phone code (sign-in or number verification), or the record that one was asked for. Rows are also the send log
+/// the per-number and per-country limits count, so a request for a number with no account leaves one too (no `userId`,
+/// no code, nothing sent). The number is kept only as an HMAC; the code only as an HMAC. Purged after two days.
+model SmsCode {
+  id            String    @id @default(cuid())
+  /// SIGN_IN or VERIFY.
+  purpose       String
+  userId        String?
+  phoneHash     String
+  /// The country calling code (digits), for the per-country daily cap.
+  country       String
+  codeHash      String?
+  attempts      Int       @default(0)
+  expiresAt     DateTime
+  consumedAt    DateTime?
+  /// The provider's message id once it accepted the send; the idempotency guard and the delivery report's key.
+  providerRef   String?
+  /// queued, sent, delivered, undelivered or failed, from the provider's delivery report.
+  deliveryState String?
+  /// The provider's error code (a number or short word), never a number or a message.
+  deliveryError String?
+  createdAt     DateTime  @default(now())
+
+  @@index([createdAt])
+  @@index([phoneHash, createdAt])
+  @@index([country, createdAt])
+  @@index([providerRef])
+  @@index([expiresAt])
+}
+
+/// An extra way an organisation divides its members beyond the unit tree ("Profession", "Region"). A list or a tree
+/// of values; members choose values on the join form; staff can be limited to values (TeamMemberScope).
+model OrgGrouping {
+  id             String    @id @default(cuid())
+  organisationId String
+  /// Lowercase key, unique per organisation (used by imports and exports).
+  key            String
+  name           String
+  /// "list" or "tree" (values may have parents).
+  kind           String    @default("list")
+  /// A member may hold several values of this grouping.
+  multiple       Boolean   @default(false)
+  sortOrder      Int       @default(0)
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  organisation Organisation          @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  values       OrgGroupingValue[]
+  memberValues MemberGroupingValue[]
+  teamScopes   TeamMemberScope[]
+  inviteScopes TeamInviteScope[]
+  planFields   PlanField[]
+
+  @@unique([organisationId, id])
+  @@unique([organisationId, key])
+}
+
+model OrgGroupingValue {
+  id             String    @id @default(cuid())
+  organisationId String
+  groupingId     String
+  parentId       String?
+  label          String
+  /// 1 to 12 of A-Z and 0-9, unique within the grouping (imports and filters).
+  code           String
+  /// Ancestor ids joined by "/", ending with this value's own id (like OrgUnit.path).
+  path           String
+  level          Int       @default(0)
+  sortOrder      Int       @default(0)
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  organisation Organisation          @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  grouping     OrgGrouping           @relation(fields: [organisationId, groupingId], references: [organisationId, id], onDelete: Cascade)
+  parent       OrgGroupingValue?     @relation("GroupingValueTree", fields: [organisationId, parentId], references: [organisationId, id], onDelete: NoAction, onUpdate: NoAction)
+  children     OrgGroupingValue[]    @relation("GroupingValueTree")
+  memberValues MemberGroupingValue[]
+  teamScopes   TeamMemberScope[]
+  inviteScopes TeamInviteScope[]
+
+  @@unique([organisationId, id])
+  @@unique([organisationId, groupingId, id])
+  @@unique([groupingId, code])
+  @@index([organisationId, groupingId, path])
+}
+
+/// One value a member holds in one grouping. Written only through lib/groupings/memberValues.ts.
+model MemberGroupingValue {
+  id             String   @id @default(cuid())
+  organisationId String
+  memberId       String
+  groupingId     String
+  valueId        String
+  createdAt      DateTime @default(now())
+
+  organisation Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  member       Member           @relation(fields: [organisationId, memberId], references: [organisationId, id], onDelete: Cascade)
+  grouping     OrgGrouping      @relation(fields: [organisationId, groupingId], references: [organisationId, id], onDelete: Cascade)
+  value        OrgGroupingValue @relation(fields: [organisationId, groupingId, valueId], references: [organisationId, groupingId, id], onDelete: Cascade)
+
+  @@unique([memberId, valueId])
+  @@index([organisationId, groupingId, valueId])
+  @@index([memberId])
+}
+
+/// Limits a team member to a grouping value's subtree. Several rows for one grouping widen it (OR); different
+/// groupings and the unit limit narrow it (AND).
+model TeamMemberScope {
+  id             String   @id @default(cuid())
+  organisationId String
+  teamMemberId   String
+  groupingId     String
+  valueId        String
+  createdAt      DateTime @default(now())
+
+  organisation Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  teamMember   TeamMember       @relation(fields: [organisationId, teamMemberId], references: [organisationId, id], onDelete: Cascade)
+  grouping     OrgGrouping      @relation(fields: [organisationId, groupingId], references: [organisationId, id], onDelete: NoAction, onUpdate: NoAction)
+  value        OrgGroupingValue @relation(fields: [organisationId, groupingId, valueId], references: [organisationId, groupingId, id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([teamMemberId, valueId])
+  @@index([organisationId, teamMemberId])
+}
+
+model TeamInviteScope {
+  id             String   @id @default(cuid())
+  organisationId String
+  teamInviteId   String
+  groupingId     String
+  valueId        String
+  createdAt      DateTime @default(now())
+
+  organisation Organisation     @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  teamInvite   TeamInvite       @relation(fields: [organisationId, teamInviteId], references: [organisationId, id], onDelete: Cascade)
+  grouping     OrgGrouping      @relation(fields: [organisationId, groupingId], references: [organisationId, id], onDelete: NoAction, onUpdate: NoAction)
+  value        OrgGroupingValue @relation(fields: [organisationId, groupingId, valueId], references: [organisationId, groupingId, id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([teamInviteId, valueId])
+  @@index([organisationId, teamInviteId])
+}
+
+/// A saved condition over members (lib/groups/conditions.ts). Computed on demand, never stored per member.
+model SmartGroup {
+  id             String   @id @default(cuid())
+  organisationId String
+  name           String
+  description    String   @default("")
+  /// A condition tree validated by smartGroupConditionSchema.
+  condition      Json
+  createdById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  createdBy    User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([organisationId, id])
+  @@unique([organisationId, name])
+}
+
+/// A member-message channel's connection: the platform's (organisationId null) or an organisation's own. Secrets are
+/// encrypted in configEncrypted and never returned to the browser. SMS at platform level lives in InstanceSetting.
+model MessagingChannel {
+  id              String    @id @default(cuid())
+  organisationId  String?
+  /// SMS, WHATSAPP, TELEGRAM, SLACK, DISCORD or MATTERMOST.
+  channel         String
+  provider        String
+  configEncrypted String
+  enabled         Boolean   @default(true)
+  verifiedAt      DateTime?
+  lastError       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  organisation Organisation? @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@unique([organisationId, channel])
+}
+
+/// Per-organisation routing (kind to ordered channels) and quiet hours (minutes after midnight, organisation timezone).
+model OrgMessagingSettings {
+  organisationId   String    @id
+  routing          Json      @default("{}")
+  quietStartMinute Int?
+  quietEndMinute   Int?
+  lastDigestOn     DateTime? @db.Date
+  updatedAt        DateTime  @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+}
+
+/// The approved WhatsApp template a message kind uses in one language, with the ordered placeholder names that fill it.
+model WhatsAppTemplate {
+  id             String   @id @default(cuid())
+  organisationId String?
+  kind           String
+  language       String
+  name           String
+  variables      String[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation Organisation? @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@unique([organisationId, kind, language])
+}
+
+/// A person's verified address on a channel, in the scope of the bot or sender that reaches it (organisationId null: the platform's).
+model NotificationEndpoint {
+  id                String    @id @default(cuid())
+  userId            String
+  organisationId    String?
+  channel           String
+  /// HMAC of the identity: uniqueness without storing it in the clear.
+  identityDigest    String
+  /// The identity needed to send, encrypted.
+  identityEncrypted String
+  verifiedAt        DateTime
+  revokedAt         DateTime?
+  createdAt         DateTime  @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organisation Organisation? @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// A one-time code that links a chat account (or proves a phone) to a person. Only the keyed hash is stored.
+model NotificationEndpointChallenge {
+  id             String    @id
+  userId         String
+  organisationId String?
+  channel        String
+  codeHash       String
+  attempts       Int       @default(0)
+  expiresAt      DateTime
+  consumedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organisation Organisation? @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// A person's choice, per organisation and channel: OPTED_IN, or STOPPED (a STOP reply or the stop link).
+model MessagingConsent {
+  organisationId String
+  userId         String
+  channel        String
+  status         String
+  updatedAt      DateTime @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([organisationId, userId, channel])
+}
+
+/// One row per member message, once per dedupe key: what was sent and through which channel. No text, number or address.
+model MemberMessageLog {
+  id             String   @id @default(cuid())
+  organisationId String
+  memberId       String
+  kind           String
+  dedupeKey      String
+  status         String   @default("PENDING")
+  channel        String?
+  /// Channels that refused this message for good, so a retry moves on to the next one.
+  refused        String[]
+  providerRef    String?
+  deliveryState  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  member Member @relation(fields: [organisationId, memberId], references: [organisationId, id], onDelete: Cascade)
+
+  @@unique([organisationId, memberId, dedupeKey])
+  @@index([providerRef])
+  @@index([createdAt])
+}
+
+/// An organisation's brand kit for the card designer: logo variants (its own `organisation-logos` uploads), up to
+/// 12 colours and up to 4 card fonts. `kit` is normalised on every read and write (lib/cards/brandKit.ts).
+model CardBrandKit {
+  organisationId String   @id
+  kit            Json     @default("{}")
+  updatedById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
 }

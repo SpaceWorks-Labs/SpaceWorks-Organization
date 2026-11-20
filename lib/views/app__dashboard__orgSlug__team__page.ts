@@ -1,7 +1,8 @@
 import { headers } from "next/headers";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
-import { can, requireOrgCapability } from "@/lib/permissions";
+import { can, isScopedActor, requireOrgCapability } from "@/lib/permissions";
+import { loadPickerGroupings } from "@/lib/groupings/pickers";
 import { canGrant, roleCapabilities, STARTER_ROLES } from "@/lib/permissionRoles";
 import { teamScope, unitInScope } from "@/lib/membership/scope";
 import { mayGrant } from "@/lib/team/granting";
@@ -20,12 +21,12 @@ export async function loadOrgMembersView({ params, searchParams }: Props) {
   const requestedPage = Math.max(1, Number.parseInt((await searchParams).page ?? "1", 10) || 1);
   const { organisation, membership } = await requireOrgCapability(orgSlug, "org.view");
   const adminView = can(membership, "team.manage", { write: true });
-  const canGrantOrgWide = adminView && !membership.unitId;
+  const canGrantOrgWide = adminView && !isScopedActor(membership);
   const h = await headers();
   const now = new Date();
   const recentSince = new Date(now.getTime() - RECENT_DAYS * 86_400_000);
   const where = { organisationId: organisation.id };
-  const scope = await teamScope(organisation.id, membership.unitId);
+  const scope = await teamScope(organisation.id, membership);
   const [profile, memberCount, roleGroups, recentCount, latestJoiner, roles] = await Promise.all([
     prisma.organisation.findUniqueOrThrow({ where: { id: organisation.id }, select: { logoUrl: true, unitLevels: true } }),
     prisma.teamMember.count({ where }),
@@ -44,6 +45,7 @@ export async function loadOrgMembersView({ params, searchParams }: Props) {
     where,
     select: {
       id: true, userId: true, roleId: true, unitId: true, createdAt: true,
+      scopes: { select: { groupingId: true, valueId: true, grouping: { select: { name: true } }, value: { select: { label: true, path: true } } } },
       orgRole: { select: { name: true, isOwner: true, capabilities: true } },
       unit: { select: { name: true, path: true } },
       user: { select: { name: true, email: adminView } },
@@ -61,7 +63,7 @@ export async function loadOrgMembersView({ params, searchParams }: Props) {
     usedAt: null,
     AND: [
       { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
-      { OR: [...(membership.unitId ? [] : [{ unitId: null, roleId: { in: grantable(false) } }]), { unitId: { not: null }, roleId: { in: grantable(true) }, ...reach }] },
+      { OR: [...(isScopedActor(membership) ? [] : [{ unitId: null, roleId: { in: grantable(false) } }]), { unitId: { not: null }, roleId: { in: grantable(true) }, ...reach }] },
     ],
   };
   const [invites, openInviteCount] = adminView
@@ -118,7 +120,8 @@ export async function loadOrgMembersView({ params, searchParams }: Props) {
     unitName: m.unit?.name ?? null,
     joinedLabel: joinedFormatter.format(m.createdAt),
     isYou: m.userId === membership.userId,
-    manageable: adminView && m.userId !== membership.userId && !m.orgRole.isOwner && mayGrant(membership, scope, { role: m.orgRole, unitId: m.unitId, unitPath: m.unit?.path ?? null }),
+    manageable: adminView && m.userId !== membership.userId && !m.orgRole.isOwner && mayGrant(membership, scope, { role: m.orgRole, unitId: m.unitId, unitPath: m.unit?.path ?? null, limits: m.scopes.map((entry) => ({ groupingId: entry.groupingId, path: entry.value.path })) }),
+    limits: m.scopes.map((entry) => ({ valueId: entry.valueId, label: entry.value.label, groupingName: entry.grouping.name })),
   }));
   const visibleInvites = invites.map((invite) => ({ id: invite.id, token: invite.token, createdAt: invite.createdAt, grantLabel: grantLabel(invite.orgRole.name, invite.unit?.name) }));
   const transfer = can(membership, "ownership.transfer", { write: true })
@@ -131,9 +134,11 @@ export async function loadOrgMembersView({ params, searchParams }: Props) {
   return {
     organisation, profile, adminView, memberCount, roleCounts, recentCount, recentHint, openInviteCount, rows, membership, memberPages, memberPage, baseUrl,
     invites: visibleInvites, units, roleOptions, canGrantOrgWide, transfer, now,
+    groupings: adminView ? await loadPickerGroupings(scope) : [],
     offer: offer ? { token: offer.token, fromName: offer.fromUser.name ?? "The owner", keepRoleName: offer.keepRole.name, expiresLabel: expiryFormatter.format(offer.expiresAt) } : null,
     roles: roles.filter((role) => !role.archivedAt).map((role) => ({ id: role.id, name: role.name, description: role.description, isOwner: role.isOwner, holders: holders.get(role.id) ?? 0 })),
     canManageRoles: can(membership, "roles.manage", { write: true }),
+    canViewActivity: can(membership, "audit.view"),
   };
 }
 

@@ -8,23 +8,27 @@ import { useToast } from "@/components/feedback/ToastProvider";
 import { Button, buttonClasses } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/dialog";
 import { payHref } from "@/components/portal/Slots";
+import { RenewDetailsDialog, type RenewAsks } from "@/components/portal/RenewDetailsDialog";
 import type { WalletState } from "@/lib/portal/walletStatus";
 
 type Confirm = "withdraw" | "leave" | null;
 
 /** What a member can do with one membership right now: pay, renew or rejoin, call off, or leave. */
-export function MembershipActions({ organisationSlug, organisationName, planId, planName, actions, due }: {
+export function MembershipActions({ organisationSlug, organisationName, planId, planName, actions, due, reask = null }: {
   organisationSlug: string;
   organisationName: string;
   planId: string;
   planName: string;
   actions: WalletState["actions"];
   due: string | null;
+  /** What the plan asks again at renewal; the member confirms it before renewing. */
+  reask?: RenewAsks | null;
 }) {
   const router = useRouter();
   const { showToast } = useToast();
   const [confirm, setConfirm] = useState<Confirm>(null);
   const [busy, startTransition] = useTransition();
+  const [asking, setAsking] = useState(false);
 
   const run = (work: () => Promise<{ ok: boolean; error?: string }>, done: string) => startTransition(async () => {
     const result = await work();
@@ -34,13 +38,19 @@ export function MembershipActions({ organisationSlug, organisationName, planId, 
   });
 
   // After renewing, the refreshed wallet shows the Pay button for an unpaid term.
-  const renew = () => startTransition(async () => {
-    const result = await renewMembership({ organisationSlug, planId });
-    if (!result.ok) return showToast(result.error, "error");
-    const status = result.data?.status;
+  const renewed = (status: string | undefined) => {
     showToast(status === "PENDING_PAYMENT" ? "Renewal started. Pay to confirm it." : status === "PENDING_APPROVAL" ? `Sent to ${organisationName} for approval.` : "Renewed.", "success");
+    setAsking(false);
     router.refresh();
-  });
+  };
+  const renew = () => {
+    if (reask && actions.renew) return setAsking(true);
+    startTransition(async () => {
+      const result = await renewMembership({ organisationSlug, planId });
+      if (!result.ok) return showToast(result.error, "error");
+      renewed(result.data?.status);
+    });
+  };
 
   const withdrawing = actions.withdrawKind === "renewal" ? "renewal" : "application";
   const any = actions.payTermId || actions.renew || actions.rejoin || actions.withdrawTermId || actions.leave;
@@ -67,6 +77,7 @@ export function MembershipActions({ organisationSlug, organisationName, planId, 
         <Button size="sm" variant="dangerQuiet" onClick={() => setConfirm("leave")}>Leave</Button>
       ) : null}
 
+      {reask ? <RenewDetailsDialog open={asking} onClose={() => setAsking(false)} organisationSlug={organisationSlug} planId={planId} planName={planName} asks={reask} onRenewed={renewed} /> : null}
       <ConfirmDialog
         open={confirm === "withdraw"}
         title={withdrawing === "renewal" ? "Cancel this renewal?" : "Withdraw this application?"}

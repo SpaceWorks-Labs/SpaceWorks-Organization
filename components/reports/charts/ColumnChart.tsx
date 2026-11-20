@@ -9,7 +9,7 @@ type ColumnSeries = { key: string; label: string; slot: number | "muted"; values
 
 type ColumnChartProps = {
   labels: string[];
-  /** One to three series, drawn side by side in each slot. */
+  /** One to three series, drawn side by side in each slot (series slots 1–5; never danger). */
   series: ColumnSeries[];
   ariaLabel: string;
   format?: ValueFormat;
@@ -61,13 +61,13 @@ export function ColumnChart({ labels, series, ariaLabel, format = "number", heig
               <text x={left - 8} y={yOf(tick)} dy="0.32em" textAnchor="end" className="fill-ink-muted text-[12px] tabular-nums">{formatTick(tick, format)}</text>
             </g>
           ))}
-          {focus.index !== null ? <rect x={left + slot * focus.index} y={TOP} width={slot} height={height} fill="var(--chart-grid)" opacity={0.6} /> : null}
+          {focus.index !== null ? <rect x={left + slot * focus.index} y={TOP} width={slot} height={height} fill="var(--chart-hover)" /> : null}
           {labels.map((label, index) => (
             <g key={`${label}-${index}`}>
               {series.map((entry, s) => {
                 const value = entry.values[index] ?? 0;
                 const x = xOf(index) - group / 2 + s * (bar + GAP);
-                return <path key={entry.key} data-series={entry.key} d={barPath(x, yOf(value), bar, yOf(0) - yOf(value))} fill={slotColor(entry.slot)} />;
+                return <path key={entry.key} data-series={entry.key} d={barPath(x, yOf(value), bar, yOf(0) - yOf(value))} fill={slotColor(entry.slot)} stroke="var(--chart-edge)" strokeWidth={1} />;
               })}
               {index % stride === 0 ? <text x={xOf(index)} y={TOP + height + 16} textAnchor="middle" className="fill-ink-muted text-[12px]">{label}</text> : null}
             </g>
@@ -77,7 +77,7 @@ export function ColumnChart({ labels, series, ariaLabel, format = "number", heig
           ) : null}
         </svg>
         {focus.index !== null ? (
-          <ChartTooltip title={labels[focus.index]} x={xOf(focus.index)} width={width} rows={series.map((entry) => ({ label: entry.label, value: formatValue(entry.values[focus.index!] ?? 0, format), slot: entry.slot, shape: "rect" }))} />
+          <ChartTooltip announce={focus.fromKeyboard} title={labels[focus.index]} x={xOf(focus.index)} width={width} rows={series.map((entry) => ({ label: entry.label, value: formatValue(entry.values[focus.index!] ?? 0, format), slot: entry.slot, shape: "rect" }))} />
         ) : null}
       </div>
     </div>

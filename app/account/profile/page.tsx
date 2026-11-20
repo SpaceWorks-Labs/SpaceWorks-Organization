@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { AccountProfileForm } from "@/components/account/AccountProfileForm";
 import { AccountEmailCard } from "@/components/account/AccountEmailCard";
 import { AccountAppearanceCard } from "@/components/account/AccountAppearanceCard";
+import { SectionHeading } from "@/components/ui/display";
 
 export const metadata: Metadata = { title: "Your profile" };
 
@@ -10,6 +11,7 @@ export default async function AccountProfilePage() {
   const { user } = await loadAccountProfileView();
   return (
     <div className="flex flex-col gap-6">
+      <SectionHeading as="h1" title="Profile" description="Your name, photo, email and how the app looks for you." />
       <AccountProfileForm
         initialName={user.name ?? ""}
         email={user.email}

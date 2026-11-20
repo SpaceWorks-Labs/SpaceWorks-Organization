@@ -3,6 +3,7 @@ import type { OrgReportsMembers } from "@/lib/views/app__dashboard__orgSlug__rep
 import { formatValue } from "@/lib/reports/chartScale";
 import { TermStatusChip } from "@/components/members/TermStatusChip";
 import { buttonClasses } from "@/components/ui/button";
+import { SearchField } from "@/components/ui/search-field";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { cn } from "@/lib/cn";
 import { BarList } from "./charts/BarList";
@@ -90,13 +91,13 @@ export function MemberRegister({ view }: { view: View }) {
       </div>
       <nav aria-label="Filter the register" className="flex flex-wrap gap-2">
         {STANDING_TABS.map((tab) => (
-          <Link key={tab.key} href={link({ standing: tab.key === "all" ? "" : tab.key, page: "" })} aria-current={register.standing === tab.key ? "page" : undefined} className={cn("inline-flex min-h-9 items-center rounded-full border px-3.5 text-sm transition-colors", register.standing === tab.key ? "border-primary bg-primary font-semibold text-on-primary" : "border-line bg-panel text-ink hover:bg-muted")}>
+          <Link key={tab.key} href={link({ standing: tab.key === "all" ? "" : tab.key, page: "" })} aria-current={register.standing === tab.key ? "page" : undefined} className={cn("inline-flex min-h-11 items-center rounded-control border px-3.5 text-sm transition-colors", register.standing === tab.key ? "border-primary bg-primary font-semibold text-on-primary" : "border-line bg-panel text-ink hover:bg-muted")}>
             {tab.label}
           </Link>
         ))}
-        <form action={base} className="ml-auto flex min-w-0 gap-2">
+        <form action={base} role="search" className="ml-auto flex min-w-0 gap-2">
           {[...new URLSearchParams(link({ q: "", page: "" }).split("?")[1] ?? "")].map(([key, value]) => <input key={key} type="hidden" name={key} value={value} />)}
-          <input name="q" defaultValue={register.q} placeholder="Name or number" aria-label="Search the register" className="min-h-9 w-44 rounded-full border border-line bg-panel px-3.5 text-sm text-ink placeholder:text-ink-muted" />
+          <SearchField name="q" defaultValue={register.q} placeholder="Name or number" aria-label="Search the register" className="w-56 max-w-full" />
           <button type="submit" className={buttonClasses({ variant: "secondary", size: "sm" })}>Search</button>
         </form>
       </nav>

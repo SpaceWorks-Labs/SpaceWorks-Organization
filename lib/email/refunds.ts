@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { staffWithCapability } from "@/lib/team/roles";
 import { money } from "@/lib/membership/describe";
 import { absoluteUrl, sendBrandedEmail } from "./message";
+import { deliverMemberMessage } from "@/lib/notify/deliver";
 
 const REFUND_EVENTS = ["requested", "approved", "declined"] as const;
 type RefundEvent = (typeof REFUND_EVENTS)[number];
@@ -28,7 +29,7 @@ export async function deliverRefundNotice(payload: RefundPayload, messageId: str
     where: { id: payload.requestId, organisationId: payload.organisationId },
     include: {
       organisation: { select: { name: true, slug: true, locale: true } },
-      member: { select: { memberNumber: true } },
+      member: { select: { memberNumber: true, name: true } },
       term: { select: { plan: { select: { name: true } } } },
       refund: { select: { amountMinor: true, status: true } },
     },
@@ -60,9 +61,7 @@ export async function deliverRefundNotice(payload: RefundPayload, messageId: str
   if (!user?.email || !user.emailVerified) return "dropped";
   const approved = payload.event === "approved";
   const refunded = request.refund ? amount(request.refund.amountMinor) : amount(request.suggestedMinor);
-  await sendBrandedEmail({ organisationId: payload.organisationId,
-    to: user.email,
-    messageId,
+  const email = {
     subject: approved ? `${org.name} approved your refund` : `${org.name} declined your refund request`,
     heading: approved ? "Refund approved" : "Refund request declined",
     paragraphs: approved
@@ -73,6 +72,9 @@ export async function deliverRefundNotice(payload: RefundPayload, messageId: str
       ]
       : [`${org.name} declined your refund request, so you stay on ${request.term.plan.name}.`, ...(request.decisionNote ? [`Their note: ${request.decisionNote}`] : [])],
     action: { label: "See your membership", url: absoluteUrl(`/account/memberships/${org.slug}`) },
-  });
-  return "sent";
+  };
+  // Through the organisation's routing for "refund decided" (email by default); the email keeps the decision's own text.
+  const first = request.member.name.split(/\s+/)[0] || request.member.name;
+  const values = { name: first, organisation: org.name, plan: request.term.plan.name, amount: refunded };
+  return deliverMemberMessage({ organisationId: payload.organisationId, memberId: request.memberId, kind: "refund-decided", values, dedupeKey: `refund:${messageId}` }, messageId, { email });
 }

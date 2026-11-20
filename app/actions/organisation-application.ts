@@ -127,6 +127,9 @@ export async function resubmitOrganisationApplication(input: unknown): Promise<A
   if (!membership) return { ok: false, error: "Organisation not found." };
   if (!can(membership, "org.settings", { write: true })) return { ok: false, error: "Only owners and managers can update the application." };
   if (!(await hasAuthenticator(userId))) return { ok: false, error: STAFF_AUTHENTICATOR_MESSAGE };
+  if (membership.superAdmin) {
+    await recordAuditEvent({ action: "SUPER_ADMIN_ORG_ACTION", actorUserId: userId, organisationId: organisation.id, targetType: "Organisation", targetId: organisation.id, metadata: { capability: "org.settings" } });
+  }
 
   const outcome = await prisma.$transaction(async (tx) => {
     // Lock the row so a platform admin's decision and this resubmission can't cross.

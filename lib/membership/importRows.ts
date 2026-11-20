@@ -7,10 +7,11 @@ import { readRow, type ImportRow, type ImportTarget } from "./importMapping";
 import { pathWithin } from "./planUnits";
 import { importAnswers } from "./importAnswers";
 import type { QuestionPlan } from "./planAnswers";
+import { resolveImportGroupings, type GroupingLookup, type ImportedGrouping } from "@/lib/groupings/importValues";
 
 export type ImportUnit = { id: string; name: string; slug: string; code: string; path: string };
 export type ImportRole = { id: string; name: string; unitPath: string | null };
-export type CheckedRow = { rowNumber: number; row: ImportRow; unit: ImportUnit | null; role: ImportRole | null };
+export type CheckedRow = { rowNumber: number; row: ImportRow; unit: ImportUnit | null; role: ImportRole | null; groupings: ImportedGrouping[] };
 export type RowProblem = { row: number; reason: string };
 
 /**
@@ -20,9 +21,11 @@ export type RowProblem = { row: number; reason: string };
  * the unit path of each member already holding one of the file's emails), a role limited to another part of
  * the organisation, or an answer the questions refuse (`answers`: every plan's questions, and the stored answers
  * of the file's existing members by email).
+ * `blind` (the preview): a member filed outside the importer's reach is treated exactly like a new email, so the
+ * preview never confirms whether such a person exists; the import checks the real row again.
  * Row numbers count the header as row 1, as a spreadsheet shows them.
  */
-export function checkImportRows(rows: string[][], mapping: ImportTarget[], context: { units: ImportUnit[]; roles: ImportRole[]; scopePath: string | null; existing?: Map<string, string | null>; answers?: { plans: readonly QuestionPlan[]; stored: Map<string, Record<string, unknown>> } }) {
+export function checkImportRows(rows: string[][], mapping: ImportTarget[], context: { units: ImportUnit[]; roles: ImportRole[]; scopePath: string | null; existing?: Map<string, string | null>; blind?: boolean; groupings?: GroupingLookup; answers?: { plans: readonly QuestionPlan[]; stored: Map<string, Record<string, unknown>> } }) {
   const ready: CheckedRow[] = [];
   const problems: RowProblem[] = [];
   const seen = new Map<string, number>();
@@ -43,7 +46,9 @@ export function checkImportRows(rows: string[][], mapping: ImportTarget[], conte
     }
     seen.set(row.email, rowNumber);
     // Updating a member filed elsewhere would move them into the importer's unit: out of reach, like a new row.
-    const existingPath = context.existing?.has(row.email) ? context.existing.get(row.email) ?? null : undefined;
+    const heldPath = context.existing?.has(row.email) ? context.existing.get(row.email) ?? null : undefined;
+    const hidden = Boolean(context.blind && context.scopePath && heldPath !== undefined && !(heldPath && pathWithin(heldPath, context.scopePath)));
+    const existingPath = hidden ? undefined : heldPath;
     if (context.scopePath && existingPath !== undefined && !(existingPath && pathWithin(existingPath, context.scopePath))) {
       flag("Outside your unit");
       continue;
@@ -69,12 +74,17 @@ export function checkImportRows(rows: string[][], mapping: ImportTarget[], conte
       flag(`${role.name} isn't offered in this member's unit`);
       continue;
     }
-    const answers = context.answers && Object.keys(row.fieldValues).length ? importAnswers(context.answers.plans, context.answers.stored.get(row.email) ?? {}, row.fieldValues) : null;
+    const answers = context.answers && Object.keys(row.fieldValues).length ? importAnswers(context.answers.plans, (!hidden && context.answers.stored.get(row.email)) || {}, row.fieldValues) : null;
     if (answers && "error" in answers) {
       flag(answers.error);
       continue;
     }
-    ready.push({ rowNumber, row, unit, role });
+    const grouped = resolveImportGroupings(context.groupings, row.groupings);
+    if ("error" in grouped) {
+      flag(grouped.error);
+      continue;
+    }
+    ready.push({ rowNumber, row, unit, role, groupings: grouped.groupings });
   }
   return { ready, problems };
 }

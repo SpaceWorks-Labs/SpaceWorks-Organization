@@ -11,7 +11,7 @@ const OPTIONS = [
   { value: "dark", label: "Dark", icon: <Moon aria-hidden /> },
 ] as const satisfies ReadonlyArray<{ value: ColorMode; label: string; icon: React.ReactNode }>;
 
-/** Colour mode for this browser: light or dark (there is no System option). */
+/** Colour mode for this browser: Light or Dark (owner decision 2026-11-19; no System). */
 export function AccountAppearanceCard() {
   const { mode, setColorMode } = useAppColorMode();
   return (
@@ -20,7 +20,8 @@ export function AccountAppearanceCard() {
         <SegmentedControl<ColorMode>
           ariaLabel="Colour mode"
           value={mode}
-          onValueChange={(next) => setColorMode(next)}
+          // The reveal grows from the segment just chosen (it has focus).
+          onValueChange={(next) => setColorMode(next, document.activeElement)}
           options={OPTIONS}
           className="self-start"
         />

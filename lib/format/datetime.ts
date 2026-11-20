@@ -121,3 +121,32 @@ export function viewerTimeZone() {
     return "UTC";
   }
 }
+
+/** "13 Oct" — day and month only, for short tables inside one reporting period. */
+export function formatDayMonth(value: DateInput, timeZone: string) {
+  const list = parts(value, timeZone, { day: "numeric", month: "short" });
+  return `${pick(list, "day")} ${pick(list, "month")}`;
+}
+
+/** "13 Oct 2026, 9:30 AM IST" — a timestamp in the organisation's timezone, always labelled with the zone. */
+export function formatStamp(value: DateInput, timeZone: string) {
+  return `${formatDate(value, timeZone)}, ${formatTime(value, timeZone)} ${formatTimeZoneName(value, timeZone)}`;
+}
+
+/** "13 Oct 2026, 9:30 AM UTC" — platform pages, which belong to no organisation, show UTC and say so. */
+export function formatUtcStamp(value: DateInput) {
+  return formatStamp(value, "UTC");
+}
+
+/** "1,23,456" — counts. Indian digit grouping by default, like the rest of the product's figures. */
+export function formatCount(value: number, locale = "en-IN") {
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: 0 }).format(value);
+}
+
+/**
+ * The organisation's timezone from a page view that carries one (`timeZone`), else "UTC". Lets report pages pass it
+ * through as soon as their loader exposes it, and keeps UTC (labelled where a time is shown) until then.
+ */
+export function timeZoneOf(view: object): string {
+  return "timeZone" in view && typeof view.timeZone === "string" && view.timeZone ? view.timeZone : "UTC";
+}

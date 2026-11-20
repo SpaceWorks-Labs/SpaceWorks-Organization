@@ -9,19 +9,26 @@ import { Menu as MenuIcon, X } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Button, IconButton } from "@/components/ui/button";
 import { SpaceWorksProductLogo, SpaceWorksLogo } from "@/components/brand/SpaceWorksLogo";
+import { ExternalLink, InstallCommand, PROJECT_LINKS, ProjectMenu } from "@/components/marketing/ProjectLinks";
+import { DOCS_PATH, GITHUB_URL } from "@/lib/openSource";
 import { ColorModeToggle } from "./ColorModeToggle";
 
 const primaryLinks = [
-  { href: "/#how-it-works", label: "How it works", guestOnly: false },
-  { href: "/organisations", label: "Organisations", guestOnly: false },
-  { href: "/#self-host", label: "Self-host", guestOnly: false },
+  { href: "/features", label: "Features" },
+  { href: "/organisations", label: "Organisations" },
+  { href: DOCS_PATH, label: "Docs" },
 ];
+
+const navLinkClasses =
+  "inline-flex min-h-11 items-center whitespace-nowrap rounded-control px-3 text-label text-ink-secondary transition-colors duration-(--sw-dur-fast) hover:bg-surface hover:text-ink";
+const sheetLinkClasses = "flex min-h-12 items-center gap-2 rounded-md px-3 text-body font-medium text-ink";
 
 /**
  * The Space Works logo plus the product name "Organization", as a home link (site
  * header, auth pages, app shell, super admin). Below `sm` the symbol stands in
  * for the horizontal lockup so the bar keeps room for its controls. `stacked`
- * puts "Organization" under the lockup, for the narrow dashboard sidebar.
+ * puts "Organization" under the lockup, for the narrow dashboard sidebar. The landing splash lands on the
+ * lockup's symbol (`data-splash-target`, components/marketing/splashFlight.ts).
  */
 export function BrandHomeLink({ href = "/", stacked = false, className }: { href?: string; stacked?: boolean; className?: string }) {
   if (stacked) {
@@ -33,41 +40,43 @@ export function BrandHomeLink({ href = "/", stacked = false, className }: { href
     );
   }
   return (
-    <Link href={href} aria-label="Space Works Organization home" className={cn("inline-flex shrink-0 items-center gap-3 rounded-md", className)}>
+    <Link href={href} aria-label="Space Works Organization home" data-splash-target="" className={cn("inline-flex shrink-0 items-center gap-3 rounded-md", className)}>
       <SpaceWorksLogo variant="app-icon" height={36} label={null} className="sm:hidden" />
       <SpaceWorksProductLogo height={32} label={null} className="hidden sm:inline-flex" />
     </Link>
   );
 }
 
-/** The Space Works Organization site header (docs/DESIGN.md): home, how it works, self-hosting and sign-in. */
+/**
+ * The Space Works Organization site header (docs/DESIGN.md, product rules §12.1): features, organisations, docs,
+ * GitHub and the project popover (latest release, changelog, licence and the install command), the colour-mode
+ * picker and sign-in. Below xl everything moves into a sheet over the kit's scrim.
+ */
 export function SiteHeader() {
   const pathname = usePathname();
   const { status } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const signedIn = status === "authenticated";
-  const links = primaryLinks.filter((link) => !(link.guestOnly && signedIn));
   const isActive = (href: string) => pathname === href || pathname?.startsWith(`${href}/`);
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-canvas">
-      <nav aria-label="Main navigation" className="mx-auto flex h-[76px] max-w-[1160px] items-center gap-2 px-4 sm:gap-8 sm:px-6 xl:px-0">
+      <nav aria-label="Main navigation" className="mx-auto flex h-[76px] max-w-[1440px] items-center gap-2 px-4 sm:gap-6 sm:px-6 xl:px-8">
         <BrandHomeLink />
         <ul className="hidden items-center gap-1 xl:flex">
-          {links.map((link) => (
+          {primaryLinks.map((link) => (
             <li key={link.href}>
-              <Link
-                href={link.href}
-                aria-current={isActive(link.href) ? "page" : undefined}
-                className={cn(
-                  "inline-flex min-h-11 items-center whitespace-nowrap rounded-control px-4 text-label text-ink-secondary transition-colors hover:bg-surface hover:text-ink",
-                  isActive(link.href) && "bg-surface font-semibold text-ink",
-                )}
-              >
+              <Link href={link.href} aria-current={isActive(link.href) ? "page" : undefined} className={cn(navLinkClasses, isActive(link.href) && "bg-surface font-semibold text-ink")}>
                 {link.label}
               </Link>
             </li>
           ))}
+          <li>
+            <ExternalLink href={GITHUB_URL} className={cn(navLinkClasses, "gap-1")}>GitHub</ExternalLink>
+          </li>
+          <li>
+            <ProjectMenu triggerClassName={navLinkClasses} />
+          </li>
         </ul>
         <div className="ml-auto flex items-center gap-2">
           <ColorModeToggle />
@@ -100,8 +109,8 @@ export function SiteHeader() {
               </IconButton>
             </DialogPrimitive.Trigger>
             <DialogPrimitive.Portal>
-              <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[rgb(var(--sw-color-ink)/0.48)] xl:hidden" />
-              <DialogPrimitive.Content className="fixed inset-x-0 top-0 z-50 rounded-b-xl border-b border-line bg-canvas p-4 shadow-float focus:outline-none xl:hidden">
+              <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-scrim/48 xl:hidden" />
+              <DialogPrimitive.Content className="fixed inset-x-0 top-0 z-50 max-h-dvh overflow-y-auto rounded-b-xl border-b border-line bg-canvas p-4 shadow-float focus:outline-none xl:hidden">
                 <DialogPrimitive.Title className="sr-only">Navigation</DialogPrimitive.Title>
                 <DialogPrimitive.Description className="sr-only">Site navigation links</DialogPrimitive.Description>
                 <div className="mb-3 flex items-center justify-between">
@@ -113,19 +122,25 @@ export function SiteHeader() {
                   </DialogPrimitive.Close>
                 </div>
                 <ul className="flex flex-col">
-                  {[...links, ...(signedIn ? [{ href: "/dashboard", label: "Dashboard" }, { href: "/account", label: "Account" }] : [])].map((link) => (
+                  {[...primaryLinks, ...(signedIn ? [{ href: "/dashboard", label: "Dashboard" }, { href: "/account", label: "Account" }] : [])].map((link) => (
                     <li key={link.href}>
                       <Link
                         href={link.href}
                         onClick={() => setMenuOpen(false)}
                         aria-current={isActive(link.href) ? "page" : undefined}
-                        className={cn("flex min-h-12 items-center rounded-md px-3 text-body font-medium text-ink", isActive(link.href) && "bg-surface font-semibold")}
+                        className={cn(sheetLinkClasses, isActive(link.href) && "bg-surface font-semibold")}
                       >
                         {link.label}
                       </Link>
                     </li>
                   ))}
+                  {PROJECT_LINKS.map((link) => (
+                    <li key={link.href}>
+                      <ExternalLink href={link.href} className={sheetLinkClasses}>{link.label}</ExternalLink>
+                    </li>
+                  ))}
                 </ul>
+                <InstallCommand className="mt-3 border-t border-line pt-3" />
                 <div className="mt-3 flex flex-col gap-2 border-t border-line pt-3">
                   {signedIn ? (
                     <Button variant="secondary" fullWidth onClick={() => { setMenuOpen(false); void signOut({ callbackUrl: "/" }); }}>

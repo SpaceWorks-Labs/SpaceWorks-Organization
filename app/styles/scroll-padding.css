@@ -1,0 +1,13 @@
+/* Focused fields and in-page links scroll clear of sticky bars: the 56px mobile top bar (below 1024px) and any
+   sticky save bar marked data-sticky-actions at the bottom of the page. */
+@layer base {
+  html:has([data-sticky-actions]) {
+    scroll-padding-bottom: 88px;
+  }
+
+  @media (max-width: 1023px) {
+    html {
+      scroll-padding-top: 56px;
+    }
+  }
+}

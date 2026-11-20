@@ -1,0 +1,32 @@
+# Cloudflare Tunnel (HTTPS answer 4): no Caddy, no published ports. The cloudflared connector dials out
+# to Cloudflare and forwards the public hostname to http://backend:3000 on the stack's edge network, so
+# nothing on this server listens on the internet. Cloudflare terminates HTTPS and sets cf-connecting-ip.
+# In the Cloudflare dashboard, set the tunnel's public hostname service to: HTTP  backend:3000
+# The token is read from CLOUDFLARE_TUNNEL_TOKEN in the private .env and passed as TUNNEL_TOKEN, so it
+# never appears in the container's command line.
+services:
+  caddy:
+    profiles: [proxy-disabled]
+  backend:
+    environment:
+      TRUSTED_PROXY_IP_HEADER: cf-connecting-ip
+  cloudflared:
+    image: cloudflare/cloudflared:2026.11.1
+    command: ["tunnel", "--no-autoupdate", "--metrics", "127.0.0.1:2000", "run"]
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN}
+    healthcheck:
+      test: ["CMD", "cloudflared", "tunnel", "--metrics", "127.0.0.1:2000", "ready"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      backend: {condition: service_healthy}
+    networks: [edge]

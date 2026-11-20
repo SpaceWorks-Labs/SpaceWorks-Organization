@@ -59,8 +59,8 @@ describe("leaveOrganisation", () => {
   });
 
   it("validates input", async () => {
-    await expect(leaveOrganisation({ organisationSlug: "" })).resolves.toMatchObject({ ok: false, error: "Invalid input." });
-    await expect(leaveOrganisation(null)).resolves.toMatchObject({ ok: false, error: "Invalid input." });
+    await expect(leaveOrganisation({ organisationSlug: "" })).resolves.toMatchObject({ ok: false, error: "Check the highlighted fields." });
+    await expect(leaveOrganisation(null)).resolves.toMatchObject({ ok: false, error: "Check the highlighted fields." });
     expect(mocks.orgFindUnique).not.toHaveBeenCalled();
   });
 

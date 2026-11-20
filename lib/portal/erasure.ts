@@ -40,6 +40,8 @@ async function anonymiseMember(tx: Tx, args: { org: OrgClock; memberId: string; 
     }
   }
   await tx.memberRoleAssignment.deleteMany({ where: { organisationId: args.org.id, memberId: member.id } });
+  // Grouping values are part of what is known about the person.
+  await tx.memberGroupingValue.deleteMany({ where: { organisationId: args.org.id, memberId: member.id } });
   await tx.consentRecord.updateMany({ where: { organisationId: args.org.id, memberId: member.id, withdrawnAt: null }, data: { withdrawnAt: now } });
   // Refund requests stay as money history; the member's own words go.
   await tx.refundRequest.updateMany({ where: { organisationId: args.org.id, memberId: member.id }, data: { reason: "Removed on erasure" } });

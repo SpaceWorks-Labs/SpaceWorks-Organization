@@ -1,9 +1,10 @@
 {
-  "repository": "https://github.com/SpaceWorks-Labs/SpaceWorks-Design",
-  "commit": "c9bf94198d40a87c323f1879d0c02649027f74d0",
+  "repository": "https://github.com/SpaceWorks-Labs/SpaceWorks-Design-System",
+  "commit": "5225d59eddaedbad40360e8a0252b08ff3f10070",
   "fonts": [
     "Gilroy-Light.woff2",
     "Gilroy-ExtraBold.woff2",
+    "Outfit-Variable.woff2",
     "Unbounded-Variable.woff2"
   ]
 }

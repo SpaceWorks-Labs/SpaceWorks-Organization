@@ -30,7 +30,7 @@ export default async function MembershipDetailPage({ params }: { params: Promise
       <header className="flex flex-wrap items-center gap-4">
         <OrgLogo name={org.name} src={org.logoUrl} size="lg" />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <h2 className="break-words text-h2 text-ink">{org.name}</h2>
+          <h1 className="break-words text-h2 text-ink">{org.name}</h1>
           <p className="text-caption tabular-nums text-ink-muted">Member no. {member.memberNumber}{member.unitName ? ` · ${member.unitName}` : ""} · since {since}</p>
           {roles.length ? (
             <ul aria-label="Your roles" className="mt-1 flex flex-wrap gap-1.5">

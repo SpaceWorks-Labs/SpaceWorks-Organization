@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { OrgReportsMoney } from "@/lib/views/app__dashboard__orgSlug__reports__money__page";
 import { formatHours, formatValue } from "@/lib/reports/chartScale";
+import { formatCount, formatDayMonth, timeZoneOf } from "@/lib/format/datetime";
 import { amountIn, formatAmount, formatTotals } from "@/lib/reports/money";
 import { Callout, Chip, EmptyState } from "@/components/ui/display";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
@@ -99,7 +100,7 @@ export function OutstandingSection({ view }: { view: View }) {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 id="outstanding-title" className="text-h4 text-ink">Outstanding</h2>
-          <p className="text-label text-ink-muted">Owed right now, by days past the due date. {view.outstandingTotal.toLocaleString("en-IN")} items.</p>
+          <p className="text-label text-ink-muted">Owed right now, by days past the due date. {formatCount(view.outstandingTotal)} items.</p>
         </div>
         {view.shell.canExportFinance ? <ExportLink shell={view.shell} report="outstanding" /> : null}
       </div>
@@ -147,7 +148,7 @@ export function OfflineSection({ view }: { view: View }) {
                 <TD>{p.name}</TD>
                 <TD className="whitespace-nowrap tabular-nums">{formatAmount(p.amountMinor, p.currency, view.locale)}</TD>
                 <TD className="text-ink-secondary">{p.why}</TD>
-                <TD className="hidden whitespace-nowrap text-ink-secondary sm:table-cell">{new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" }).format(new Date(p.createdAt))}</TD>
+                <TD className="hidden whitespace-nowrap text-ink-secondary sm:table-cell">{formatDayMonth(p.createdAt, timeZoneOf(view))}</TD>
               </TR>
             ))}
           </TBody>

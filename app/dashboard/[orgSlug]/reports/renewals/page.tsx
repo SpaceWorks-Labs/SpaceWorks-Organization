@@ -5,6 +5,7 @@ import type { ReportSearch } from "@/lib/reports/context";
 import { formatValue } from "@/lib/reports/chartScale";
 import { ReportShell, ExportLink } from "@/components/reports/ReportShell";
 import { RenewalWorklist } from "@/components/reports/RenewalWorklist";
+import { timeZoneOf } from "@/lib/format/datetime";
 import { ChartFrame, HeatTable } from "@/components/reports/charts/ChartFrame";
 import { ColumnChart } from "@/components/reports/charts/ColumnChart";
 import { KpiTile } from "@/components/reports/charts/Figures";
@@ -50,13 +51,13 @@ export default async function OrgReportsRenewalsPage({ params, searchParams }: P
           <div className="flex flex-wrap items-center gap-2">
             <nav aria-label="Worklist window" className="flex gap-1">
               {[7, 30, 60, 90].map((days) => (
-                <Link key={days} href={daysLink(days)} aria-current={view.worklist.days === days ? "page" : undefined} className={cn("inline-flex min-h-9 items-center rounded-full border px-3 text-sm", view.worklist.days === days ? "border-primary bg-primary font-semibold text-on-primary" : "border-line bg-panel text-ink hover:bg-muted")}>{days} days</Link>
+                <Link key={days} href={daysLink(days)} aria-current={view.worklist.days === days ? "page" : undefined} className={cn("inline-flex min-h-11 items-center rounded-control border px-3 text-sm", view.worklist.days === days ? "border-primary bg-primary font-semibold text-on-primary" : "border-line bg-panel text-ink hover:bg-muted")}>{days} days</Link>
               ))}
             </nav>
             {shell.canExport ? <ExportLink shell={shell} report="worklist" extra={`days=${view.worklist.days}`} /> : null}
           </div>
         </div>
-        {view.worklist.rows.length ? <RenewalWorklist slug={shell.org.slug} rows={view.worklist.rows} canRemind={view.canRemind} /> : <EmptyState mood="sleepy" title="Nothing due">No memberships end in this window, and nobody is in grace.</EmptyState>}
+        {view.worklist.rows.length ? <RenewalWorklist slug={shell.org.slug} rows={view.worklist.rows} canRemind={view.canRemind} timeZone={timeZoneOf(view)} /> : <EmptyState mood="sleepy" title="Nothing due">No memberships end in this window, and nobody is in grace.</EmptyState>}
       </section>
 
       <ChartFrame title="Cohort retention" description="Members by the month they first joined: the share still active at the end of each later month (0 is the joining month)." action={shell.canExport ? <ExportLink shell={shell} report="cohorts" /> : null}>

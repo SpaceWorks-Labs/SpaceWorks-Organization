@@ -21,7 +21,7 @@ import { NumberSlider, Section, SwatchGroup, SwitchLine, ToggleField } from "./c
 export type DesignerField = { key: string; label: string };
 
 /** Colour, text, items and watermark for the side being edited. */
-export function SideSettings({ side, current, branding, fields, uploading, update, toggleItem, onWatermark }: {
+export function SideSettings({ side, current, branding, fields, uploading, update, toggleItem, onWatermark, brandColours, documentColours }: {
   side: CardSide;
   current: CardSideSettings;
   branding: CardBranding;
@@ -30,12 +30,15 @@ export function SideSettings({ side, current, branding, fields, uploading, updat
   update: (patch: Partial<CardSideSettings>) => void;
   toggleItem: (flag: keyof CardLayoutFlags, on: boolean, element: CardElement) => void;
   onWatermark: (file: File | null) => void;
+  /** The brand kit's colours and the colours the design already uses, offered in the custom colour fields. */
+  brandColours?: readonly string[];
+  documentColours?: readonly string[];
 }) {
   const orgColour = orgAccentHex(branding.orgAccent);
   const custom = current.customColours;
   const colourOf = (own: string) => (key: string) => (key === "custom" ? own : key === "org" ? orgColour : key === "auto" ? null : BRAND[key as keyof typeof BRAND]);
   const ownColour = (which: keyof typeof custom, label: string) => (
-    <ColourField label={label} value={custom[which]} orgAccent={orgColour} onChange={(hex) => hex && update({ customColours: { ...custom, [which]: hex } })} />
+    <ColourField label={label} value={custom[which]} orgAccent={orgColour} brandColours={brandColours} documentColours={documentColours} onChange={(hex) => hex && update({ customColours: { ...custom, [which]: hex } })} />
   );
   const palette = resolveCardPalette(current, branding.orgAccent);
   const mark = current.watermark;
@@ -129,7 +132,7 @@ export function SideSettings({ side, current, branding, fields, uploading, updat
         {mark.kind === "image" ? (
           <div className="flex flex-col gap-2">
             <Field label="Watermark image" helperText={branding.watermarkUrl ? "Shared by both sides. Choose a file to replace it." : "A simple mark works best. PNG with transparency, up to 5 MB."}>
-              <input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploading} onChange={(event) => onWatermark(event.target.files?.[0] ?? null)} className="block w-full text-[14px] text-ink-secondary file:mr-3 file:min-h-11 file:rounded-full file:border file:border-line file:bg-panel file:px-4 file:font-semibold file:text-ink hover:file:bg-muted" />
+              <input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploading} onChange={(event) => onWatermark(event.target.files?.[0] ?? null)} className="block w-full text-[14px] text-ink-secondary file:mr-3 file:min-h-11 file:rounded-control file:border file:border-line file:bg-panel file:px-4 file:font-semibold file:text-ink hover:file:bg-muted" />
             </Field>
             {branding.watermarkUrl ? <Button size="sm" variant="quiet" className="self-start" disabled={uploading} onClick={() => onWatermark(null)}>Remove image</Button> : null}
           </div>

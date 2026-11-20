@@ -46,16 +46,16 @@ export function ChatChannelsPanel({ slug, channels, canEdit, secretsReady }: { s
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="text-label font-semibold text-ink">{channel.name}</span>
                   <Chip size="sm" tone="outline">{CHAT_KIND_LABELS[channel.kind]}</Chip>
-                  {!channel.enabled ? <Chip size="sm" tone="warning">Off</Chip> : null}
+                  {!channel.enabled ? <Chip size="sm">Switched off</Chip> : null}
                 </span>
-                <span className="block text-caption text-ink-muted">{channel.target} · {channel.events.map((event) => CHAT_EVENT_LABELS[event as ChatEvent]).join(", ")}</span>
+                <span className="block break-words text-caption text-ink-muted">{channel.target} · {channel.events.map((event) => CHAT_EVENT_LABELS[event as ChatEvent]).join(", ")}</span>
                 {channel.lastError ? <span className="block text-caption text-danger-fg">Last attempt failed: {channel.lastError}</span> : channel.lastDelivered ? <span className="block text-caption text-ink-muted">Last delivered {channel.lastDelivered}</span> : null}
               </span>
               {canEdit ? (
                 <span className="flex flex-wrap gap-1">
-                  <Button size="sm" variant="secondary" disabled={pending} onClick={() => run(() => testChatChannel({ organisationSlug: slug, channelId: channel.id }), `Test sent to ${channel.name}.`)}>Send test</Button>
-                  <Button size="sm" variant="quiet" onClick={() => setEditing(channel)}>Edit</Button>
-                  <Button size="sm" variant="dangerQuiet" onClick={() => setRemoving(channel)}>Remove</Button>
+                  <Button size="sm" variant="secondary" disabled={pending} aria-label={`Send a test to ${channel.name}`} onClick={() => run(() => testChatChannel({ organisationSlug: slug, channelId: channel.id }), `Test sent to ${channel.name}.`)}>Send test</Button>
+                  <Button size="sm" variant="quiet" aria-label={`Edit ${channel.name}`} onClick={() => setEditing(channel)}>Edit</Button>
+                  <Button size="sm" variant="dangerQuiet" aria-label={`Remove ${channel.name}`} onClick={() => setRemoving(channel)}>Remove</Button>
                 </span>
               ) : null}
             </li>

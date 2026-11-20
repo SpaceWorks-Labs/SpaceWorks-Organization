@@ -8,7 +8,7 @@ import { recordAuditEvent } from "@/lib/audit";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { enqueueOutbox } from "@/lib/outbox";
 import { orgActionAccess } from "@/lib/permissions";
-import { teamScope, unitInScope, type TeamScope } from "@/lib/membership/scope";
+import { memberWhere, teamScope, type TeamScope } from "@/lib/membership/scope";
 import { CardError, issueCard, reissueCard, revokeCard } from "@/lib/cards/issue";
 import type { ActionResult } from "./org";
 
@@ -20,13 +20,12 @@ async function access(slug: unknown) {
   const result = await orgActionAccess(slug, "cards.manage");
   if (!result.ok) return result;
   if (await isActionRateLimited("action", result.userId)) return { ok: false as const, error: "Too many requests. Try again shortly." };
-  return { ...result, scope: await teamScope(result.organisation.id, result.membership.unitId) };
+  return { ...result, scope: await teamScope(result.organisation.id, result.membership) };
 }
 
 /** The member, in this organisation and inside the manager's unit scope, or null. */
 async function scopedMember(scope: TeamScope, memberId: string) {
-  const member = await prisma.member.findFirst({ where: { id: memberId, organisationId: scope.organisationId, anonymisedAt: null }, select: { id: true, unit: { select: { path: true } } } });
-  return member && unitInScope(scope, member.unit?.path ?? null) ? member : null;
+  return prisma.member.findFirst({ where: { AND: [memberWhere(scope), { id: memberId, anonymisedAt: null }] }, select: { id: true } });
 }
 
 async function scopedCard(scope: TeamScope, cardId: string) {

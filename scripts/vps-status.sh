@@ -73,7 +73,7 @@ if [[ "$(conf_get "$ENV_FILE" SWO_LAYER)" != proxy && "$(conf_get "$ENV_FILE" DE
   if curl --fail --silent --show-error --max-time 15 --output /dev/null "$origin/api/health" 2>/dev/null; then
     printf '  ok    %-16s %s answers\n' 'web address' "$origin"
   else
-    printf '  FAIL  %-16s %s does not answer (DNS, firewall or Caddy; see logs caddy)\n' 'web address' "$origin"
+    printf '  FAIL  %-16s %s does not answer (DNS, firewall, Caddy or the Cloudflare tunnel; see logs caddy or cloudflared)\n' 'web address' "$origin"
     failed=1
   fi
 fi

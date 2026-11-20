@@ -28,8 +28,11 @@ export const LETTER = {
 /* Materials: paper stays paper in both colour modes. */
 export const PAPER = "var(--sw-brand-warm-cream)";
 export const INK = "var(--sw-brand-deep-ink)";
-const PAPER_LINE = "rgb(20 44 42 / 0.14)";
-export const HAIRLINE = "rgb(20 44 42 / 0.18)";
+/* Opaque on paper (CR-OPACITY-01): secondary text and rules are Deep Ink mixed into the paper, never translucent ink. */
+export const MUTED_INK = "color-mix(in srgb, var(--sw-brand-deep-ink) 80%, var(--sw-brand-warm-cream))";
+const PAPER_LINE = "color-mix(in srgb, var(--sw-brand-deep-ink) 14%, var(--sw-brand-warm-cream))";
+/** A thin outline that darkens whatever it sits on (envelope, seal, paper): compositing, never text. */
+export const HAIRLINE = "color-mix(in srgb, var(--sw-brand-deep-ink) 18%, transparent)";
 
 export function Lines({ count }: { count: number }) {
   return (
@@ -51,7 +54,7 @@ export function ReadingLetter() {
       <div className="px-6 py-10 sm:px-12 sm:py-14">
         <header className="flex items-start justify-between gap-4 border-b pb-6" style={{ borderColor: PAPER_LINE }}>
           <div>
-            <p className="text-[12px] font-semibold uppercase tracking-[0.2em] opacity-60">{LETTER.overline}</p>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.2em]" style={{ color: MUTED_INK }}>{LETTER.overline}</p>
             <h2 className="mt-2 font-accent text-[26px] font-medium leading-[1.15] sm:text-[32px]">{LETTER.title}</h2>
           </div>
           <SpaceWorksLogo variant="symbol" height={48} adaptive={false} label={null} className="mt-1" />
@@ -74,11 +77,11 @@ export function ReadingLetter() {
             {LETTER.team.map((person) => (
               <li key={person.name}>
                 <span className="font-semibold">{person.name}</span>
-                <span className="opacity-70">, {person.role}</span>
+                <span style={{ color: MUTED_INK }}>, {person.role}</span>
               </li>
             ))}
           </ul>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.14em] opacity-60">Space Works Organization · open source</p>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.14em]" style={{ color: MUTED_INK }}>Space Works Organization · open source</p>
         </footer>
       </div>
     </article>

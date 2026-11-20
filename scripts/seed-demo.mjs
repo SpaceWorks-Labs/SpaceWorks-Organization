@@ -45,7 +45,7 @@ const applicant = await user("applicant@demo.test", "Midlaj C");
 const MANAGER = [
   "org.view", "members.view", "reports.membership", "members.contact", "members.export", "payments.view", "payments.manage", "reports.finance",
   "members.manage", "cards.manage", "audit.view", "erasure.decide", "team.manage",
-  "plans.manage", "payments.settings", "org.settings", "structure.manage", "cards.design", "accounts.manage", "reports.gstr1",
+  "plans.manage", "payments.settings", "org.settings", "structure.manage", "cards.design", "accounts.manage", "reports.gstr1", "groupings.manage",
 ];
 const TREASURER = ["org.view", "members.view", "reports.membership", "members.contact", "members.export", "payments.view", "payments.manage", "reports.finance", "accounts.manage", "reports.gstr1"];
 const VIEWER = ["org.view", "members.view", "reports.membership"];

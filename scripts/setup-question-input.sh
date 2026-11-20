@@ -19,13 +19,13 @@ question() {
   local key="$1" label="$2" default="$3" rule="${4:-text}" value
   while true; do
     local hint="${default:-required}"
-    case "$rule" in secret|optional|google) hint="${default:-skip}" ;; esac
+    case "$rule" in secret|optional|google|optorigin|p8file|fbdomain|fbproject) hint="${default:-skip}" ;; esac
     [[ "$key" != SMTP_PASSWORD ]] || hint=required
     if [[ "$rule" == choices:Y,* ]]; then
       [[ "$default" =~ ^[Yy] ]] && hint=Y/n || hint=y/N
     fi
     printf '%s [%s]: ' "$label" "$hint"
-    if [[ "$rule" == secret || "$rule" == password ]]; then
+    if [[ "$rule" == secret || "$rule" == password || "$rule" == tunneltoken ]]; then
       IFS= read -r -s -u 3 value || return 1
       echo
     else
@@ -34,7 +34,17 @@ question() {
     value="${value%$'\r'}"
     value="${value:-$default}"
     case "$rule" in
-      providers) [[ "$value" == none || "$value" =~ ^(google|apple|github)(,(google|apple|github))*$ ]] || { echo 'Use google,apple,github as a comma list, or none.'; continue; } ;;
+      providers) value="$(printf '%s' "$value" | tr -d ' ' | tr '[:upper:]' '[:lower:]')"; [[ "$value" == none || "$value" =~ ^(google|apple|github|oidc|saml|supabase|firebase)(,(google|apple|github|oidc|saml|supabase|firebase))*$ ]] || { echo 'Use google, apple, github, oidc, saml, supabase, firebase as a comma list, or none.'; continue; } ;;
+      optorigin) [[ -z "$value" ]] || { [[ "$value" =~ ^https://[a-zA-Z0-9.-]+(:[0-9]{1,5})?$ ]] && valid_dns_host "${value#https://}"; } || { echo 'Enter one https:// origin without a path, or leave it blank.'; continue; } ;;
+      p8file)
+        if [[ -n "$value" ]]; then
+          local p8="$value"
+          if command -v cygpath >/dev/null 2>&1; then p8="$(cygpath -u "$value" 2>/dev/null || printf '%s' "$value")"; fi
+          { [[ -f "$p8" && -r "$p8" ]] && grep -q 'BEGIN PRIVATE KEY' "$p8"; } || { echo 'Enter the path to the Apple .p8 key file, or leave it blank.'; continue; }
+        fi ;;
+      fbdomain) [[ -z "$value" ]] || { [[ "$value" == *.* ]] && valid_dns_host "$value"; } || { echo 'Enter the auth domain, for example your-project.firebaseapp.com.'; continue; } ;;
+      fbproject) [[ -z "$value" || "$value" =~ ^[a-z][a-z0-9-]{4,28}[a-z0-9]$ ]] || { echo 'Enter the Firebase project id.'; continue; } ;;
+      fbproviders) [[ "$value" =~ ^[a-zA-Z0-9.]+(,[a-zA-Z0-9.]+)*$ ]] || { echo 'Use a comma list such as google.com,emailLink.'; continue; } ;;
       choices:*) [[ ",${rule#choices:}," == *",$value,"* ]] || { echo 'Choose one of the listed options.'; continue; } ;;
       repository) [[ "$value" =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,37}[A-Za-z0-9])?/[A-Za-z0-9_.-]{1,100}$ && "$value" != */. && "$value" != */.. ]] || { echo 'Enter a GitHub owner/repo name.'; continue; } ;;
       host) valid_dns_host "$value" || { echo 'Enter a hostname or IPv4 address without a scheme, port or path.'; continue; } ;;
@@ -53,21 +63,24 @@ question() {
       port) [[ "$value" =~ ^[0-9]{1,5}$ ]] && ((10#$value >= 1 && 10#$value <= 65535)) || { echo 'Use a port from 1 to 65535.'; continue; } ;;
       google) [[ -z "$value" || "$value" == *.apps.googleusercontent.com ]] || { echo 'A Google client ID ends in .apps.googleusercontent.com.'; continue; } ;;
       secret) [[ -n "$value" || "$key" != SMTP_PASSWORD ]] || { echo 'A value is required.'; continue; } ;;
+      tunneltoken) [[ "$value" =~ ^[A-Za-z0-9+/=_-]{40,}$ ]] || { echo 'Paste the connector token from the Cloudflare tunnel page (a long string of letters and digits).'; continue; } ;;
       password) ((${#value} >= 12 && $(printf '%s' "$value" | LC_ALL=C wc -c) <= 72)) || { echo 'Use 12 to 72 characters.'; continue; } ;;
       optional) ;;
       text) [[ -n "$value" ]] || { echo 'A value is required.'; continue; } ;;
     esac
     [[ "$value" != *$'\r'* && "$value" != *$'\n'* ]] || { echo 'Use a single line.'; continue; }
-    [[ "$rule" == secret || "$rule" == password || ! "$value" =~ [[:cntrl:]] ]] || { echo 'Use text without control characters.'; continue; }
+    [[ "$rule" == secret || "$rule" == password || "$rule" == tunneltoken || ! "$value" =~ [[:cntrl:]] ]] || { echo 'Use text without control characters.'; continue; }
     printf -v "$key" '%s' "$value"
     return 0
   done
 }
 
-SETUP_ANSWER_KEYS=(RUN_FRONTEND SITE_ORIGIN HTTPS_MODE PUBLIC_DOMAIN TLS_EMAIL WEBHOST STORAGE
+SETUP_ANSWER_KEYS=(RUN_FRONTEND SITE_ORIGIN HTTPS_MODE PUBLIC_DOMAIN TLS_EMAIL CLOUDFLARE_TUNNEL_TOKEN WEBHOST STORAGE
   S3_ENDPOINT S3_REGION S3_BUCKET S3_ACCESS_KEY S3_SECRET_KEY SUPER_ADMIN_EMAIL SUPER_ADMIN_PASSWORD
   EMAIL_FROM SMTP_HOST SMTP_PORT SMTP_USER SMTP_PASSWORD SETUP_SOCIAL_PROVIDERS
   GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET GITHUB_CLIENT_ID GITHUB_CLIENT_SECRET
+  APPLE_CLIENT_ID APPLE_TEAM_ID APPLE_KEY_ID APPLE_PRIVATE_KEY
+  SUPABASE_URL SUPABASE_ANON_KEY FIREBASE_API_KEY FIREBASE_AUTH_DOMAIN FIREBASE_PROJECT_ID FIREBASE_PROVIDERS
   SWO_REPOSITORY INSTALL_RUNNER ANSWERS_CONFIRMED)
 
 save_setup_answers() {

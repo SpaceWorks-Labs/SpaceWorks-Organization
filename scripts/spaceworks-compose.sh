@@ -3,7 +3,8 @@
 #   scripts/spaceworks-compose.sh bundled <compose arguments...>   docker-compose.prod.yml + overlays, ./.env
 #   scripts/spaceworks-compose.sh cloud <compose arguments...>     docker-compose.cloud.yml, /etc/spaceworks-organization/cloud.env
 # Bundled overlays come from the install's settings: SWO_LAYER in .env (tls for
-# automatic HTTPS, proxy for an existing reverse proxy), SWO_STORAGE=external,
+# automatic HTTPS, proxy for an existing reverse proxy, cloudflared for a Cloudflare
+# Tunnel), SWO_STORAGE=external,
 # and SWO_COMPOSE_BUILD_LAYER=1 to build the images from this checkout.
 set -euo pipefail
 
@@ -54,7 +55,8 @@ if [[ "$TOPOLOGY" == bundled ]]; then
     none) ;;
     tls) COMPOSE_FILES+=("$ROOT/docker/compose.tls.yml") ;;
     proxy) COMPOSE_FILES+=("$ROOT/docker/compose.proxy.yml") ;;
-    *) echo "Unknown SWO_LAYER; use none, tls or proxy." >&2; exit 64 ;;
+    cloudflared) COMPOSE_FILES+=("$ROOT/docker/compose.cloudflared.yml") ;;
+    *) echo "Unknown SWO_LAYER; use none, tls, proxy or cloudflared." >&2; exit 64 ;;
   esac
   [[ "$(repository_env_value SWO_STORAGE)" != external ]] || COMPOSE_FILES+=("$ROOT/docker/compose.external-storage.yml")
   if [[ "${SWO_COMPOSE_BUILD_LAYER:-0}" == 1 ]]; then
@@ -72,6 +74,6 @@ COMPOSE_ARGS=(--project-name "$PROJECT" --project-directory "$ROOT" --env-file "
 for file in "${COMPOSE_FILES[@]}"; do COMPOSE_ARGS+=(-f "$file"); done
 # Shell values outrank --env-file during interpolation: the saved settings are
 # authoritative, even in an old operator shell.
-unset PUBLIC_APP_BASE_URL SITE_ADDRESS CADDY_GLOBAL_OPTIONS TLS_EMAIL DATABASE_URL DIRECT_URL REDIS_URL \
+unset PUBLIC_APP_BASE_URL SITE_ADDRESS CADDY_GLOBAL_OPTIONS TLS_EMAIL CLOUDFLARE_TUNNEL_TOKEN DATABASE_URL DIRECT_URL REDIS_URL \
   HTTP_PORT HTTP_PORT_BIND TLS_HTTPS_PORT API_BIND API_PORT APP_BIND APP_PORT COMPOSE_PROFILES
 exec docker compose "${COMPOSE_ARGS[@]}" "$@"

@@ -41,8 +41,17 @@ function planData(input: z.infer<typeof planSchema>) {
     joinPhoto: input.joinPhoto,
     joinFields: input.joinFields,
     paymentTiming: input.paymentTiming,
+    paymentMode: input.paymentMode,
+    renewalPolicy: input.renewalPolicy,
     allUnits: input.allUnits,
   };
+}
+
+/** The plan a renewal moves into must be another plan of this organisation. */
+async function renewTargetBelongs(organisationId: string, policy: z.infer<typeof planSchema>["renewalPolicy"], selfId?: string) {
+  const target = policy.renewInto?.targetPlanId;
+  if (!target) return true;
+  return target !== selfId && (await prisma.membershipPlan.count({ where: { id: target, organisationId, archivedAt: null } })) === 1;
 }
 
 async function unitsBelong(organisationId: string, unitIds: string[]) {
@@ -62,6 +71,7 @@ export async function createPlan(input: unknown): Promise<ActionResult<{ planId:
   if (!access.ok) return access;
   if (await isActionRateLimited("action", access.userId)) return { ok: false, error: "Too many requests. Try again shortly." };
   if (!(await unitsBelong(access.organisation.id, parsed.data.unitIds))) return { ok: false, error: "One of the chosen units no longer exists." };
+  if (!(await renewTargetBelongs(access.organisation.id, parsed.data.renewalPolicy))) return { ok: false, error: "Choose another plan of yours to renew into.", fieldErrors: { renewalPolicy: ["Choose another active plan"] } };
   try {
     const plan = await prisma.$transaction(async (tx) => {
       const count = await tx.membershipPlan.count({ where: { organisationId: access.organisation.id } });
@@ -99,6 +109,7 @@ export async function updatePlan(input: unknown): Promise<ActionResult> {
   if (plan._count.terms > 0 && plan.currency !== parsed.data.currency) {
     return { ok: false, error: "This plan already has members, so its currency can't change. Create a new plan in the other currency.", fieldErrors: { currency: ["Fixed once members join"] } };
   }
+  if (!(await renewTargetBelongs(access.organisation.id, parsed.data.renewalPolicy, plan.id))) return { ok: false, error: "Choose another plan of yours to renew into.", fieldErrors: { renewalPolicy: ["Choose another active plan"] } };
   try {
     await prisma.$transaction(async (tx) => {
       await tx.membershipPlan.update({ where: { id: plan.id }, data: planData(parsed.data) });
@@ -155,12 +166,16 @@ export async function savePlanFields(input: unknown): Promise<ActionResult> {
   const organisationId = access.organisation.id;
   const plan = await prisma.membershipPlan.findFirst({ where: { id: parsed.data.planId, organisationId }, select: { id: true } });
   if (!plan) return { ok: false, error: "Plan not found." };
-  const fields = parsed.data.fields.map((field, index) => ({ ...field, options: field.type === "SELECT" || field.multiple ? field.options : [], sortOrder: index }));
+  const fields = parsed.data.fields.map((field, index) => ({ ...field, options: field.type === "SELECT" || field.multiple ? field.options : [], groupingId: field.type === "GROUPING" ? field.groupingId : null, sortOrder: index }));
   try {
     await prisma.$transaction(async (tx) => {
       await lockOrganisationStructure(tx, organisationId);
       const others = await tx.membershipPlan.findMany({ where: { organisationId, id: { not: plan.id } }, select: { fields: true } });
       const issues = validatePlanFieldDefinitions(fields, others);
+      // A grouping question names a grouping of this organisation.
+      const wanted = [...new Set(fields.flatMap((field) => (field.groupingId ? [field.groupingId] : [])))];
+      const known = wanted.length ? new Set((await tx.orgGrouping.findMany({ where: { organisationId, id: { in: wanted }, archivedAt: null }, select: { id: true } })).map((row) => row.id)) : new Set<string>();
+      for (const [index, field] of fields.entries()) if (field.groupingId && !known.has(field.groupingId)) issues.push({ path: [index, "groupingId"], message: "Choose a grouping that exists" });
       if (issues.length) throw new QuestionsRefused(issues);
       await tx.planField.deleteMany({ where: { planId: plan.id } });
       if (fields.length) await tx.planField.createMany({ data: fields.map((field) => ({ ...field, organisationId, planId: plan.id })) });

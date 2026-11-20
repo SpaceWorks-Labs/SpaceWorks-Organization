@@ -12,7 +12,9 @@ import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { enqueueOutbox } from "@/lib/outbox";
 import { orgActionAccess } from "@/lib/permissions";
 import { MembershipError, openTerm, upsertMember } from "@/lib/membership/service";
-import { lockMemberByEmail } from "@/lib/membership/memberLock";
+import { resolveGroupingAnswers, saveGroupingAnswers } from "@/lib/groupings/answers";
+import { GroupingError } from "@/lib/groupings/service";
+import { hasRoomForMember, lockMemberByEmail } from "@/lib/membership/memberLock";
 import { MEMBERSHIP_NOTICE_VERSION, memberProfileSchema } from "@/lib/membership/validators";
 import { DEFAULT_JOIN_FIELDS, joinFieldsSchema } from "@/lib/membership/joinFields";
 import { attachJoinPhoto, holdCardEmails, joinProfile, joinSettingErrors, readJoinInput, releaseCardEmails, type JoinPhotoMode } from "@/lib/membership/joinSubmission";
@@ -23,6 +25,8 @@ import { pathWithin, planOffersUnit } from "@/lib/membership/planUnits";
 import { loadPaymentGuidance } from "@/lib/payments/payGuidance";
 import { payLinkToken } from "@/lib/payments/payLink";
 import type { PaymentGuidance } from "@/lib/payments/unitInstructions";
+import { membershipChanged } from "@/lib/membership/afterChange";
+import { auditAnswerChange } from "@/lib/membership/answerAudit";
 import type { ActionResult } from "./org";
 import { flattenZodErrors } from "./utils";
 
@@ -61,7 +65,7 @@ export async function submitJoin(input: FormData | unknown): Promise<ActionResul
   if (!user?.email || !user.emailVerified) return { ok: false, error: "Verify your email address before joining." };
   const email = user.email.toLowerCase();
 
-  const org = await prisma.organisation.findUnique({ where: { slug: parsed.data.organisationSlug }, select: { id: true, slug: true, name: true, status: true, timezone: true, financialYearStartMonth: true, memberLimit: true, unitLevels: true, memberPortal: true, memberPhotoUpload: true } });
+  const org = await prisma.organisation.findUnique({ where: { slug: parsed.data.organisationSlug }, select: { id: true, slug: true, name: true, status: true, timezone: true, financialYearStartMonth: true, unitLevels: true, memberPortal: true, memberPhotoUpload: true } });
   if (!org || org.status !== "ACTIVE") return { ok: false, error: "This organisation isn't taking members right now." };
   const plan = await prisma.membershipPlan.findFirst({ where: { organisationId: org.id, slug: parsed.data.planSlug, archivedAt: null }, include: { fields: { orderBy: { sortOrder: "asc" } }, units: { select: { unit: { select: { path: true } } } } } });
   if (!plan) return { ok: false, error: "That plan is no longer offered." };
@@ -89,6 +93,8 @@ export async function submitJoin(input: FormData | unknown): Promise<ActionResul
   const organisationPlans = await prisma.membershipPlan.findMany({ where: { organisationId: org.id }, select: { fields: true } });
   const answers = validatePlanAnswers(plan.fields, profile.data.fieldValues, false, { organisationPlans });
   if (Object.keys(answers.errors).length) return { ok: false, error: "Answer the questions marked as required.", fieldErrors: answers.errors };
+  const groupingAnswers = await resolveGroupingAnswers(prisma, org.id, plan.fields, profile.data.fieldValues, false);
+  if (Object.keys(groupingAnswers.errors).length) return { ok: false, error: "Answer the questions marked as required.", fieldErrors: groupingAnswers.errors };
 
   const unitId = profile.data.unitId;
   if (org.unitLevels.length > 0 && !unitId) return { ok: false, error: "Choose your unit.", fieldErrors: { unitId: ["Choose your unit"] } };
@@ -116,12 +122,9 @@ export async function submitJoin(input: FormData | unknown): Promise<ActionResul
 
   try {
     const term = await prisma.$transaction(async (tx) => {
-      if (org.memberLimit && (await tx.member.count({ where: { organisationId: org.id } })) >= org.memberLimit) {
-        const existing = await tx.member.count({ where: { organisationId: org.id, email } });
-        if (!existing) throw new MembershipError("This organisation is full for now. Contact them directly.");
-      }
       // This plan's public answers replace its keys under the member lock; every other key stays.
       const locked = await lockMemberByEmail(tx, org.id, email);
+      if (!locked && !(await hasRoomForMember(tx, org.id))) throw new MembershipError("This organisation is full for now. Contact them directly.");
       if (Boolean(locked) !== Boolean(existing) || (locked && locked.isMinor !== existing?.isMinor)) throw new MembershipError("Your details changed while you were joining. Try again.");
       const fieldValues = replacePlanAnswers((locked?.fieldValues ?? {}) as Record<string, unknown>, plan.fields, profile.data.fieldValues, false, { organisationPlans });
       const member = await upsertMember(tx, org.id, {
@@ -136,6 +139,8 @@ export async function submitJoin(input: FormData | unknown): Promise<ActionResul
         fieldValuesMode: "replace",
         source: "JOIN_FORM",
       });
+      await auditAnswerChange(tx, { organisationId: org.id, actorUserId: userId, memberId: member.id, before: locked?.fieldValues as Record<string, unknown> | undefined, after: member.fieldValues as Record<string, unknown>, by: "join" });
+      await saveGroupingAnswers(tx, org.id, member.id, groupingAnswers.answers);
       await tx.consentRecord.create({ data: { organisationId: org.id, memberId: member.id, purpose: "membership", noticeVersion: MEMBERSHIP_NOTICE_VERSION, byGuardian: minor } });
       // An invite stands in for approval: the organisation already chose this person.
       const opened = await openTerm(tx, { org, plan, memberId: member.id, byManager: inviteOk, actorUserId: userId });
@@ -152,15 +157,16 @@ export async function submitJoin(input: FormData | unknown): Promise<ActionResul
     } finally {
       await releaseCardEmails(term.heldEmails);
     }
+    await membershipChanged(org.id);
     revalidatePath(`/dashboard/${org.slug}/members`);
     // How to pay offline, from the member's unit up to the organisation, for the confirmation.
     const unitPath = term.status === "PENDING_PAYMENT" ? (await prisma.member.findUnique({ where: { id: term.memberId }, select: { unit: { select: { path: true } } } }))?.unit?.path : null;
-    const payment = term.status === "PENDING_PAYMENT" ? await loadPaymentGuidance(org.id, unitPath, term.currency) : null;
+    const payment = term.status === "PENDING_PAYMENT" ? await loadPaymentGuidance(org.id, unitPath, term.currency, undefined, plan.paymentMode) : null;
     // Without member accounts there is no account to pay from: a signed pay link instead (lib/payments/payLink.ts).
     const payUrl = term.status !== "PENDING_PAYMENT" ? null : org.memberPortal ? `/account/pay/${term.id}` : `/pay/${payLinkToken(term.id)}`;
     return { ok: true, data: { status: term.status, termId: term.id, payment, payUrl, accountUrl: org.memberPortal ? "/account" : `/o/${org.slug}`, warning } };
   } catch (error) {
-    if (error instanceof MembershipError) return { ok: false, error: error.message };
+    if (error instanceof MembershipError || error instanceof GroupingError) return { ok: false, error: error.message };
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return { ok: false, error: "You already have an application or unpaid membership on this plan. See your account." };
     throw error;
   }
@@ -184,7 +190,9 @@ export async function createMemberInvite(input: unknown): Promise<ActionResult<{
   if (await isActionRateLimited("invite", access.userId)) return { ok: false, error: "Too many invites. Try again later." };
   const plan = await prisma.membershipPlan.findFirst({ where: { id: parsed.data.planId, organisationId: access.organisation.id, archivedAt: null }, select: { id: true } });
   if (!plan) return { ok: false, error: "That plan is no longer offered." };
-  const scope = await teamScope(access.organisation.id, access.membership.unitId);
+  const scope = await teamScope(access.organisation.id, access.membership);
+  // An invite carries a unit but no grouping values, so a joiner would land outside a grouping-limited creator's reach.
+  if (scope.limits.length) return { ok: false, error: "Invitations can't be created or revoked by staff limited to groupings yet, because an invite can't carry grouping values. Ask someone with wider reach, or share the plan's join link." };
   const unit = parsed.data.unitId ? await prisma.orgUnit.findFirst({ where: { organisationId: access.organisation.id, id: parsed.data.unitId }, select: { path: true } }) : null;
   if (parsed.data.unitId && !unit) return { ok: false, error: "That unit no longer exists." };
   if (!unitInScope(scope, unit?.path ?? null)) return { ok: false, error: "Choose a unit within your reach.", fieldErrors: { unitId: ["Outside your unit"] } };
@@ -211,7 +219,8 @@ export async function revokeMemberInvite(input: unknown): Promise<ActionResult> 
   // Staff limited to a unit revoke only the invites that place people inside it.
   const invite = await prisma.memberInvite.findFirst({ where: { id: parsed.data.inviteId, organisationId: access.organisation.id, revokedAt: null }, select: { unitId: true } });
   const unit = invite?.unitId ? await prisma.orgUnit.findFirst({ where: { id: invite.unitId, organisationId: access.organisation.id }, select: { path: true } }) : null;
-  if (!invite || !unitInScope(await teamScope(access.organisation.id, access.membership.unitId), unit?.path ?? null)) return { ok: false, error: "Invite not found." };
+  const scope = await teamScope(access.organisation.id, access.membership);
+  if (!invite || scope.limits.length || !unitInScope(scope, unit?.path ?? null)) return { ok: false, error: "Invite not found." };
   const updated = await prisma.memberInvite.updateMany({ where: { id: parsed.data.inviteId, organisationId: access.organisation.id, revokedAt: null }, data: { revokedAt: new Date() } });
   if (updated.count !== 1) return { ok: false, error: "Invite not found." };
   await recordAuditEvent({ action: "MEMBER_INVITE_REVOKED", actorUserId: access.userId, organisationId: access.organisation.id, targetType: "MemberInvite", targetId: parsed.data.inviteId });

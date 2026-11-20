@@ -48,7 +48,7 @@ export const SelectContent = forwardRef<ElementRef<typeof SelectPrimitive.Conten
         ref={ref}
         position={position}
         sideOffset={6}
-        className={cn("z-[60] max-h-[min(420px,var(--radix-select-content-available-height))] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border border-line bg-panel text-ink shadow-float", className)}
+        className={cn("sw-fx-menu z-[60] max-h-[min(420px,var(--radix-select-content-available-height))] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-lg border border-line bg-panel text-ink shadow-float", className)}
         {...props}
       >
         <SelectPrimitive.Viewport className="p-1.5">{children}</SelectPrimitive.Viewport>
@@ -64,7 +64,7 @@ export const SelectItem = forwardRef<
   return (
     <SelectPrimitive.Item
       ref={ref}
-      className={cn("relative flex min-h-10 cursor-pointer select-none items-start gap-2 rounded-md py-2 pl-3 pr-9 text-body-ui outline-none data-[disabled]:pointer-events-none data-[disabled]:text-ink-disabled data-[highlighted]:bg-muted", className)}
+      className={cn("relative flex min-h-11 cursor-pointer select-none items-start gap-2 rounded-md py-2 pl-3 pr-9 text-body-ui outline-none data-[disabled]:pointer-events-none data-[disabled]:text-ink-muted data-[highlighted]:bg-muted", className)}
       {...props}
     >
       <span className="min-w-0">

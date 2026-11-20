@@ -5,8 +5,9 @@ import { prisma } from "@/lib/db";
 import { loadCardForRender } from "@/lib/cards/data";
 import { renderMemberCard } from "@/lib/cards/render";
 import { safeFileName, slugForFile } from "@/lib/downloads";
-import { absoluteUrl, sendBrandedEmail } from "./message";
+import { absoluteUrl } from "./message";
 import { orgTemplateContent } from "./orgTemplates";
+import { deliverMemberMessage } from "@/lib/notify/deliver";
 
 /*
  * "Email card": the member's card as a PDF attachment, queued by a manager or when a card is first issued on
@@ -45,12 +46,13 @@ export async function deliverMemberCard(payload: CardPayload, messageId: string)
     ],
   };
   const pdf = await renderMemberCard(loaded.input, holder, "pdf", { title: `${holder.displayName} membership card` });
-  await sendBrandedEmail({ organisationId: payload.organisationId,
-    to: member.email,
-    messageId,
-    ...content,
-    ...(member.organisation.memberPortal ? { action: { label: "See your membership", url: absoluteUrl("/account") } } : {}),
-    attachments: [{ filename: `${safeFileName(loaded.card.cardNumber)}-${slugForFile(holder.displayName, "member")}.pdf`, content: Buffer.from(pdf), contentType: "application/pdf" }],
+  // Through the organisation's routing for "card issued": the PDF goes by email; other channels carry the short text.
+  const values = { name: first, organisation: org.name, plan: loaded.card.plan.name, unit: loaded.card.member.unit?.name ?? null, cardNumber: loaded.card.cardNumber, validUntil: holder.validUntil };
+  return deliverMemberMessage({ organisationId: payload.organisationId, memberId: loaded.card.memberId, kind: "card-issued", values, dedupeKey: `card:${messageId}` }, messageId, {
+    email: {
+      ...content,
+      ...(member.organisation.memberPortal ? { action: { label: "See your membership", url: absoluteUrl("/account") } } : {}),
+      attachments: [{ filename: `${safeFileName(loaded.card.cardNumber)}-${slugForFile(holder.displayName, "member")}.pdf`, content: Buffer.from(pdf), contentType: "application/pdf" }],
+    },
   });
-  return "sent";
 }

@@ -3,6 +3,8 @@ import "server-only";
 import { OutboxStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { describeOperationalError } from "@/lib/redactSensitiveText";
+import { EmailRecipientRejectedError } from "@/lib/email/transporter";
+import { EmailSuppressedError } from "@/lib/email/suppression";
 import { OUTBOX_KINDS, PermanentOutboxError, type OutboxKind } from "@/lib/outboxKinds";
 
 export { PermanentOutboxError };
@@ -88,7 +90,7 @@ export async function deliverOutboxBatch(limit = 20, options: { ids?: string[] }
     } catch (error) {
       const attempts = message.attempts + 1;
       // Durable storage work keeps retrying however often storage fails; only a malformed job is given up.
-      const terminal = error instanceof PermanentOutboxError || (!handler?.durable && attempts >= 8);
+      const terminal = error instanceof PermanentOutboxError || error instanceof EmailSuppressedError || error instanceof EmailRecipientRejectedError || (!handler?.durable && attempts >= 8);
       if (handler?.capability && terminal) {
         await prisma.outboxMessage.deleteMany({ where: claimed });
       } else {

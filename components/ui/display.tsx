@@ -9,16 +9,17 @@ import { Patch } from "@/components/brand/Patch";
 
 /**
  * Fully round, 24px tall, and always carrying a word: colour never stands
- * alone. The status tokens give solid brand fills with ink labels in light
- * mode and soft fills with brand-coloured words in dark mode.
+ * alone. Success, warning and info are the solid brand fill with its on-* label
+ * in both themes (CR-STATUS-01); accent, danger and neutral keep their soft,
+ * outlined and surface recipes. Large callouts (Callout below) use the soft fill in dark.
  */
 export type ChipTone = "neutral" | "success" | "warning" | "info" | "danger" | "accent" | "highlight" | "ink" | "outline";
 
 const chipTones: Record<ChipTone, string> = {
   neutral: "border border-line bg-surface text-ink",
-  success: "bg-success-bg text-success-fg",
-  warning: "bg-warning-bg text-warning-fg",
-  info: "bg-info-bg text-info-fg",
+  success: "bg-success-mark text-on-success-mark",
+  warning: "bg-warning-mark text-on-warning-mark",
+  info: "bg-info-mark text-on-info-mark",
   danger: "border border-danger-border bg-panel text-danger-fg",
   accent: "bg-accent-soft text-accent-text",
   highlight: "bg-highlight text-on-highlight",
@@ -88,7 +89,7 @@ const calloutTones: Record<CalloutTone, { classes: string; icon: ReactNode }> = 
 export function Callout({ tone = "info", title, children, action, className, role }: { tone?: CalloutTone; title?: ReactNode; children?: ReactNode; action?: ReactNode; className?: string; role?: "alert" | "status" }) {
   const { classes, icon } = calloutTones[tone];
   return (
-    <div role={role} className={cn("flex flex-col gap-3 rounded-lg px-4 py-3.5 sm:flex-row sm:items-center", classes, className)}>
+    <div role={role} className={cn("flex flex-col gap-3 rounded-xl px-4 py-3.5 sm:flex-row sm:items-center", classes, className)}>
       <span aria-hidden className="hidden shrink-0 sm:inline-flex [&_svg]:size-5">{icon}</span>
       <div className="min-w-0 flex-1 text-body-ui">
         {title ? <p className="font-semibold">{title}</p> : null}
@@ -137,7 +138,8 @@ export function ProgressBar({ value, max, tone = "accent", className, label }: {
       aria-valuenow={Math.min(value, max)}
       className={cn("h-1.5 w-full overflow-hidden rounded-full bg-track", className)}
     >
-      <div className={cn("h-full rounded-full transition-[width] duration-[360ms] ease-sw", fill)} style={{ width: `${percent}%` }} />
+      {/* The fill scales from the left (transform only, CR-MOTION-01); it never animates its width. */}
+      <div className={cn("sw-progress-fill h-full rounded-full", fill)} style={{ transform: `scaleX(${percent / 100})` }} />
     </div>
   );
 }
@@ -146,12 +148,12 @@ export function StatTile({ label, value, hint, progress, tone = "default", class
   const body = (
     <>
       <span className="block text-sm text-ink-muted">{label}</span>
-      <span className="mt-1 block font-display text-[32px] font-semibold leading-tight tracking-[-0.01em] tabular-nums text-ink">{value}</span>
+      <span className="mt-1 block text-[32px] font-semibold leading-tight tracking-[-0.01em] tabular-nums text-ink">{value}</span>
       {hint ? <span className="mt-0.5 block text-caption text-ink-muted">{hint}</span> : null}
       {progress ? <ProgressBar className="mt-2.5" value={progress.value} max={progress.max} tone={progress.tone ?? "accent"} /> : null}
     </>
   );
-  const classes = cn("block rounded-xl border p-4", tone === "attention" ? "border-transparent bg-warning-bg [&_span]:text-warning-fg" : "border-line bg-panel", href && "transition-colors hover:bg-subtle", className);
+  const classes = cn("block rounded-xl border p-4", tone === "attention" ? "border-transparent bg-warning-bg [&_span]:text-warning-fg" : "border-line bg-panel", href && "transition-colors duration-(--sw-dur-fast) ease-sw hover:bg-subtle", className);
   return href ? <Link href={href} className={classes}>{body}</Link> : <div className={classes}>{body}</div>;
 }
 
@@ -170,11 +172,12 @@ export function PageHeader({ kicker, title, description, actions, className }: {
   );
 }
 
-export function SectionHeading({ title, description, action, className, as: Heading = "h2" }: { title: ReactNode; description?: ReactNode; action?: ReactNode; className?: string; as?: "h2" | "h3" }) {
+/** Pass `as="h1"` where the heading names the page (inside a template that holds no h1 of its own). */
+export function SectionHeading({ title, description, action, className, as: Heading = "h2" }: { title: ReactNode; description?: ReactNode; action?: ReactNode; className?: string; as?: "h1" | "h2" | "h3" }) {
   return (
     <div className={cn("flex flex-wrap items-end justify-between gap-3", className)}>
       <div className="min-w-0">
-        <Heading className="text-h4 text-ink">{title}</Heading>
+        <Heading className={cn("text-ink", Heading === "h1" ? "text-h3" : "text-h4")}>{title}</Heading>
         {description ? <p className="mt-1 text-body-ui text-ink-muted">{description}</p> : null}
       </div>
       {action}

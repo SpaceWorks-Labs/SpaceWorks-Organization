@@ -24,7 +24,7 @@ export async function loadPaymentsDirectory({ params, searchParams }: { params: 
   const { orgSlug } = await params;
   const search = await searchParams;
   const { organisation, membership } = await requireOrgCapability(orgSlug, "payments.view");
-  const scope = await teamScope(organisation.id, membership.unitId);
+  const scope = await teamScope(organisation.id, membership);
   const filter = (PAYMENT_FILTERS as readonly string[]).includes(search.status ?? "") ? (search.status as PaymentFilter) : "all";
   const q = (search.q ?? "").trim().slice(0, 80);
   const page = Math.max(1, Math.min(1000, Number.parseInt(search.page ?? "1", 10) || 1));
@@ -79,6 +79,7 @@ export async function loadPaymentsDirectory({ params, searchParams }: { params: 
     stuckRefunds,
     canManage: can(membership, "payments.manage"),
     canConfigure: can(membership, "payments.settings"),
+    canViewMembers: can(membership, "members.view"),
     userId: membership.userId,
   };
 }

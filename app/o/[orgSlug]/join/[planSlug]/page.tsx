@@ -30,7 +30,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
     );
   } else if (!user) {
     body = (
-      <div className="flex flex-col gap-4 rounded-2xl border border-line bg-panel p-6">
+      <div className="flex flex-col gap-4 rounded-xl border border-line bg-panel p-6">
         <h2 className="text-h3 text-ink">Sign in to join</h2>
         <p className="text-body-ui text-ink-secondary">Your account keeps your membership, card and receipts in one place, across every organisation you join.</p>
         <div className="flex flex-wrap gap-3">

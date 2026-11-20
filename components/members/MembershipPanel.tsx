@@ -16,8 +16,11 @@ export type MembershipView = { planId: string; planName: string; status: TermSta
 
 type Dialog = { kind: "reject" | "revoke" | "cancel" | "extend"; termId: string; lastDay?: string | null } | null;
 
-/** Each plan the member has held, with the actions its current state allows. */
-export function MembershipPanel({ slug, memberId, memberships, plans, canManage }: { slug: string; memberId: string; memberships: MembershipView[]; plans: Array<{ id: string; name: string }>; canManage: boolean }) {
+/**
+ * Each plan the member has held, with the actions its current state allows. `delight` is the organisation's
+ * playful-touches switch (Organisation.delightEnabled): off, Patch doesn't sneeze on an approval.
+ */
+export function MembershipPanel({ slug, memberId, memberships, plans, canManage, delight = true }: { slug: string; memberId: string; memberships: MembershipView[]; plans: Array<{ id: string; name: string }>; canManage: boolean; delight?: boolean }) {
   const router = useRouter();
   const [dialog, setDialog] = useState<Dialog>(null);
   const [reason, setReason] = useState("");
@@ -43,7 +46,7 @@ export function MembershipPanel({ slug, memberId, memberships, plans, canManage 
         {/* Letting a member in is the pack deciding together, so Patch sneezes its vote (once). */}
         {status ? (
           <div className="flex items-center gap-1">
-            {status.sneeze ? <Patch key={status.text} pose="sneeze" size={64} className="-my-2 -ml-2" /> : null}
+            {status.sneeze && delight ? <Patch key={status.text} pose="sneeze" size={64} className="-my-2 -ml-2" /> : null}
             <Callout tone={status.ok ? "success" : "danger"} role={status.ok ? "status" : "alert"} className="min-w-0 flex-1">{status.text}</Callout>
           </div>
         ) : null}

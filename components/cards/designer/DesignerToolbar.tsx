@@ -5,6 +5,9 @@ import { Circle, Image as ImageIcon, Minus, Redo2, Square, Type, Undo2 } from "l
 import { Button, IconButton } from "@/components/ui/button";
 import type { CardLayerKind } from "@/lib/cards/design/layers";
 
+/** The centre column is narrow at every width (the page is capped), so labels are read out and shown on hover only. */
+const label = (text: string) => <span className="sr-only">{text}</span>;
+
 /** Add text, pictures and shapes to the side being edited; undo and redo. */
 export function DesignerToolbar({ full, uploading, canUndo, canRedo, onAdd, onAddImage, onUndo, onRedo }: {
   full: boolean;
@@ -19,12 +22,12 @@ export function DesignerToolbar({ full, uploading, canUndo, canRedo, onAdd, onAd
   const file = useRef<HTMLInputElement>(null);
   return (
     <div role="toolbar" aria-label="Add to the card" className="flex flex-wrap items-center gap-1.5 border-b border-line bg-canvas px-3 py-2">
-      <Button size="sm" variant="secondary" startIcon={<Type />} disabled={full} onClick={() => onAdd("text")}>Text</Button>
-      <Button size="sm" variant="secondary" startIcon={<ImageIcon />} disabled={full || uploading} loading={uploading} onClick={() => file.current?.click()}>Image</Button>
+      <Button size="sm" variant="secondary" title="Text" startIcon={<Type />} disabled={full} onClick={() => onAdd("text")}>{label("Text")}</Button>
+      <Button size="sm" variant="secondary" title="Image" startIcon={<ImageIcon />} disabled={full || uploading} loading={uploading} onClick={() => file.current?.click()}>{label("Image")}</Button>
       <input ref={file} type="file" hidden accept="image/png,image/jpeg,image/webp" onChange={(event) => { const picked = event.target.files?.[0]; if (picked) onAddImage(picked); event.target.value = ""; }} />
-      <Button size="sm" variant="secondary" startIcon={<Square />} disabled={full} onClick={() => onAdd("rect")}>Rectangle</Button>
-      <Button size="sm" variant="secondary" startIcon={<Circle />} disabled={full} onClick={() => onAdd("ellipse")}>Ellipse</Button>
-      <Button size="sm" variant="secondary" startIcon={<Minus />} disabled={full} onClick={() => onAdd("line")}>Line</Button>
+      <Button size="sm" variant="secondary" title="Rectangle" startIcon={<Square />} disabled={full} onClick={() => onAdd("rect")}>{label("Rectangle")}</Button>
+      <Button size="sm" variant="secondary" title="Ellipse" startIcon={<Circle />} disabled={full} onClick={() => onAdd("ellipse")}>{label("Ellipse")}</Button>
+      <Button size="sm" variant="secondary" title="Line" startIcon={<Minus />} disabled={full} onClick={() => onAdd("line")}>{label("Line")}</Button>
       <span className="ml-auto flex items-center">
         <IconButton size="sm" label="Undo (Ctrl+Z)" disabled={!canUndo} onClick={onUndo}><Undo2 /></IconButton>
         <IconButton size="sm" label="Redo (Ctrl+Shift+Z)" disabled={!canRedo} onClick={onRedo}><Redo2 /></IconButton>

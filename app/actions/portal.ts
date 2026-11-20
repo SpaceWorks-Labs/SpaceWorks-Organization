@@ -13,6 +13,8 @@ import { queueChatAlerts } from "@/lib/chat/notify";
 import { canTransition, PENDING_STATUSES, statusAt } from "@/lib/membership/lifecycle";
 import { decideTerm, MembershipError, startRenewal } from "@/lib/membership/service";
 import { memberProfileSchema } from "@/lib/membership/validators";
+import { prepareMemberPhoto, replaceMemberPhoto } from "@/lib/membership/photo";
+import type { RenewalReask } from "@/lib/membership/renewalRules";
 import { replaceUnionAnswers, resolvePlanAnswers } from "@/lib/membership/planAnswers";
 import { memberQuestionPlans, organisationQuestionPlans } from "@/lib/membership/questionPlans";
 import { lockMember } from "@/lib/membership/memberLock";
@@ -21,6 +23,8 @@ import { walletState } from "@/lib/portal/walletStatus";
 import { requestErasure, withdrawErasure } from "@/lib/portal/erasure";
 import { PaymentError, ORG_FOR_PAYMENTS } from "@/lib/payments/charges";
 import { requestRefund, withdrawRefundRequest } from "@/lib/payments/refundRequests";
+import { membershipChanged } from "@/lib/membership/afterChange";
+import { auditAnswerChange } from "@/lib/membership/answerAudit";
 import type { ActionResult } from "./org";
 import { flattenZodErrors } from "./utils";
 
@@ -41,7 +45,8 @@ async function own(organisationSlug: string): Promise<Context> {
   return { ok: true, userId, member };
 }
 
-function refresh(member: OwnMember) {
+async function refresh(member: OwnMember) {
+  await membershipChanged(member.organisationId);
   revalidatePath("/account");
   revalidatePath(`/account/memberships/${member.organisation.slug}`);
   revalidatePath("/account/privacy");
@@ -58,9 +63,13 @@ function failure(error: unknown): { ok: false; error: string } {
 
 const planSchema = z.object({ organisationSlug: slug, planId: id });
 
-/** Renew (or rejoin after a lapse). A priced plan waits for payment; the member is emailed how to pay. */
+/**
+ * Renew (or rejoin after a lapse). A priced plan waits for payment; the member is emailed how to pay. Plans that ask
+ * again send FormData: `answers` (JSON) and `photo` (a file), checked with the plan's renewal conditions.
+ */
 export async function renewMembership(input: unknown): Promise<ActionResult<{ termId: string; status: string }>> {
-  const parsed = planSchema.safeParse(input);
+  const form = input instanceof FormData ? input : null;
+  const parsed = planSchema.safeParse(form ? { organisationSlug: form.get("organisationSlug"), planId: form.get("planId") } : input);
   if (!parsed.success) return { ok: false, error: "Invalid request." };
   const ctx = await own(parsed.data.organisationSlug);
   if (!ctx.ok) return ctx;
@@ -73,10 +82,23 @@ export async function renewMembership(input: unknown): Promise<ActionResult<{ te
   if (!state.actions.renew && !state.actions.rejoin) {
     return { ok: false, error: state.renewalOpensAt ? "Renewal isn't open yet. We'll email you when it is." : "This membership can't be renewed from your account. Contact the organisation." };
   }
+  const reask: RenewalReask = {};
+  const photo = form?.get("photo");
+  if (photo instanceof File && photo.size > 0) {
+    const prepared = await prepareMemberPhoto(photo);
+    if ("error" in prepared) return { ok: false, error: prepared.error };
+    reask.photo = prepared;
+  }
   try {
-    const term = await prisma.$transaction((tx) => startRenewal(tx, { org: member.organisation, plan, memberId: member.id, byManager: false, actorUserId: ctx.userId }));
+    reask.answers = form?.get("answers") ? z.record(z.string(), z.unknown()).parse(JSON.parse(String(form.get("answers")))) : null;
+  } catch {
+    return { ok: false, error: "Check your answers and try again." };
+  }
+  try {
+    const term = await prisma.$transaction((tx) => startRenewal(tx, { org: member.organisation, plan, memberId: member.id, byManager: false, actorUserId: ctx.userId, reask }));
+    if (reask.photo) await replaceMemberPhoto(member, reask.photo).catch(() => null);
     await recordAuditEvent({ action: "MEMBERSHIP_RENEWED_BY_MEMBER", actorUserId: ctx.userId, organisationId: member.organisationId, targetType: "MembershipTerm", targetId: term.id });
-    refresh(member);
+    await refresh(member);
     return { ok: true, data: { termId: term.id, status: term.status } };
   } catch (error) {
     return failure(error);
@@ -97,7 +119,7 @@ export async function withdrawTerm(input: unknown): Promise<ActionResult> {
   if (!term || !status || !(PENDING_STATUSES.has(status) || status === "UPCOMING")) return { ok: false, error: "There's nothing to cancel on this membership." };
   try {
     await prisma.$transaction((tx) => decideTerm(tx, { org: member.organisation, termId: term.id, action: "withdraw", actorUserId: ctx.userId, reason: "Cancelled by the member" }));
-    refresh(member);
+    await refresh(member);
     return { ok: true };
   } catch (error) {
     return failure(error);
@@ -122,7 +144,7 @@ export async function leaveMembership(input: unknown): Promise<ActionResult> {
       await enqueueOutbox(tx, "membership-notice", { termId: ending.at(-1)!.id, organisationId: member.organisationId, notice: "left" });
       await queueChatAlerts(tx, member.organisationId, "member-left", { termId: ending.at(-1)!.id });
     });
-    refresh(member);
+    await refresh(member);
     return { ok: true };
   } catch (error) {
     return failure(error);
@@ -141,7 +163,7 @@ export async function requestMembershipRefund(input: unknown): Promise<ActionRes
   try {
     const org = await prisma.organisation.findUniqueOrThrow({ where: { id: member.organisationId }, select: ORG_FOR_PAYMENTS });
     await prisma.$transaction((tx) => requestRefund(tx, { org, memberId: member.id, termId: parsed.data.termId, reason: parsed.data.reason, userId: ctx.userId }));
-    refresh(member);
+    await refresh(member);
     revalidatePath(`/dashboard/${member.organisation.slug}/payments`);
     return { ok: true };
   } catch (error) {
@@ -162,7 +184,7 @@ export async function withdrawMembershipRefund(input: unknown): Promise<ActionRe
   try {
     const org = await prisma.organisation.findUniqueOrThrow({ where: { id: member.organisationId }, select: ORG_FOR_PAYMENTS });
     await prisma.$transaction((tx) => withdrawRefundRequest(tx, { org, memberId: member.id, requestId: parsed.data.requestId, userId: ctx.userId }));
-    refresh(member);
+    await refresh(member);
     revalidatePath(`/dashboard/${member.organisation.slug}/payments`);
     return { ok: true };
   } catch (error) {
@@ -200,11 +222,12 @@ export async function updateMemberProfile(input: unknown): Promise<ActionResult>
       where: { id: member.id },
       data: { name: profile.data.name, phone: profile.data.phone, stateCode: profile.data.stateCode, ...guardian, fieldValues: fieldValues as Prisma.InputJsonValue },
     });
+    await auditAnswerChange(tx, { organisationId: member.organisationId, actorUserId: ctx.userId, memberId: member.id, before: locked.fieldValues as Record<string, unknown>, after: fieldValues, by: "member" });
     return true;
   });
   if (!saved) return { ok: false, error: "We couldn't find that membership on your account." };
   await recordAuditEvent({ action: "MEMBER_PROFILE_UPDATED_BY_MEMBER", actorUserId: ctx.userId, organisationId: member.organisationId, targetType: "Member", targetId: member.id });
-  refresh(member);
+  await refresh(member);
   return { ok: true };
 }
 
@@ -220,7 +243,7 @@ export async function withdrawConsent(input: unknown): Promise<ActionResult> {
   const updated = await prisma.consentRecord.updateMany({ where: { id: parsed.data.consentId, organisationId: member.organisationId, memberId: member.id, withdrawnAt: null }, data: { withdrawnAt: new Date() } });
   if (updated.count !== 1) return { ok: false, error: "This consent was already withdrawn." };
   await recordAuditEvent({ action: "CONSENT_WITHDRAWN", actorUserId: ctx.userId, organisationId: member.organisationId, targetType: "ConsentRecord", targetId: parsed.data.consentId });
-  refresh(member);
+  await refresh(member);
   return { ok: true };
 }
 
@@ -234,7 +257,7 @@ export async function requestDataErasure(input: unknown): Promise<ActionResult> 
   if (!ctx.ok) return ctx;
   try {
     await prisma.$transaction((tx) => requestErasure(tx, { organisationId: ctx.member.organisationId, memberId: ctx.member.id, userId: ctx.userId, reason: parsed.data.reason }));
-    refresh(ctx.member);
+    await refresh(ctx.member);
     return { ok: true };
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return { ok: false, error: "You already asked. The organisation will email you their decision." };
@@ -251,7 +274,7 @@ export async function withdrawDataErasure(input: unknown): Promise<ActionResult>
   if (!ctx.ok) return ctx;
   try {
     await prisma.$transaction((tx) => withdrawErasure(tx, { organisationId: ctx.member.organisationId, memberId: ctx.member.id, requestId: parsed.data.requestId, userId: ctx.userId }));
-    refresh(ctx.member);
+    await refresh(ctx.member);
     return { ok: true };
   } catch (error) {
     return failure(error);

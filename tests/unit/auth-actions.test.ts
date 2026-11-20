@@ -8,10 +8,13 @@ const mocks = vi.hoisted(() => ({
   userCreate: vi.fn(),
   transaction: vi.fn(),
   issueVerification: vi.fn(),
+  inviteToken: vi.fn(),
 }));
 
 vi.mock("bcryptjs", () => ({ default: { hash: mocks.hash } }));
 vi.mock("@/lib/actionRateLimit", () => ({ isActionRateLimited: mocks.rateLimit }));
+vi.mock("@/lib/inviteSignup", () => ({ inviteSignupToken: mocks.inviteToken, reserveInviteSignup: mocks.inviteToken }));
+vi.mock("@/lib/loginMethods", () => ({ availableLoginMethods: async () => ["password"] }));
 vi.mock("@/lib/ipBlock", () => ({ currentRequestBlocked: async () => false }));
 vi.mock("@/lib/instanceSettings", () => ({ isNewUserRegistrationEnabled: mocks.registrationEnabled }));
 vi.mock("@/lib/emailVerification", () => ({
@@ -30,6 +33,7 @@ import { resendEmailVerification, signUpWithPassword } from "@/app/actions/auth"
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.registrationEnabled.mockResolvedValue(true);
+  mocks.inviteToken.mockResolvedValue(null);
   mocks.rateLimit.mockResolvedValue(false);
   mocks.hash.mockResolvedValue("password-hash");
   mocks.userFind.mockResolvedValue(null);
@@ -46,14 +50,20 @@ describe("password account creation", () => {
     expect(mocks.transaction).not.toHaveBeenCalled();
   });
 
-  it("does not mislabel a retried account creation as rate-limited", async () => {
-    mocks.userFind.mockResolvedValue({ id: "new_user", passwordHash: "hash" });
+  it("applies the per-address sign-up limit before hashing, lookups or the breached check", async () => {
     mocks.rateLimit.mockResolvedValue(true);
-
     await expect(signUpWithPassword({ name: "Person", email: "person@example.test", password: "new-password" }))
-      .resolves.toEqual({ ok: true, data: { email: "person@example.test" } });
-    expect(mocks.rateLimit).not.toHaveBeenCalled();
+      .resolves.toEqual({ ok: false, error: "Too many attempts. Try again later." });
+    expect(mocks.hash).not.toHaveBeenCalled();
+    expect(mocks.userFind).not.toHaveBeenCalled();
     expect(mocks.transaction).not.toHaveBeenCalled();
+  });
+
+  it("consumes the same limit for existing and new addresses", async () => {
+    await signUpWithPassword({ name: "Person", email: "new@example.test", password: "new-password" });
+    mocks.userFind.mockResolvedValue({ id: "u", passwordHash: "h" });
+    await signUpWithPassword({ name: "Person", email: "old@example.test", password: "new-password" });
+    expect(mocks.rateLimit.mock.calls).toEqual([["signup"], ["signup"]]);
   });
 
   it("creates the user and verification outbox record in one transaction", async () => {
@@ -62,7 +72,7 @@ describe("password account creation", () => {
     expect(mocks.userCreate).toHaveBeenCalledWith(expect.objectContaining({
       data: { name: "Person", email: "person@example.test", passwordHash: "password-hash" },
     }));
-    expect(mocks.issueVerification).toHaveBeenCalledWith({ id: "user_1", email: "person@example.test" }, tx);
+    expect(mocks.issueVerification).toHaveBeenCalledWith({ id: "user_1", email: "person@example.test" }, tx, undefined);
   });
 
   it("does not touch persistence when instance registration is disabled", async () => {
@@ -70,6 +80,16 @@ describe("password account creation", () => {
     await expect(signUpWithPassword({ name: "Person", email: "person@example.test", password: "new-password" }))
       .resolves.toEqual({ ok: false, error: "New account creation is currently unavailable." });
     expect(mocks.userFind).not.toHaveBeenCalled();
+  });
+
+  it("creates an account through a valid invite while registration is off, and returns to it after verifying", async () => {
+    const token = "a".repeat(24);
+    mocks.registrationEnabled.mockResolvedValue(false);
+    mocks.inviteToken.mockResolvedValue(token);
+    await expect(signUpWithPassword({ name: "Person", email: "person@example.test", password: "new-password" }))
+      .resolves.toEqual({ ok: true, data: { email: "person@example.test" } });
+    expect(mocks.inviteToken).toHaveBeenCalledWith("person@example.test");
+    expect(mocks.issueVerification).toHaveBeenCalledWith({ id: "user_1", email: "person@example.test" }, tx, `/join/org/${token}`);
   });
 
   it("keeps resend behavior generic for an unknown account", async () => {

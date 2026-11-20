@@ -2,6 +2,7 @@ import {
   CAPABILITY_LIST,
   effectiveCapabilities,
   GRANTABLE_CAPABILITIES,
+  isScopedActor,
   ORG_WIDE_ONLY,
   ORG_WIDE_TO_CHANGE,
   type Capability,
@@ -55,6 +56,7 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
       { capability: "plans.manage", label: "Create and change membership plans" },
       { capability: "org.settings", label: "Change the profile, public page, email and notifications" },
       { capability: "structure.manage", label: "Change units, levels and member roles" },
+      { capability: "groupings.manage", label: "Create and change groupings and their values" },
       { capability: "team.manage", label: "Invite staff and change their roles" },
       { capability: "roles.manage", label: "Create and edit staff roles" },
     ],
@@ -96,7 +98,7 @@ export function normaliseCapabilities(values: readonly string[]): Capability[] |
 /** The permissions someone may put in a role: the Owner any grantable one, anyone else only what they hold themselves. */
 export function editableCapabilities(actor: StaffActor): Set<Capability> {
   if (actor.orgRole.isOwner) return new Set(GRANTABLE_CAPABILITIES);
-  const own = effectiveCapabilities(actor.orgRole, Boolean(actor.unitId));
+  const own = effectiveCapabilities(actor.orgRole, isScopedActor(actor));
   return new Set(GRANTABLE_CAPABILITIES.filter((capability) => own.has(capability)));
 }
 

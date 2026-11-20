@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { updateOrganisation } from "@/app/actions/org";
 import { uploadOrganisationLogo } from "@/app/actions/media";
 import { ImageUploadPicker } from "@/components/forms/ImageUploadPicker";
+import { LogoTools } from "@/components/org/logo/LogoTools";
 import { useToast } from "@/components/feedback/ToastProvider";
 import { useUnsavedChangesGuard } from "@/components/forms/useUnsavedChangesGuard";
 import { Button } from "@/components/ui/button";
@@ -24,8 +25,10 @@ export function EditOrgForm(props: {
   id?: string;
   /** False for staff who may read settings but not change them (a role held for one unit). */
   canEdit?: boolean;
+  /** The card brand kit's colours, offered by the logo maker. */
+  brandColours?: readonly string[];
 }) {
-  const { organisationSlug, initial, id, canEdit = true } = props;
+  const { organisationSlug, initial, id, canEdit = true, brandColours = [] } = props;
   const router = useRouter();
   const { showToast } = useToast();
   const titleId = useId();
@@ -120,7 +123,7 @@ export function EditOrgForm(props: {
             <span className="text-label text-ink">Logo</span>
             <ImageUploadPicker
               key={pickerKey}
-              initialUrl={saved.logoUrl}
+              initialUrl={logoPreviewUrl || null}
               label="Logo"
               placeholder="Your logo will appear here."
               objectFit="cover"
@@ -130,6 +133,25 @@ export function EditOrgForm(props: {
                 setLogoPreviewUrl(previewUrl);
               }}
             />
+            {canEdit ? (
+              <LogoTools
+                organisationSlug={organisationSlug}
+                organisationName={name.trim() || saved.name}
+                brandColours={brandColours}
+                previewUrl={logoPreviewUrl}
+                disabled={pending}
+                onCropped={(file, previewUrl) => {
+                  setLogoFile(file);
+                  setLogoPreviewUrl(previewUrl);
+                  setPickerKey((key) => key + 1);
+                }}
+                onMade={(url) => {
+                  setLogoFile(null);
+                  setLogoPreviewUrl(url);
+                  setPickerKey((key) => key + 1);
+                }}
+              />
+            ) : null}
           </div>
 
           <Field label="Name" required error={fieldErrors.name?.[0]}>
@@ -146,7 +168,7 @@ export function EditOrgForm(props: {
             <div aria-hidden className="sw-dot-strip h-14" />
             <div className="flex flex-col gap-2 px-4 pb-4 sm:px-5 sm:pb-5">
               <OrgLogo name={previewName} src={logoPreviewUrl || null} size="lg" className="-mt-7 border-[3px] border-canvas" />
-              <span className="wrap-break-word font-display text-[22px] font-semibold leading-tight text-ink">{previewName}</span>
+              <span className="wrap-break-word text-[22px] font-semibold leading-tight text-ink">{previewName}</span>
               {description.trim() ? (
                 <p className="line-clamp-4 whitespace-pre-line wrap-break-word text-sm text-ink-secondary">{description}</p>
               ) : (

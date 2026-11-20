@@ -6,6 +6,13 @@ import {
   concatTransformationMatrix,
   drawObject,
   fill,
+  fillAndStroke,
+  LineJoinStyle,
+  rgb,
+  setLineJoin,
+  setLineWidth,
+  setStrokingColor,
+  stroke,
   lineTo,
   moveTo,
   popGraphicsState,
@@ -42,6 +49,11 @@ export function glyphContext(pdf: PDFDocument): GlyphContext {
   return { pdf, forms: new Map(), names: new WeakMap(), states: new WeakMap() };
 }
 
+const hexToColor = (hex: string) => {
+  const v = Number.parseInt(hex.slice(1), 16);
+  return rgb(((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255);
+};
+
 /** The glyph outline as PDF path operators, in font units (y up, like PDF). Quadratics become cubics. */
 function outline(glyph: Glyph): PDFOperator[] {
   const ops: PDFOperator[] = [];
@@ -68,13 +80,20 @@ function outline(glyph: Glyph): PDFOperator[] {
   return ops;
 }
 
-function glyphForm(context: GlyphContext, key: string, glyph: Glyph) {
+type Paint = "fill" | "stroke" | "both";
+
+/** One form per glyph and paint: filled (text), stroked (hollow text, outlines) or both. */
+function glyphForm(context: GlyphContext, glyphKey: string, glyph: Glyph, paint: Paint = "fill") {
+  const key = paint === "fill" ? glyphKey : `${glyphKey}:${paint}`;
   if (context.forms.has(key)) return context.forms.get(key)!;
   const ops = outline(glyph);
   let ref: PDFRef | null = null;
   if (ops.length > 0) {
     const box = glyph.path.cbox;
-    const stream = context.pdf.context.formXObject([...ops, fill()], { BBox: [box.minX, box.minY, box.maxX, box.maxY] });
+    // Strokes reach outside the outline: pad the box by the widest outline a layer can ask for.
+    const pad = paint === "fill" ? 0 : Math.max(box.maxX - box.minX, box.maxY - box.minY);
+    const paintOp = paint === "fill" ? fill() : paint === "stroke" ? stroke() : fillAndStroke();
+    const stream = context.pdf.context.formXObject([...ops, paintOp], { BBox: [box.minX - pad, box.minY - pad, box.maxX + pad, box.maxY + pad] });
     ref = context.pdf.context.register(stream);
   }
   context.forms.set(key, ref);
@@ -112,7 +131,10 @@ export function opacityState(context: GlyphContext, page: PDFPage, opacity: numb
 
 /** Draw one text op with its baseline origin at (`xPt`, `yPt`) in page space. */
 export function drawShapedText(context: GlyphContext, fonts: CardFonts, page: PDFPage, op: CardTextOp, xPt: number, yPt: number, color: Color) {
+  const outlineMm = op.stroke && op.strokeWidth ? op.strokeWidth : 0;
+  const paint: Paint = outlineMm ? (op.noFill ? "stroke" : "both") : "fill";
   const ops: PDFOperator[] = [pushGraphicsState(), setFillingColor(color)];
+  if (outlineMm) ops.push(setStrokingColor(hexToColor(op.stroke!)), setLineJoin(LineJoinStyle.Round));
   if (op.opacity !== undefined) ops.push(setGraphicsState(opacityState(context, page, op.opacity)));
   ops.push(concatTransformationMatrix(1, 0, 0, 1, xPt, yPt));
   if (op.rotateDeg) {
@@ -120,11 +142,15 @@ export function drawShapedText(context: GlyphContext, fonts: CardFonts, page: PD
     const angle = (-op.rotateDeg * Math.PI) / 180;
     ops.push(concatTransformationMatrix(Math.cos(angle), Math.sin(angle), -Math.sin(angle), Math.cos(angle), 0, 0));
   }
-  for (const placed of placeGlyphs(fonts, op.text, op.weight, op.sizePt, op.trackingEm, op.font)) {
-    const ref = glyphForm(context, placed.key, placed.glyph);
+  for (const placed of placeGlyphs(fonts, op.text, op.weight, op.sizePt, op.trackingEm, op.font, op.tabular)) {
+    const ref = glyphForm(context, placed.key, placed.glyph, paint);
     if (!ref) continue;
     const scale = placed.scale * PT_PER_MM;
-    ops.push(pushGraphicsState(), concatTransformationMatrix(scale, 0, 0, scale, placed.x * PT_PER_MM, -placed.y * PT_PER_MM), drawObject(nameOn(context, page, placed.key, ref)), popGraphicsState());
+    const formKey = paint === "fill" ? placed.key : `${placed.key}:${paint}`;
+    ops.push(pushGraphicsState(), concatTransformationMatrix(scale, 0, 0, scale, placed.x * PT_PER_MM, -placed.y * PT_PER_MM));
+    // The outline width in glyph units, so it measures `strokeWidth` mm on the card.
+    if (outlineMm) ops.push(setLineWidth(outlineMm / placed.scale));
+    ops.push(drawObject(nameOn(context, page, formKey, ref)), popGraphicsState());
   }
   ops.push(popGraphicsState());
   page.pushOperators(...ops);

@@ -18,7 +18,7 @@ export async function loadOrgUnitView({ params }: { params: Promise<{ orgSlug: s
   });
   if (!unit) notFound();
   // Staff limited to a unit see only units inside their reach.
-  if (!unitInScope(await teamScope(organisationId, membership.unitId), unit.path)) notFound();
+  if (!unitInScope(await teamScope(organisationId, membership), unit.path)) notFound();
 
   // A scoped viewer's reach starts at their own unit (on this unit's path, being in scope): nothing above it is shown.
   const fullPath = unit.path.split("/");

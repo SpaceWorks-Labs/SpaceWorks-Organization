@@ -6,7 +6,7 @@ function inline(nodes: MarkdownInline[]): ReactNode {
     switch (node.type) {
       case "text": return <Fragment key={index}>{node.value}</Fragment>;
       case "break": return <br key={index} />;
-      case "code": return <code key={index} className="rounded-sm bg-surface px-1 font-mono text-[0.9em]">{node.value}</code>;
+      case "code": return <code key={index} className="rounded-sm bg-surface px-1 code-text text-[0.9em]">{node.value}</code>;
       case "strong": return <strong key={index} className="font-semibold text-ink">{inline(node.children)}</strong>;
       case "em": return <em key={index}>{inline(node.children)}</em>;
       case "link": {

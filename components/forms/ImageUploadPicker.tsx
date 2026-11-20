@@ -14,6 +14,9 @@ export function ImageUploadPicker(props: {
   placeholder: string;
   disabled?: boolean;
   objectFit?: "contain" | "cover";
+  /** A form's error for this picker: marks the file input invalid and links the error text by id. */
+  invalid?: boolean;
+  describedBy?: string;
   onChange: (file: File | null, previewUrl: string) => void;
 }) {
   const {
@@ -22,6 +25,8 @@ export function ImageUploadPicker(props: {
     placeholder,
     disabled = false,
     objectFit = "contain",
+    invalid,
+    describedBy,
     onChange,
   } = props;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -68,7 +73,7 @@ export function ImageUploadPicker(props: {
           <div className="flex flex-wrap items-center gap-2">
             <label
               htmlFor={inputId}
-              className={buttonClasses({ variant: "secondary", size: "sm", className: cn("cursor-pointer", disabled && "pointer-events-none opacity-50") })}
+              className={buttonClasses({ variant: "secondary", size: "sm", className: cn("cursor-pointer has-[+input:focus-visible]:outline-2 has-[+input:focus-visible]:outline-offset-2 has-[+input:focus-visible]:outline-[rgb(var(--sw-ui-focus))]", disabled && "pointer-events-none") })}
               aria-disabled={disabled || undefined}
             >
               {previewUrl ? "Replace image" : `Choose ${label.toLowerCase()}`}
@@ -79,6 +84,8 @@ export function ImageUploadPicker(props: {
               className="sr-only"
               type="file"
               disabled={disabled}
+              aria-invalid={invalid || undefined}
+              aria-describedby={describedBy}
               accept="image/jpeg,image/png,image/webp"
               onChange={(event) => choose(event.target.files?.[0])}
             />

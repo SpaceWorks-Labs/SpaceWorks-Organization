@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { membershipChanged } from "@/lib/membership/afterChange";
 import { revalidatePath as nextRevalidatePath } from "next/cache";
 import { trackedRevalidation } from "@/lib/frontend/revalidation";
 import { prisma } from "@/lib/db";
@@ -15,7 +16,8 @@ const id = z.string().trim().min(1).max(64);
 const slug = z.string().trim().min(1).max(64);
 type Status = "PENDING" | "PROCESSED" | "FAILED";
 
-function refresh(ctx: PaymentActionContext, payment: { id: string; memberId: string }) {
+async function refresh(ctx: PaymentActionContext, payment: { id: string; memberId: string }) {
+  await membershipChanged(ctx.org.id);
   revalidatePath(`/dashboard/${ctx.org.slug}/payments/${payment.id}`);
   revalidatePath(`/dashboard/${ctx.org.slug}/payments`);
   revalidatePath(`/dashboard/${ctx.org.slug}/members/${payment.memberId}`);
@@ -53,7 +55,7 @@ export async function refundPayment(input: unknown): Promise<ActionResult<{ stat
     return paymentFailure(error);
   }
   const outcome = await sendRefundToGateway(ctx.org, created);
-  refresh(ctx, payment);
+  await refresh(ctx, payment);
   return outcome.ok ? { ok: true, data: { status: outcome.status } } : outcome;
 }
 
@@ -81,7 +83,7 @@ export async function approveRefund(input: unknown): Promise<ActionResult<{ stat
     return paymentFailure(error);
   }
   const outcome = await sendRefundToGateway(ctx.org, created);
-  refresh(ctx, payment);
+  await refresh(ctx, payment);
   return outcome.ok ? { ok: true, data: { status: outcome.status } } : outcome;
 }
 
@@ -101,6 +103,6 @@ export async function declineRefund(input: unknown): Promise<ActionResult> {
   } catch (error) {
     return paymentFailure(error);
   }
-  refresh(ctx, payment);
+  await refresh(ctx, payment);
   return { ok: true };
 }

@@ -23,7 +23,7 @@ export function CardSlot({ card }: { card: MemberCardData | null }) {
         <span aria-hidden className="text-ink-muted transition-transform group-open:rotate-90">›</span>
       </summary>
       <div className="px-4 pb-4">
-        <CardViewer design={card.design} holder={card.holder} branding={card.branding} label={`${card.organisation.name} membership card`} downloads={card.downloads} verifyPath={card.verifyPath} />
+        <CardViewer design={card.design} holder={card.holder} branding={card.branding} label={`${card.organisation.name} membership card`} downloads={card.downloads} verifyPath={card.verifyPath} delight={card.organisation.delight} />
       </div>
     </details>
   );

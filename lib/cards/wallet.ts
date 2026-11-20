@@ -20,7 +20,8 @@ export type WalletCard = {
   planId: string;
   cardNumber: string;
   issuedAt: Date;
-  organisation: { id: string; name: string; slug: string };
+  /** delight: the organisation still shows playful touches (Organisation.delightEnabled), e.g. the card tilt. */
+  organisation: { id: string; name: string; slug: string; delight: boolean };
   planName: string;
   /** The membership's standing right now, as /verify shows it. */
   status: TermStatus | "NONE";
@@ -67,7 +68,7 @@ export async function listCardsForUser(userId: string, now = new Date()): Promis
       planId: card.planId,
       cardNumber: card.cardNumber,
       issuedAt: card.issuedAt,
-      organisation: { id: ctx.organisation.id, name: ctx.organisation.name, slug: ctx.organisation.slug },
+      organisation: { id: ctx.organisation.id, name: ctx.organisation.name, slug: ctx.organisation.slug, delight: ctx.organisation.delightEnabled },
       planName: card.plan.name,
       status: deriveStatus(card.member.terms.filter((term) => term.planId === card.planId), now).status,
       design,

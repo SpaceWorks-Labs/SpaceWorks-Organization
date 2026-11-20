@@ -5,9 +5,12 @@
 //
 // Adds units, three plans (one in USD), member roles, ~280 sample members with term chains and status
 // events (joins, approvals, renewals early and late, grace, lapses, comebacks, revocations, pending
-// applications), a Viewer and a unit-scoped Manager. Deterministic. Refuses to run twice or in production.
+// applications), the six SpaceWorks team members on staff and as members with cards (scripts/seed-team.mjs), a Viewer
+// and unit-scoped Managers. Deterministic apart from card tokens. Refuses to run twice or in production.
 import bcrypt from "bcryptjs";
 import { PrismaClient } from "@prisma/client";
+import { seedTeam } from "./seed-team.mjs";
+import { seedGroupings } from "./seed-groupings.mjs";
 
 if (process.env.NODE_ENV === "production") throw new Error("seed-reports never runs in production.");
 const password = process.env.DEMO_PASSWORD ?? "";
@@ -66,7 +69,7 @@ const roleNames = [["Systems Engineer", "teal"], ["Cloud Specialist", "sky"], ["
 const roles = [];
 for (const [index, [name, color]] of roleNames.entries()) roles.push(await prisma.memberRole.create({ data: { organisationId: org.id, name, color, sortOrder: index } }));
 
-// Team: a Viewer and a Manager limited to the South Kerala region.
+// Team: an organisation-wide Manager, a Viewer and Managers limited to the North and South Kerala regions.
 const passwordHash = await bcrypt.hash(password, 12);
 // Staff need an authenticator: reuse the demo owner's (set by seed-demo from DEMO_MFA_SECRET), if there is one.
 const ownerMfa = await prisma.user.findUnique({ where: { email: "owner@demo.test" }, select: { mfaSecretEncrypted: true, mfaEnabledAt: true } });
@@ -74,6 +77,8 @@ const mfa = ownerMfa?.mfaSecretEncrypted ? { mfaSecretEncrypted: ownerMfa.mfaSec
 const teamUser = (email, name) => prisma.user.upsert({ where: { email }, create: { email, name, emailVerified: now, passwordHash, ...mfa }, update: { name, emailVerified: now, passwordHash, ...mfa } });
 const viewer = await teamUser("viewer@demo.test", "Ajzal P");
 const regional = await teamUser("south@demo.test", "Anin Arafath");
+const systems = await teamUser("shaan@demo.test", "Shaan Shoukath");
+const northern = await teamUser("midlaj@demo.test", "Midlaj C");
 const owner = await prisma.user.findUnique({ where: { email: "owner@demo.test" } });
 // The starter roles (lib/permissionRoles.ts STARTER_ROLES), created with the organisation by seed-demo or migration 0014.
 const starterRole = (name) => prisma.orgRole.findFirstOrThrow({ where: { organisationId: org.id, name }, select: { id: true } });
@@ -81,10 +86,13 @@ const viewerRole = await starterRole("Viewer");
 const managerRole = await starterRole("Manager");
 await prisma.teamMember.upsert({ where: { userId_organisationId: { userId: viewer.id, organisationId: org.id } }, create: { userId: viewer.id, organisationId: org.id, role: "VIEWER", roleId: viewerRole.id }, update: {} });
 await prisma.teamMember.upsert({ where: { userId_organisationId: { userId: regional.id, organisationId: org.id } }, create: { userId: regional.id, organisationId: org.id, role: "ADMIN", roleId: managerRole.id, unitId: south.id }, update: { unitId: south.id } });
+await prisma.teamMember.upsert({ where: { userId_organisationId: { userId: systems.id, organisationId: org.id } }, create: { userId: systems.id, organisationId: org.id, role: "ADMIN", roleId: managerRole.id }, update: {} });
+await prisma.teamMember.upsert({ where: { userId_organisationId: { userId: northern.id, organisationId: org.id } }, create: { userId: northern.id, organisationId: org.id, role: "ADMIN", roleId: managerRole.id, unitId: north.id }, update: { unitId: north.id } });
 const managers = [owner?.id, regional.id].filter(Boolean);
 
-const first = ["Shaan", "Abhiram", "Abdul", "Midlaj", "Ajzal", "Anin", "Fathima", "Nikhil", "Aisha", "Rahul", "Meera", "Arjun", "Sneha", "Vishnu", "Riya", "Hari", "Nandana", "Joel", "Anjali", "Faiz", "Gopika", "Adil", "Lakshmi", "Sanjay"];
-const last = ["Shoukath", "NJ", "Samad", "C", "P", "Arafath", "K", "Menon", "Nair", "Thomas", "Pillai", "Varghese", "Rahman", "Krishnan", "Joseph", "Das"];
+// The team's own names are kept for their records (scripts/seed-team.mjs), so the generated ones never repeat them.
+const first = ["Nihal", "Devika", "Irfan", "Sreya", "Akhil", "Neha", "Fathima", "Nikhil", "Aisha", "Rahul", "Meera", "Arjun", "Sneha", "Vishnu", "Riya", "Hari", "Nandana", "Joel", "Anjali", "Faiz", "Gopika", "Adil", "Lakshmi", "Sanjay"];
+const last = ["Kurian", "Babu", "Mathew", "Iyer", "George", "Haneef", "K", "Menon", "Nair", "Thomas", "Pillai", "Varghese", "Rahman", "Krishnan", "Joseph", "Das"];
 const states = ["KL", "KL", "KL", "KL", "KL", "TN", "KA", "MH", null];
 
 const events = [];
@@ -204,8 +212,12 @@ for (let n = 0; n < 280; n += 1) {
   }
 }
 
+const units = Object.fromEntries(chapters.map((chapter) => [chapter.code, chapter]));
+counter = await seedTeam(prisma, { org, now, DAY, dayStart, addMonths, fyEnd, annual, student, units, roles, ev, audits, actor: owner?.id ?? null, counter });
+
+await seedGroupings(prisma, { org });
 await prisma.termStatusEvent.createMany({ data: events });
 await prisma.auditEvent.createMany({ data: audits });
 await prisma.orgCounter.upsert({ where: { organisationId_name: { organisationId: org.id, name: "member" } }, create: { organisationId: org.id, name: "member", next: counter + 1 }, update: { next: counter + 1 } });
 await prisma.$disconnect();
-console.log(`seed-reports: ${counter} members, ${events.length} status events, 7 units, 3 plans; viewer@demo.test (Viewer) and south@demo.test (Manager, South Kerala).`);
+console.log(`seed-reports: ${counter} members, ${events.length} status events, 7 units, 3 plans, cards SWK-0001 to SWK-0006 for the team, Profession and Interests groupings; shaan@demo.test (Manager), midlaj@demo.test (Manager, North Kerala), viewer@demo.test (Viewer) and south@demo.test (Manager, South Kerala).`);

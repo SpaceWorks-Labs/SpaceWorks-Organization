@@ -1,18 +1,10 @@
-import { cn } from "@/lib/cn";
+import { BoxArt, BoxSpinner } from "@/components/brand/BoxSpinner";
 
-/** Decorative progress indicator. Pair with visible text such as "Saving…". */
+/**
+ * Compact progress indicator: the box loader in the surrounding text colour (mono BoxSpinner), so filled buttons
+ * keep their own colours. Decorative unless `label` is given; pair it with visible text such as "Saving…".
+ */
 export function Spinner({ className, label }: { className?: string; label?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className={cn("size-5 animate-spin", className)}
-      role={label ? "status" : undefined}
-      aria-label={label}
-      aria-hidden={label ? undefined : true}
-    >
-      <circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2.5" />
-      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
-    </svg>
-  );
+  if (label) return <BoxSpinner label={label} size={16} mono className={className} />;
+  return <BoxArt size={16} mono className={className} />;
 }

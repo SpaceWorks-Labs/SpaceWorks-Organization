@@ -52,8 +52,20 @@ export function loginErrorMessage(code: string | null): string | null {
   if (!code) return null;
   if (code === "google_account_required") return "Create an account with your email and password before continuing with that provider.";
   if (code === "account_creation_disabled") return "New account creation is currently unavailable. Ask an administrator for access or sign in with an existing account.";
+  if (code === "bridge_link_refused") return "An account with that email already exists here. Sign in the way you usually do; this option only signs in accounts it created.";
+  if (code === "invite_email_mismatch") return "This invite can’t be used with that account. Continue with the email address the invite was sent to, or ask whoever sent it for a new one.";
   if (code === "address_blocked") return "Too many failed sign-ins from your network. Try again in an hour, or ask your administrator.";
   if (code === "super_admin_password_only") return "This is a super-admin account. Sign in with its email and password.";
   if (code === "unverified_email") return "That account's email address isn't verified with the provider. Verify it there, or sign in with your email and password.";
+  if (code === "bridge_no_email") return "That sign-in has no email address, so it can’t be used here. Sign in with a method that shares a verified email.";
+  if (code === "bridge_unavailable") return "That sign-in service can’t be reached or isn’t set up for this site. Try again, or use another option.";
+  if (code === "bridge_failed") return "That sign-in could not be verified. Try again.";
+  if (code === "method_disabled") return "That way of signing in isn’t switched on here. Use another option.";
+  if (code === "throttled") return "Too many attempts. Wait a little while, then try again.";
+  if (code === "link_from_account") return "An account with that email already exists here. Sign in the way you usually do; this provider can’t take over an existing account.";
+  if (code === "identity_linked_elsewhere") return "That account is already linked to a different person here. Sign in with it directly, or add another account.";
+  if (code === "link_failed") return "That sign-in could not be added to your account. Open Account security and try again.";
+  if (code === "saml_flow") return "Start the single sign-on again from the sign-in page, in the same browser you began in.";
+  if (code === "saml_failed") return "That single sign-on could not be verified. Try again, or ask whoever runs this site.";
   return "Sign-in could not be completed. Try again, or use your password and verify your email first.";
 }

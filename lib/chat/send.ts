@@ -1,5 +1,6 @@
 import "server-only";
 
+import crypto from "node:crypto";
 import { assertPublicHost } from "@/lib/net/publicHost";
 import type { ChatConfig } from "./config";
 import type { ChatKind } from "./events";
@@ -17,11 +18,18 @@ export class ChatSendError extends Error {
   }
 }
 
-async function post(url: string, body: unknown, headers: Record<string, string> = {}, goneStatuses = [401, 403, 404, 410]) {
+/** Headers that sign a body: HMAC-SHA256 over "timestamp.body", so a receiver can check who sent it and when. */
+export function signWebhook(secret: string, body: string, now = Date.now()) {
+  const timestamp = String(Math.floor(now / 1000));
+  return { "x-spaceworks-timestamp": timestamp, "x-spaceworks-signature": `sha256=${crypto.createHmac("sha256", secret).update(`${timestamp}.${body}`, "utf8").digest("hex")}` };
+}
+
+async function post(url: string, body: unknown, headers: Record<string, string> = {}, goneStatuses = [401, 403, 404, 410], signingSecret?: string) {
   let response: Response;
+  const raw = JSON.stringify(body);
   try {
     // Never follow redirects: a destination must not bounce us somewhere else.
-    response = await fetch(url, { method: "POST", headers: { "content-type": "application/json", ...headers }, body: JSON.stringify(body), redirect: "error", signal: AbortSignal.timeout(10_000), cache: "no-store" });
+    response = await fetch(url, { method: "POST", headers: { "content-type": "application/json", ...headers, ...(signingSecret ? signWebhook(signingSecret, raw) : {}) }, body: raw, redirect: "error", signal: AbortSignal.timeout(10_000), cache: "no-store" });
   } catch {
     throw new ChatSendError("The chat service could not be reached.", true);
   }
@@ -50,6 +58,11 @@ export async function sendChatMessage(kind: ChatKind, config: ChatConfig[ChatKin
       const { webhookUrl } = config as ChatConfig["MATTERMOST"];
       await assertPublicHost(new URL(webhookUrl).hostname);
       return post(webhookUrl, { text });
+    }
+    case "WEBHOOK": {
+      const { url, secret } = config as ChatConfig["WEBHOOK"];
+      await assertPublicHost(new URL(url).hostname);
+      return post(url, { text }, {}, [401, 403, 404, 410], secret);
     }
     case "TELEGRAM": {
       const { botToken, chatId } = config as ChatConfig["TELEGRAM"];

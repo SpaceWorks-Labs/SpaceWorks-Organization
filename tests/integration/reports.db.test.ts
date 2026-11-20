@@ -63,7 +63,7 @@ afterAll(async () => {
 
 describe.sequential("report loaders", () => {
   it("keeps a unit-scoped manager inside their subtree, whatever unit filter they send", async () => {
-    const team = await teamScope(org.id, ids.south);
+    const team = await teamScope(org.id, { id: "scope-test", unitId: ids.south, scopes: [] });
     const fy = { from: new Date("2026-03-31T18:30:00Z"), to: NOW };
     expect(membershipSummary(await loadDataset(await reportScope(team, {})), fy, NOW).activeEnd).toBe(1);
     // Asking for the north unit, or another organisation's unit, never widens the scope.
@@ -139,7 +139,7 @@ describe.sequential("audited, streamed exports", () => {
 
 describe.sequential("bulk renewal reminders", () => {
   it("queues once per membership per day, inside the manager's scope only", async () => {
-    const southTeam = await teamScope(org.id, ids.south);
+    const southTeam = await teamScope(org.id, { id: "scope-test", unitId: ids.south, scopes: [] });
     const result = await queueManualReminders(southTeam, org.timezone, [ids["term-s1"], ids["term-n1"]], NOW);
     expect(result).toEqual({ queued: 1, skipped: 1 });
     expect(await prisma.reminderLog.findMany({ where: { termId: ids["term-s1"] }, select: { key: true } })).toEqual([{ key: "before-manual-2026-10-20" }]);

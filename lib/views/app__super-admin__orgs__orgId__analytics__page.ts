@@ -4,15 +4,16 @@ import { prisma } from "@/lib/db";
 import { recordThrottledAuditEvent } from "@/lib/audit";
 import { ANALYTICS_TTL_SECONDS, analyticsCacheKey, cached } from "@/lib/cache";
 import { loadOrgAnalytics } from "@/lib/reports/platformOrgAnalytics";
+import { groupingBreakdown } from "@/lib/reports/groupingBreakdown";
 
-type Props = { params: Promise<{ orgId: string }> };
+type Props = { params: Promise<{ orgId: string }>; searchParams?: Promise<{ grouping?: string }> };
 
 /**
  * H7 one organisation's analytics for the platform super admin. Aggregates only, never a member's name,
  * email or phone (owner decision 3). Each view is audited, at most once per half hour per organisation, like
  * opening the organisation's page.
  */
-export async function loadSuperAdminOrgAnalyticsView({ params }: Props) {
+export async function loadSuperAdminOrgAnalyticsView({ params, searchParams }: Props) {
   const session = await requireSuperAdmin();
   const { orgId } = await params;
   const exists = await prisma.organisation.findUnique({ where: { id: orgId }, select: { id: true } });
@@ -22,7 +23,9 @@ export async function loadSuperAdminOrgAnalyticsView({ params }: Props) {
   // Organisation-wide aggregates, cached under the organisation and dropped when its rollup is rewritten.
   const analytics = await cached(analyticsCacheKey(exists.id, null, "platform"), ANALYTICS_TTL_SECONDS, () => loadOrgAnalytics(exists.id, now));
   if (!analytics) notFound();
-  return { ...analytics, now };
+  // Counts per value of one grouping, organisation-wide (aggregates only, like the units report).
+  const byGrouping = await groupingBreakdown({ organisationId: exists.id, unitPath: null, unitId: null, planId: null, limits: [], scoped: false }, (await searchParams)?.grouping?.slice(0, 64) ?? null);
+  return { ...analytics, byGrouping, now };
 }
 
 export type SuperAdminOrgAnalyticsView = Awaited<ReturnType<typeof loadSuperAdminOrgAnalyticsView>>;

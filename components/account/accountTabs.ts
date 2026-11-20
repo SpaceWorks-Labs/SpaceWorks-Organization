@@ -9,6 +9,7 @@ export const ACCOUNT_TABS: ReadonlyArray<AccountTab> = [
   { href: "/account/profile", label: "Profile" },
   { href: "/account/privacy", label: "Data and privacy" },
   { href: "/account/organisations", label: "Organisations" },
+  { href: "/account/notifications", label: "Notifications" },
   { href: "/account/security", label: "Security" },
 ];
 

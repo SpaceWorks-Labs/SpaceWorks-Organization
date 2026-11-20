@@ -1,47 +1,57 @@
 "use client";
 
-import { useMemo, useState, type KeyboardEvent } from "react";
-import { uploadCardArtwork, uploadCardWatermark } from "@/app/actions/card-design";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/ui/choice";
 import { Callout } from "@/components/ui/display";
-import { CARD_ELEMENTS, CR80, elementBoxHeightMm, layoutFlags, type CardElement, type CardLayoutFlags, type CardSideSettings } from "@/lib/cards/design/elements";
+import { relayoutLayers } from "@/lib/cards/design/editor/relayout";
+import { copySideLayout, duplicateSide } from "@/lib/cards/design/editor/sideCopy";
+import { elementBoxHeightMm, layoutFlags, type CardElement, type CardLayoutFlags, type CardSideSettings } from "@/lib/cards/design/elements";
 import { isDefaultLayout, layoutForPaper } from "@/lib/cards/design/geometry";
-import { MAX_LAYERS, type CardLayer } from "@/lib/cards/design/layers";
+import { MAX_LAYERS, type CardLayer } from "@/lib/cards/design/layerTypes";
 import { normalizeCardSide, TEXT_LIMITS } from "@/lib/cards/design/normalize";
 import { applyCardPreset, type CardDesign, type CardSide } from "@/lib/cards/design/presets";
+import { documentColours, replaceColour } from "@/lib/cards/design/library/colours";
 import { applyCardTemplate } from "@/lib/cards/design/templates";
 import { orgAccentHex } from "@/lib/cards/palette";
 import { formatCardNumberFrom, normalizeNumberFormat, numberFormatError } from "@/lib/cards/numbering";
-import type { CardBranding } from "@/lib/cards/types";
+import type { CardBranding, CardHolder } from "@/lib/cards/types";
 import { CardCanvas } from "../CardCanvas";
 import { CardFontFaces } from "../cardFonts";
 import { SAFE_MARGIN_MM } from "../canvasInteraction";
 import { ApprovalBar, type ApprovalState } from "./ApprovalBar";
-import { BackgroundSection } from "./BackgroundSection";
-import { FitArea, SaveStatusPill, Section, SwitchLine } from "./controls";
+import { SaveStatusPill } from "./controls";
 import { DesignerToolbar } from "./DesignerToolbar";
+import { ArrangePanel } from "./editor/ArrangePanel";
+import { useLiveBrandKit, type BrandKit } from "./editor/brandKit";
+import { EditorViewport } from "./editor/EditorViewport";
+import { PositionPanel } from "./editor/PositionPanel";
+import { SettingsAside } from "./editor/SettingsAside";
+import { ShortcutsDialog } from "./editor/ShortcutsDialog";
+import { InactiveSide, SideTools } from "./editor/SideTools";
+import { imageAspect, useArtworkUploads } from "./editor/useArtworkUploads";
+import { isElement, useCardEditor } from "./editor/useCardEditor";
+import { ViewControls } from "./editor/ViewControls";
+import { DesignerExtras } from "./extras/DesignerExtras";
 import { Inspector, itemVisibility } from "./Inspector";
 import { LayerInspector } from "./LayerInspector";
 import { LayersPanel } from "./LayersPanel";
-import { NumberingSection, type Numbering } from "./NumberingSection";
-import { PresetPicker } from "./PresetPicker";
+import type { Numbering } from "./NumberingSection";
 import { sampleHolder, sampleNumberUnits, SAMPLES, type Sample } from "./sample";
-import { SideSettings, type DesignerField } from "./SideSettings";
-import { TemplateGallery } from "./TemplateGallery";
+import type { DesignerField } from "./SideSettings";
 import { useDesignAutosave } from "./useDesignAutosave";
 import { useDesignHistory } from "./useDesignHistory";
 import { useLayerEditing } from "./useLayerEditing";
 
-const isElement = (key: string | null): key is CardElement => (CARD_ELEMENTS as readonly string[]).includes(key ?? "");
-
 /**
- * Front and back designer for member cards. Each side is edited on a to-scale canvas with an
- * inspector for the selected item or layer, a layers list and undo. The whole design autosaves as a
- * draft of the organisation default, one plan (`planId`) or one member role (`roleId`), which reaches
+ * Front and back designer for member cards. Each side is edited on a zoomable, to-scale canvas with
+ * rulers, guides and smart snapping; several layers can be selected, arranged, grouped and copied
+ * (editor/). The selected item's inspector, an Arrange and a Position panel and the layers list sit
+ * on the right, settings and the element library on the left. The whole design autosaves as a draft
+ * of the organisation default, one plan (`planId`) or one member role (`roleId`), which reaches
  * members' cards once the owner approves it.
  */
-export function CardDesigner({ organisationSlug, organisationName, planId, planName, roleId, roleName, initialDesign, branding: initialBranding, fields, numbering: initialNumbering, approval, unitLevels }: {
+export function CardDesigner({ organisationSlug, organisationName, planId, planName, roleId, roleName, initialDesign, branding: initialBranding, fields, numbering: initialNumbering, approval, unitLevels, brandKit = null }: {
   organisationSlug: string;
   organisationName: string;
   planId: string | null;
@@ -56,18 +66,21 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
   approval: ApprovalState;
   /** The organisation's level names, top first (Organisation.unitLevels), for the unit placeholders and samples. */
   unitLevels?: string[];
+  /** The organisation's brand kit (logos, colours, fonts), offered in colour fields and the element library. */
+  brandKit?: BrandKit | null;
 }) {
   const [edited, setEdited] = useState(false);
   const [design, setDesign] = useState(initialDesign);
   const [side, setSide] = useState<CardSide>("front");
-  const [selected, setSelected] = useState<string | null>("name");
+  const [both, setBoth] = useState(false);
   const [branding, setBranding] = useState(initialBranding);
-  const [uploading, setUploading] = useState(false);
   const [sample, setSample] = useState<Sample>("latin");
+  const [previewHolder, setPreviewHolder] = useState<CardHolder | null>(null);
   const [numbering, setNumbering] = useState<Numbering>(initialNumbering ?? { prefix: "", format: "" });
   const autosave = useDesignAutosave({ design, numbering }, { organisationSlug, planId, roleId, numbers: Boolean(initialNumbering) });
   const history = useDesignHistory();
   const { setError } = autosave;
+  const uploads = useArtworkUploads({ organisationSlug, planId, roleId, onError: setError });
   const latestDesign = () => autosave.current().design;
   const context = useMemo(() => ({ organisationName, planName }), [organisationName, planName]);
 
@@ -82,16 +95,16 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
     commit(next);
   };
   const restore = (next: CardDesign | null) => {
-    if (!next) return;
-    commit(next);
-    if (selected && !isElement(selected) && !next[side].layers.some((layer) => layer.id === selected)) setSelected(null);
+    if (next) commit(next);
   };
 
   const current = design[side];
   const sampleNumber = initialNumbering && !numberFormatError(numbering.format)
     ? formatCardNumberFrom(normalizeNumberFormat(numbering.format), { prefix: numbering.prefix || "M", seq: 42, memberNumber: 7, year: new Date().getFullYear(), ...sampleNumberUnits(unitLevels) })
     : "M-0042";
-  const holder = sampleHolder(SAMPLES[sample], planName, roleName, sampleNumber, fields, unitLevels);
+  const holder = previewHolder ?? sampleHolder(SAMPLES[sample], planName, roleName, sampleNumber, fields, unitLevels, organisationName);
+  const usedColours = documentColours(design);
+  const kit = useLiveBrandKit(brandKit);
 
   /** Replace the side being edited, normalised; `undoStep` false while a drag is under way. */
   const writeSide = (next: CardSideSettings, undoStep: boolean | "coalesce") => {
@@ -103,7 +116,21 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
     else change(nextDesign, undoStep === "coalesce");
   };
   const update = (patch: Partial<CardSideSettings>) => writeSide({ ...latestDesign()[side], ...patch }, "coalesce");
-  const layers = useLayerEditing({ side: () => latestDesign()[side], writeSide, select: setSelected });
+  const sideNow = () => latestDesign()[side];
+  const visible = itemVisibility(current, branding);
+  const editor = useCardEditor({
+    current,
+    side: sideNow,
+    writeSide,
+    visible,
+    undo: () => restore(history.undo(latestDesign())),
+    redo: () => restore(history.redo(latestDesign())),
+    onError: setError,
+    both,
+  });
+  const layers = useLayerEditing({ side: sideNow, writeSide, select: editor.setSelection });
+  const selected = editor.selection.length === 1 ? editor.selection[0]! : null;
+  const selectedLayer = editor.selectedLayers.length === 1 && selected === editor.selectedLayers[0]!.id ? editor.selectedLayers[0] : undefined;
 
   const move = (element: CardElement, xMm: number, yMm: number) => {
     const size = current.elementSizes[element];
@@ -122,70 +149,42 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
     const flags = layoutFlags(current);
     if (isDefaultLayout(current, flags)) update({ [flag]: on, ...layoutForPaper(current.template, current.widthMm, current.heightMm, { ...flags, [flag]: on }) });
     else update({ [flag]: on });
-    if (on) setSelected(element);
+    if (on) editor.setSelection([element]);
   };
 
-  /** Both sides share one card size; turning the card reflows both. */
+  /** Both sides share one card size; turning the card reflows the built-in items and re-lays the layers in proportion. */
   const setOrientation = (landscape: boolean) => {
     const [widthMm, heightMm] = landscape ? [85.6, 54] : [54, 85.6];
-    const resize = (settings: CardSideSettings) => ({ ...settings, widthMm, heightMm, ...layoutForPaper(settings.template, widthMm, heightMm, layoutFlags(settings)) });
+    const resize = (settings: CardSideSettings) => ({ ...settings, widthMm, heightMm, ...layoutForPaper(settings.template, widthMm, heightMm, layoutFlags(settings)), layers: relayoutLayers(settings.layers, settings, { widthMm, heightMm }) });
     change({ ...latestDesign(), front: resize(latestDesign().front), back: resize(latestDesign().back) });
   };
 
-  const upload = async (send: () => Promise<{ ok: true; data?: { url: string | null } } | { ok: false; error: string }>) => {
-    setUploading(true);
-    setError(null);
-    try {
-      const result = await send();
-      if (result.ok) return result.data?.url ?? null;
-      setError(result.error);
-    } catch {
-      setError("The image didn't upload. Try again.");
-    } finally {
-      setUploading(false);
-    }
-    return undefined;
+  const other: CardSide = side === "front" ? "back" : "front";
+  const switchSide = (next: CardSide) => {
+    setSide(next);
+    editor.setSelection([next === "front" ? "name" : "footer"]);
   };
-  const form = (file: File | null) => {
-    const data = new FormData();
-    data.set("organisationSlug", organisationSlug);
-    if (planId) data.set("planId", planId);
-    if (roleId) data.set("roleId", roleId);
-    if (file) data.set("file", file);
-    else data.set("remove", "1");
-    return data;
-  };
+  /** One undo step each; layers get new ids, and design-level settings (such as printing a back) stay. */
+  const copyLayout = () => change({ ...latestDesign(), [other]: copySideLayout(latestDesign()[side], latestDesign()[other]) });
+  const duplicate = () => change({ ...latestDesign(), [other]: duplicateSide(latestDesign()[side]) });
+
   const uploadWatermark = async (file: File | null) => {
-    const url = await upload(() => uploadCardWatermark(form(file)));
+    const url = await uploads.uploadWatermark(file);
     if (url === undefined) return;
     setBranding((value) => ({ ...value, watermarkUrl: url }));
     setEdited(true);
   };
-  const uploadArtwork = async (file: File) => (await upload(() => uploadCardArtwork(form(file)))) ?? null;
-
-  const selectedLayer = current.layers.find((layer) => layer.id === selected);
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if ((event.target as HTMLElement).closest("input, textarea, select, [contenteditable=true]")) return;
-    const mod = event.ctrlKey || event.metaKey;
-    const key = event.key.toLowerCase();
-    if (mod && (key === "y" || (key === "z" && event.shiftKey))) restore(history.redo(latestDesign()));
-    else if (mod && key === "z") restore(history.undo(latestDesign()));
-    else if (mod && key === "d" && selectedLayer) layers.duplicate(selectedLayer.id);
-    else if ((key === "delete" || key === "backspace") && selectedLayer && (event.target as HTMLElement).closest("[data-card-frame], [data-layers-list]")) layers.remove(selectedLayer.id);
-    else return;
-    event.preventDefault();
-  };
-
-  const landscape = current.widthMm > current.heightMm;
-  const visible = itemVisibility(current, branding);
+  const uploadArtwork = uploads.uploadArtwork;
 
   return (
-    <div onKeyDown={onKeyDown} className="flex flex-col overflow-hidden rounded-2xl border border-line bg-panel">
+    <div onKeyDown={editor.onKeyDown} className="flex flex-col overflow-hidden rounded-xl border border-line bg-panel">
       <CardFontFaces fonts="all" />
       <header className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3">
-        <SegmentedControl<CardSide> ariaLabel="Card side" value={side} onValueChange={(next) => { setSide(next); setSelected(next === "front" ? "name" : "footer"); }} options={[{ value: "front", label: "Front" }, { value: "back", label: "Back" }]} />
-        <SegmentedControl<Sample> ariaLabel="Sample name" size="sm" value={sample} onValueChange={setSample} options={[{ value: "latin", label: "Latin" }, { value: "malayalam", label: "മലയാളം" }, { value: "devanagari", label: "हिन्दी" }]} />
+        <SegmentedControl<CardSide> ariaLabel="Card side" value={side} onValueChange={switchSide} options={[{ value: "front", label: "Front" }, { value: "back", label: "Back" }]} />
+        <SideTools side={side} both={both} onBoth={setBoth} onCopyLayout={copyLayout} onDuplicate={duplicate} />
+        <SegmentedControl<Sample> ariaLabel="Sample name" size="sm" value={sample} onValueChange={(next) => { setSample(next); setPreviewHolder(null); }} options={[{ value: "latin", label: "Latin" }, { value: "malayalam", label: "മലയാളം" }, { value: "devanagari", label: "हिन्दी" }]} />
         <div className="ml-auto flex items-center gap-2" aria-live="polite">
+          <DesignerExtras organisationSlug={organisationSlug} planId={planId} roleId={roleId} design={design} side={side} onRestore={(next) => change(next)} onPreviewHolder={setPreviewHolder} />
           <SaveStatusPill status={autosave.status} />
           {autosave.status === "error" ? <Button size="sm" variant="secondary" onClick={() => void autosave.save()}>Try again</Button> : null}
         </div>
@@ -193,34 +192,13 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
       <ApprovalBar state={approval} pending={approval.pending || edited} scope={{ organisationSlug, planId, roleId }} flush={autosave.save} />
       {autosave.error ? <div className="px-4 pt-3"><Callout tone="danger" role="alert">{autosave.error}</Callout></div> : null}
 
+      {/* DOM order is the reading order below 1280px (preview, selected item, settings); from xl the grid places
+          settings left, preview centre and the selected item right. */}
       <div className="flex min-h-0 flex-col xl:grid xl:grid-cols-[300px_minmax(0,1fr)_300px]">
-        <aside aria-label="Card settings" className="order-2 flex flex-col gap-6 border-line p-4 sm:p-5 xl:order-none xl:max-h-[920px] xl:overflow-y-auto xl:border-r">
-          <Section title="Design">
-            <PresetPicker value={design.preset} onChange={(preset) => change(applyCardPreset(latestDesign(), preset, context))} />
-            <p className="text-caption text-ink-muted">More ready-made designs, with their own colours, fonts and shapes:</p>
-            <TemplateGallery context={context} holder={holder} branding={branding} onChoose={(id) => { change(applyCardTemplate(latestDesign(), id, context)); setSelected("name"); }} />
-            <p className="text-caption text-ink-muted">Choosing a design replaces both sides. Undo brings the last one back.</p>
-            <SegmentedControl<"landscape" | "portrait"> ariaLabel="Orientation" size="sm" value={landscape ? "landscape" : "portrait"} onValueChange={(next) => setOrientation(next === "landscape")} options={[{ value: "landscape", label: "Landscape" }, { value: "portrait", label: "Portrait" }]} className="self-start" />
-            <p className="text-caption text-ink-muted">ID card size (CR80, {CR80.widthMm} × 54 mm).</p>
-          </Section>
-          {initialNumbering ? (
-            <Section title="Card numbers">
-              <NumberingSection value={numbering} role={Boolean(roleId)} unitLevels={unitLevels} onChange={(next) => { setNumbering(next); autosave.set({ numbering: next }); setEdited(true); }} />
-            </Section>
-          ) : null}
-          {side === "back" ? (
-            <Section title="Back">
-              <SwitchLine label="Print a back" hint="Off: downloads and the wallet show the front only." checked={design.backEnabled} onCheckedChange={(backEnabled) => change({ ...latestDesign(), backEnabled })} />
-            </Section>
-          ) : null}
-          <BackgroundSection value={current.background} uploading={uploading} onChange={(background) => update({ background })} onUpload={async (file) => { const url = await uploadArtwork(file); if (url) update({ background: { ...latestDesign()[side].background, imageUrl: url } }); }} />
-          <SideSettings side={side} current={current} branding={branding} fields={fields} uploading={uploading} update={update} toggleItem={toggleItem} onWatermark={(file) => void uploadWatermark(file)} />
-        </aside>
-
-        <section aria-label="Card preview" className="order-1 flex min-h-[360px] min-w-0 flex-col bg-subtle xl:order-none">
+        <section aria-label="Card preview" className="flex min-h-[360px] min-w-0 flex-col bg-subtle xl:col-start-2 xl:row-start-1">
           <DesignerToolbar
             full={current.layers.length >= MAX_LAYERS}
-            uploading={uploading}
+            uploading={uploads.uploading}
             canUndo={history.canUndo}
             canRedo={history.canRedo}
             onAdd={(kind) => layers.add(kind)}
@@ -228,35 +206,68 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
             onUndo={() => restore(history.undo(latestDesign()))}
             onRedo={() => restore(history.redo(latestDesign()))}
           />
-          <FitArea widthMm={current.widthMm} heightMm={current.heightMm}>
-            {(pxPerMm) => <CardCanvas settings={current} holder={holder} branding={branding} pxPerMm={pxPerMm} interaction={{ selected, onSelect: setSelected, onBeginChange: () => history.checkpoint(latestDesign(), false), onMove: move, onLayerMove: layers.dragTo, onLayerMoveEnd: layers.endDrag, onLayerChange: (id, patch) => layers.change(id, patch, false), guides: layers.guides, showGrid: false }} />}
-          </FitArea>
+          <ViewControls zoom={editor.zoom} overlays={editor.overlays} onOverlays={editor.setOverlays} guides={editor.guides} onHelp={() => editor.setHelpOpen(true)} />
+          <EditorViewport
+            zoom={editor.zoom}
+            widthMm={current.widthMm}
+            heightMm={current.heightMm}
+            rulers={editor.overlays.rulers && !both}
+            onStartGuide={(axis, event, frame) => editor.guides.startDrag(axis, null, event, frame, editor.zoom.pxPerMm)}
+            onCanvasPointerDown={editor.transform.onCanvasPointerDown}
+          >
+            {(pxPerMm) => {
+              const active = <div data-active-card><CardCanvas settings={current} holder={holder} branding={branding} pxPerMm={pxPerMm} interaction={{ selection: editor.selection, onSelect: editor.select, onBeginChange: () => history.checkpoint(latestDesign(), false), onMove: move, onLayerPointerDown: editor.transform.onLayerPointerDown, showGrid: editor.overlays.grid, overlay: editor.overlay }} /></div>;
+              if (!both) return active;
+              const inactive = <InactiveSide side={other} settings={design[other]} holder={holder} branding={branding} pxPerMm={pxPerMm} onActivate={() => switchSide(other)} />;
+              return <div className="flex items-start gap-12">{side === "front" ? <>{active}{inactive}</> : <>{inactive}{active}</>}</div>;
+            }}
+          </EditorViewport>
           <p className="border-t border-line bg-canvas px-4 py-2 text-caption text-ink-muted">
-            {side === "back" && !design.backEnabled ? "The back is turned off, so cards print the front only." : "Select an item to edit it. Drag it or use the arrow keys (Shift for bigger steps); hold Alt while dragging a layer to place it freely. Sample details shown."}
+            {side === "back" && !design.backEnabled ? "The back is turned off, so cards print the front only." : "Select an item to edit it; Shift-click or drag across the card to select several. Arrow keys move the selection (Shift for 5 mm); hold Alt while dragging to place freely. Sample details shown."}
           </p>
         </section>
 
-        <aside aria-label="Selected item and layers" className="order-1 flex flex-col gap-6 border-line p-4 sm:p-5 xl:order-none xl:max-h-[920px] xl:overflow-y-auto xl:border-l">
+        <aside aria-label="Selected item and layers" className="flex flex-col gap-6 border-line p-4 sm:p-5 xl:col-start-3 xl:row-start-1 xl:max-h-[920px] xl:overflow-y-auto xl:border-l">
+          <ArrangePanel layers={current.layers} selected={editor.selectedLayers} order={current.order} selection={editor.selection} actions={editor.actions} />
+          {editor.selectedLayers.length ? <PositionPanel layers={current.layers} selected={editor.selectedLayers} actions={editor.actions} /> : null}
           {selectedLayer ? (
-            <LayerInspector layer={selectedLayer} card={current} orgAccent={orgAccentHex(branding.orgAccent)} uploading={uploading} unitLevels={unitLevels} onChange={(patch) => layers.change(selectedLayer.id, patch, "coalesce")} onReplaceImage={async (file) => { const url = await uploadArtwork(file); if (url) layers.change(selectedLayer.id, { url } as Partial<CardLayer>, true); }} />
-          ) : (
-            <Inspector settings={current} branding={branding} selected={isElement(selected) ? selected : "name"} onSelect={setSelected} update={update} />
+            <LayerInspector layer={selectedLayer} card={current} orgAccent={orgAccentHex(branding.orgAccent)} uploading={uploads.uploading} unitLevels={unitLevels} brandColours={kit?.colours} brandFonts={kit?.fonts} documentColours={usedColours} onReplaceColour={(from, to) => change(replaceColour(latestDesign(), from, to), true)} onChange={(patch) => layers.change(selectedLayer.id, patch, "coalesce")} onReplaceImage={async (file) => { const url = await uploadArtwork(file); if (url) layers.change(selectedLayer.id, { url } as Partial<CardLayer>, true); }} />
+          ) : editor.selectedLayers.length ? null : (
+            <Inspector settings={current} branding={branding} selected={isElement(selected) ? selected : "name"} onSelect={(key) => editor.setSelection([key])} update={update} />
           )}
-          <LayersPanel order={current.order} layers={current.layers} visible={visible} selected={selected} onSelect={setSelected} onMove={layers.reorder} onLayerChange={(id, patch) => layers.change(id, patch, true)} onDuplicate={layers.duplicate} onDelete={layers.remove} />
+          <LayersPanel order={current.order} layers={current.layers} visible={visible} selection={editor.selection} onSelect={editor.select} onLayerChange={(id, patch) => layers.change(id, patch, true)} />
         </aside>
+
+        <SettingsAside
+          design={design}
+          side={side}
+          current={current}
+          branding={branding}
+          fields={fields}
+          holder={holder}
+          context={context}
+          uploading={uploads.uploading}
+          numbering={initialNumbering ? { value: numbering, role: Boolean(roleId), unitLevels, onChange: (next) => { setNumbering(next); autosave.set({ numbering: next }); setEdited(true); } } : null}
+          brandKit={kit}
+          documentColours={usedColours}
+          organisationSlug={organisationSlug}
+          unitLevels={unitLevels}
+          onChooseDesign={(next) => { change(next); editor.setSelection(["name"]); }}
+          full={current.layers.length >= MAX_LAYERS}
+          onPreset={(preset) => change(applyCardPreset(latestDesign(), preset, context))}
+          onTemplate={(id) => { change(applyCardTemplate(latestDesign(), id, context)); editor.setSelection(["name"]); }}
+          onOrientation={setOrientation}
+          onBackEnabled={(backEnabled) => change({ ...latestDesign(), backEnabled })}
+          update={update}
+          toggleItem={toggleItem}
+          onWatermark={(file) => void uploadWatermark(file)}
+          onUploadBackground={async (file) => { const url = await uploadArtwork(file); if (url) update({ background: { ...latestDesign()[side].background, imageUrl: url } }); }}
+          onUploadImage={uploadArtwork}
+          onInsert={editor.actions.insert}
+          onInsertText={editor.actions.insertText}
+        />
       </div>
+      <ShortcutsDialog open={editor.helpOpen} onOpenChange={editor.setHelpOpen} />
     </div>
   );
-}
-
-/** Width over height of a picture, for a new image layer of the same shape. */
-async function imageAspect(file: File) {
-  try {
-    const bitmap = await createImageBitmap(file);
-    const aspect = bitmap.width / bitmap.height;
-    bitmap.close();
-    return aspect;
-  } catch {
-    return 1;
-  }
 }

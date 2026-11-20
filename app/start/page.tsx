@@ -21,7 +21,7 @@ export default async function StartPage() {
       </header>
 
       {openApplications.length > 0 ? (
-        <section aria-labelledby="open-applications" className="flex flex-col gap-2 rounded-2xl border border-line bg-panel p-4">
+        <section aria-labelledby="open-applications" className="flex flex-col gap-2 rounded-xl border border-line bg-panel p-4">
           <h2 id="open-applications" className="text-label font-semibold text-ink">Your applications waiting for a decision</h2>
           <ul className="flex flex-col divide-y divide-line">
             {openApplications.map((organisation) => (
@@ -49,7 +49,7 @@ export default async function StartPage() {
           We email you about the decision, so your address needs to be verified before you apply.
         </Callout>
       ) : (
-        <div className="rounded-2xl border border-line bg-canvas p-5 shadow-raised sm:p-8">
+        <div className="rounded-xl border border-line bg-canvas p-5 sm:p-8">
           <ApplicationForm applicantEmail={applicantEmail} />
         </div>
       )}

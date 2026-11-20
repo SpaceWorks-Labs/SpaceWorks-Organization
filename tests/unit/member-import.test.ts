@@ -38,7 +38,7 @@ describe("import mapping", () => {
   it("reads a row and reports why a row can't be used", () => {
     const mapping = suggestMapping(["Name", "Email", "Role", "College"], fields);
     expect(readRow(["Midlaj C", "MIDLAJ@Example.com", "Backend Engineer", "CET"], mapping)).toEqual({
-      name: "Midlaj C", email: "midlaj@example.com", phone: null, stateCode: null, unit: null, role: "Backend Engineer", fieldValues: { college: "CET" },
+      name: "Midlaj C", email: "midlaj@example.com", phone: null, stateCode: null, unit: null, role: "Backend Engineer", fieldValues: { college: "CET" }, groupings: {},
     });
     expect(readRow(["Ajzal P", "", "", ""], mapping)).toEqual({ error: "No email address" });
     expect(readRow(["Ajzal P", "not-an-email", "", ""], mapping)).toEqual({ error: "Email address isn't valid" });

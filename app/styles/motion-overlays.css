@@ -1,0 +1,65 @@
+/*
+ * Overlays (CR-MOTION-01, kit motion/overlays): enter and exit, transform and opacity only.
+ * - Dialog, sheet and drawer enter over slow (240ms, enter curve) and leave over two-thirds of it (160ms, exit curve).
+ *   The scrim fades on the same timing.
+ * - Menu, popover, select and tooltip enter over fast (120ms) and leave over three-quarters of it (90ms).
+ * - Toasts enter over base (180ms) from 12px below and leave over fast (120ms), dropping 8px.
+ * Radix keeps a closing layer mounted until its exit keyframes end (its Presence); our own layers use usePresence
+ * (components/motion/usePresence.ts). Reduced motion zeroes the distances and durations: the end state at once.
+ * Kiosk and TV screens zero the distances, leaving a fade.
+ */
+:root {
+  --sw-overlay-in: var(--sw-dur-slow);
+  --sw-overlay-out: calc(var(--sw-dur-slow) * 2 / 3);
+  --sw-menu-in: var(--sw-dur-fast);
+  --sw-menu-out: calc(var(--sw-dur-fast) * 0.75);
+  --sw-toast-in: var(--sw-dur-base);
+  --sw-toast-out: var(--sw-dur-fast);
+}
+
+@keyframes sw-fade-out { to { opacity: 0; } }
+@keyframes sw-pop-in { from { opacity: 0; transform: translateY(var(--sw-pop-offset)) scale(var(--sw-pop-scale)); } }
+@keyframes sw-pop-out { to { opacity: 0; transform: scale(var(--sw-pop-scale)); } }
+@keyframes sw-sheet-in { from { opacity: 0; transform: translateY(calc(var(--sw-enter-y) * 2)); } }
+@keyframes sw-sheet-out { to { opacity: 0; transform: translateY(calc(var(--sw-enter-y) * 2)); } }
+@keyframes sw-drawer-in { from { transform: translateX(var(--sw-slide-x)); } }
+@keyframes sw-drawer-out { to { transform: translateX(var(--sw-slide-x)); } }
+@keyframes sw-drawer-in-left { from { transform: translateX(calc(var(--sw-slide-x) * -1)); } }
+@keyframes sw-drawer-out-left { to { transform: translateX(calc(var(--sw-slide-x) * -1)); } }
+@keyframes sw-menu-in { from { opacity: 0; transform: translateY(var(--sw-from-y, 0px)); } }
+@keyframes sw-menu-out { to { opacity: 0; transform: translateY(var(--sw-from-y, 0px)); } }
+@keyframes sw-toast-in { from { opacity: 0; transform: translateY(calc(var(--sw-enter-y) * 1.5)); } }
+@keyframes sw-toast-out { to { opacity: 0; transform: translateY(var(--sw-enter-y)); } }
+
+/* Scrim behind a dialog, sheet or drawer. */
+.sw-fx-scrim[data-state="open"] { animation: sw-fade-in var(--sw-overlay-in) var(--sw-ease-standard); }
+.sw-fx-scrim[data-state="closed"] { animation: sw-fade-out var(--sw-overlay-out) var(--sw-ease-exit) forwards; }
+
+/* Dialog: pops in from just below at 0.98; on phones it rises like a sheet. */
+.sw-fx-pop[data-state="open"] { animation: sw-pop-in var(--sw-overlay-in) var(--sw-ease-enter); }
+.sw-fx-pop[data-state="closed"] { animation: sw-pop-out var(--sw-overlay-out) var(--sw-ease-exit) forwards; }
+@media (max-width: 639px) {
+  .sw-fx-pop[data-state="open"] { animation-name: sw-sheet-in; }
+  .sw-fx-pop[data-state="closed"] { animation-name: sw-sheet-out; }
+}
+
+/* Bottom sheet. */
+.sw-fx-sheet[data-state="open"] { animation: sw-sheet-in var(--sw-overlay-in) var(--sw-ease-enter); }
+.sw-fx-sheet[data-state="closed"] { animation: sw-sheet-out var(--sw-overlay-out) var(--sw-ease-exit) forwards; }
+
+/* Drawer, docked to the right edge by default or the left with data-edge="left". */
+.sw-fx-drawer[data-state="open"] { animation: sw-drawer-in var(--sw-overlay-in) var(--sw-ease-enter); }
+.sw-fx-drawer[data-state="closed"] { animation: sw-drawer-out var(--sw-overlay-out) var(--sw-ease-exit) forwards; }
+.sw-fx-drawer[data-edge="left"][data-state="open"] { animation-name: sw-drawer-in-left; }
+.sw-fx-drawer[data-edge="left"][data-state="closed"] { animation-name: sw-drawer-out-left; }
+
+/* Menu, popover and select: a short drop from the trigger's side (Radix sets data-side). */
+.sw-fx-menu { --sw-from-y: calc(var(--sw-pop-offset) * -1); }
+.sw-fx-menu[data-side="top"] { --sw-from-y: var(--sw-pop-offset); }
+.sw-fx-menu[data-side="left"], .sw-fx-menu[data-side="right"] { --sw-from-y: 0px; }
+.sw-fx-menu[data-state="open"], .sw-fx-menu[data-state="delayed-open"], .sw-fx-menu[data-state="instant-open"] { animation: sw-menu-in var(--sw-menu-in) var(--sw-ease-enter); }
+.sw-fx-menu[data-state="closed"] { animation: sw-menu-out var(--sw-menu-out) var(--sw-ease-exit) forwards; }
+
+/* Toast. */
+.sw-fx-toast[data-state="open"] { animation: sw-toast-in var(--sw-toast-in) var(--sw-ease-enter); }
+.sw-fx-toast[data-state="closed"] { animation: sw-toast-out var(--sw-toast-out) var(--sw-ease-exit) forwards; pointer-events: none; }

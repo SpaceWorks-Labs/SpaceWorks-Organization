@@ -11,8 +11,10 @@ import { flattenZodErrors } from "./utils";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { enqueuePasswordReset } from "@/lib/outbox";
 import { currentRequestBlocked } from "@/lib/ipBlock";
+import { isEmailServiceConfigured } from "@/lib/emailAvailability";
 
 const TOKEN_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
+const REISSUE_AFTER_MS = 60 * 1000;
 
 function hashToken(token: string) {
   return crypto.createHash("sha256").update(token).digest("hex");
@@ -41,6 +43,10 @@ export async function requestPasswordReset(
   }
 
   const { email } = parsed.data;
+  // Without an email service there is nothing to send (product rules section 15): say so, the same for every address.
+  if (!(await isEmailServiceConfigured())) {
+    return { ok: false, error: "Password reset by email isn't set up on this site. Ask an administrator to reset your password." };
+  }
   if ((await currentRequestBlocked()) || (await isActionRateLimited("passwordReset", email))) {
     // Keep this indistinguishable from the usual non-enumerating response.
     return { ok: true, data: { sent: true } };
@@ -69,6 +75,12 @@ export async function requestPasswordReset(
   // request path must never wait for SMTP or commit a token without delivery.
   await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT "id" FROM "User" WHERE "email" = ${email} FOR UPDATE`;
+    // A link issued less than a minute ago stays valid: a flood of requests cannot keep replacing it.
+    const recent = await tx.verificationToken.findFirst({
+      where: { identifier: `reset:${email}`, expires: { gt: new Date(Date.now() + TOKEN_EXPIRY_MS - REISSUE_AFTER_MS) } },
+      select: { token: true },
+    });
+    if (recent) return;
     await tx.verificationToken.deleteMany({
       where: { identifier: `reset:${email}` },
     });
@@ -103,16 +115,17 @@ export async function confirmPasswordReset(
   if (!parsed.success) {
     return {
       ok: false,
-      error: "Invalid input.",
+      error: "Check the highlighted fields.",
       fieldErrors: flattenZodErrors(parsed.error),
     };
   }
 
   const { email, token, password } = parsed.data;
-  if (await isActionRateLimited("passwordReset", email)) {
+  const tokenHash = hashToken(token);
+  // Its own bucket, keyed by the link and the client, so requests for this address cannot block a valid confirmation.
+  if (await isActionRateLimited("passwordResetConfirm", tokenHash)) {
     return { ok: false, error: "Invalid or expired reset link." };
   }
-  const tokenHash = hashToken(token);
   if (await isBreachedPassword(password)) return { ok: false, error: BREACHED_PASSWORD_MESSAGE, fieldErrors: { password: [BREACHED_PASSWORD_MESSAGE] } };
 
   const passwordHash = await bcrypt.hash(password, 12);

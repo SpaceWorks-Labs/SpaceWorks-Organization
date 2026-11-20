@@ -93,8 +93,8 @@ Two images come from the one `Dockerfile` and are published to GHCR by `.github/
 | `spaceworks-organization-backend` | `runner` | `backend` (web app and API), `migrate` (`prisma migrate deploy`), `worker` (`node dist/worker.js`), `beat` (`node dist/beat.js`), `ops` (operator checks) |
 | `spaceworks-organization-frontend` | `frontend` | `frontend`: the website alone for split hosting (the `frontend/` workspace) |
 
-Release images are identical for every installation. The public origins compiled into Next.js are placeholders
-(`spaceworks-organization-origin.invalid`, `spaceworks-organization-backend.invalid`) that the entrypoint
+Release images are identical for every installation. The public origins compiled into Next.js are placeholder hosts under
+`.invalid` (named in `scripts/docker-entrypoint.sh`; never quote them in docs, which are built into the image) that the entrypoint
 replaces at start from `NEXT_PUBLIC_BASE_URL` and `NEXT_PUBLIC_BACKEND_ORIGIN`. The Server Actions key used to
 build is a throwaway; web roles refuse to start without the installation's own key. PostgreSQL, Redis, Silo and
 Caddy run from their own upstream images.

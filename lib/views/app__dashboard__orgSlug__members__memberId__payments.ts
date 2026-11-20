@@ -13,7 +13,7 @@ export async function loadMemberPayments({ params }: { params: Promise<{ orgSlug
   const { orgSlug, memberId } = await params;
   const { organisation, membership } = await requireOrgCapability(orgSlug, "members.view");
   if (!can(membership, "payments.view")) return null;
-  const scope = await teamScope(organisation.id, membership.unitId);
+  const scope = await teamScope(organisation.id, membership);
   const member = await prisma.member.findFirst({ where: { AND: [memberWhere(scope), { id: memberId }] }, select: { id: true } });
   if (!member) notFound();
   const now = new Date();

@@ -85,7 +85,7 @@ export async function settlePayment(tx: Tx, args: { org: OrgForPayments; payment
   if (!mismatch) await issuePaymentDocument(tx, args.org, payment.id, await documentPrefix(tx, args.org.id), now);
   await enqueueOutbox(tx, "payment-notice", { organisationId: args.org.id, paymentId: payment.id, notice: "paid" });
   await queueChatAlerts(tx, args.org.id, "payment", { paymentId: payment.id });
-  await recordAuditEvent({ action: "PAYMENT_PAID", actorUserId: args.confirmedById ?? null, organisationId: args.org.id, targetType: "Payment", targetId: payment.id, metadata: { provider: payment.provider, flagged: flags.length > 0 }, client: tx });
+  await recordAuditEvent({ action: "PAYMENT_PAID", actorUserId: args.confirmedById ?? null, organisationId: args.org.id, targetType: "Payment", targetId: payment.id, metadata: { provider: payment.provider, flagged: flags.length > 0, memberId: payment.memberId }, client: tx });
   return { payment: updated, flagged: updated.flagReason, alreadySettled: false };
 }
 
@@ -95,7 +95,7 @@ export async function releaseHeldDocument(tx: Tx, args: { org: OrgForPayments; p
   if (payment.status !== "PAID" || !payment.documentHeld) throw new Error("This payment has no held document.");
   const document = await issuePaymentDocument(tx, args.org, payment.id, await documentPrefix(tx, args.org.id), args.now, payment.capturedMinor ?? payment.amountMinor);
   await tx.payment.update({ where: { id: payment.id }, data: { documentHeld: false } });
-  await recordAuditEvent({ action: "PAYMENT_DOCUMENT_RELEASED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "Payment", targetId: payment.id, client: tx });
+  await recordAuditEvent({ action: "PAYMENT_DOCUMENT_RELEASED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "Payment", targetId: payment.id, metadata: { memberId: payment.memberId }, client: tx });
   return document;
 }
 
@@ -104,7 +104,7 @@ export async function clearPaymentFlag(tx: Tx, args: { org: OrgForPayments; paym
   const payment = await lockPayment(tx, args.org.id, args.paymentId);
   if (!payment.flaggedAt || payment.documentHeld) throw new Error("Nothing to clear on this payment.");
   await tx.payment.update({ where: { id: payment.id }, data: { flaggedAt: null } });
-  await recordAuditEvent({ action: "PAYMENT_FLAG_CLEARED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "Payment", targetId: payment.id, metadata: { reason: payment.flagReason }, client: tx });
+  await recordAuditEvent({ action: "PAYMENT_FLAG_CLEARED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "Payment", targetId: payment.id, metadata: { reason: payment.flagReason, memberId: payment.memberId }, client: tx });
 }
 
 /** A gateway attempt failed or expired. Only an open attempt moves; anything settled stays as it is. */

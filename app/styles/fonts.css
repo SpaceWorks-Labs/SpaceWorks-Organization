@@ -1,0 +1,36 @@
+/*
+ * Type (CR-TYPE-01): three families with explicit weights, nothing synthesised.
+ * - Outfit 400–700 (OFL, variable) for body and interface text, and Outfit 600 for product headings.
+ * - Gilroy ships only its free weights (Radomir Tinkov Free Font EULA): Light 300 and ExtraBold 800, each
+ *   declared at its real weight. ExtraBold carries the display roles and public h1/h2.
+ * - Unbounded 500–600 for one accent phrase per public layout.
+ * Licences: public/brand/fonts/LICENSES.
+ */
+@font-face {
+  font-family: "Outfit";
+  src: url("/brand/fonts/Outfit-Variable.woff2") format("woff2");
+  font-weight: 400 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gilroy";
+  src: url("/brand/fonts/Gilroy-Light.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Gilroy";
+  src: url("/brand/fonts/Gilroy-ExtraBold.woff2") format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Unbounded";
+  src: url("/brand/fonts/Unbounded-Variable.woff2") format("woff2");
+  font-weight: 500 600;
+  font-style: normal;
+  font-display: swap;
+}

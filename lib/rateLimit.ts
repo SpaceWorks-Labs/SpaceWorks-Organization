@@ -10,6 +10,7 @@ export type Bucket =
   | "signup"
   | "emailVerification"
   | "passwordReset"
+  | "passwordResetConfirm"
   | "application"
   | "join"
   | "payment"
@@ -19,13 +20,15 @@ export type Bucket =
   | "invite"
   | "verifyCard"
   | "verifyCardImage"
+  | "sampleCard"
   | "apiRead"
   | "apiWrite"
   | "dataExport"
   | "reportExport"
   | "documentView"
   | "cardRender"
-  | "testEmail";
+  | "testEmail"
+  | "smsCode";
 
 const limits: Record<Bucket, { max: number; windowMs: number; }> = {
   global: { max: 300, windowMs: 60_000 },
@@ -36,6 +39,8 @@ const limits: Record<Bucket, { max: number; windowMs: number; }> = {
   signup: { max: 5, windowMs: 60 * 60_000 },
   emailVerification: { max: 5, windowMs: 60 * 60_000 },
   passwordReset: { max: 5, windowMs: 60 * 60_000 },
+  // Confirming a reset link: per link and per address, apart from requests for the email.
+  passwordResetConfirm: { max: 10, windowMs: 60 * 60_000 },
   // Organisation applications (/start): a handful per person per day is plenty.
   application: { max: 3, windowMs: 24 * 60 * 60_000 },
   join: { max: 10, windowMs: 60 * 60_000 },
@@ -50,6 +55,8 @@ const limits: Record<Bucket, { max: number; windowMs: number; }> = {
   verifyCard: { max: 120, windowMs: 60_000 },
   // The card image on the public check page: drawn on demand, so tighter than the check itself.
   verifyCardImage: { max: 30, windowMs: 60_000 },
+  // The sample card on a public page: cached per design version, so drawing is rare; this only caps abuse.
+  sampleCard: { max: 60, windowMs: 60_000 },
   apiRead: { max: 600, windowMs: 60_000 },
   apiWrite: { max: 60, windowMs: 60_000 },
   // A person's own data export: heavy and rarely needed.
@@ -62,6 +69,8 @@ const limits: Record<Bucket, { max: number; windowMs: number; }> = {
   cardRender: { max: 60, windowMs: 60 * 60_000 },
   // "Send me a test" for an email template: to the sender's own address only.
   testEmail: { max: 10, windowMs: 60 * 60_000 },
+  // Phone codes asked for from one address (sign-in and number verification); per-number and per-country limits are in lib/sms.
+  smsCode: { max: 10, windowMs: 60 * 60_000 },
 };
 
 // Local fallback store

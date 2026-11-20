@@ -9,7 +9,7 @@ import {
 
 describe("account tabs", () => {
   it("lists the account tabs in order", () => {
-    expect(ACCOUNT_TABS.map((tab) => tab.href)).toEqual(["/account", "/account/payments", "/account/profile", "/account/privacy", "/account/organisations", "/account/security"]);
+    expect(ACCOUNT_TABS.map((tab) => tab.href)).toEqual(["/account", "/account/payments", "/account/profile", "/account/privacy", "/account/organisations", "/account/notifications", "/account/security"]);
   });
 
   it("matches the root tab exactly", () => {

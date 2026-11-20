@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 const identity = vi.hoisted(() => ({ current: { id: "", email: "" } }));
 vi.mock("@/lib/auth", () => ({ auth: async () => (identity.current.id ? { user: identity.current } : null) }));
+vi.mock("@/lib/reauth", () => ({ hasRecentAuthentication: async () => true }));
 vi.mock("@/lib/actionRateLimit", () => ({ isActionRateLimited: async () => false }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/permissions", async (importOriginal) => ({

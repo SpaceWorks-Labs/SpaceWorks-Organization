@@ -1,4 +1,4 @@
-import { formatMoney, isCurrencyCode } from "@/lib/money/currencies";
+import { money } from "@/lib/money/currencies";
 
 /** Words for plan settings, shared by the dashboard and public pages. Client-safe. */
 
@@ -15,9 +15,7 @@ type PlanSummary = {
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-export function money(minor: number, currency: string, locale?: string | null) {
-  return isCurrencyCode(currency) ? formatMoney(minor, currency, locale ?? undefined) : `${currency} ${minor}`;
-}
+export { money };
 
 /** "1 year (Apr–Mar)", "6 months", "Until 31 Dec 2026", "Lifetime". */
 export function describeDuration(plan: Pick<PlanSummary, "durationType" | "durationMonths" | "fixedEndDate">, financialYearStartMonth = 4) {

@@ -1,4 +1,4 @@
-import { isSafeLink } from "./sections";
+import { isSafeLink } from "./links";
 
 /**
  * A small Markdown subset for organisation pages, parsed into a tree that React renders as text nodes.

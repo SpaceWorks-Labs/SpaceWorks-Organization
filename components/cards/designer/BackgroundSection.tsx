@@ -11,7 +11,7 @@ export function BackgroundSection({ value, uploading, onChange, onUpload }: { va
   return (
     <Section title="Background picture">
       <Field label={value.imageUrl ? "Replace the picture" : "Picture"} helperText="Sits under everything on this side. PNG, JPEG or WebP, up to 5 MB.">
-        <input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) onUpload(file); event.target.value = ""; }} className="block w-full text-[14px] text-ink-secondary file:mr-3 file:min-h-11 file:rounded-full file:border file:border-line file:bg-panel file:px-4 file:font-semibold file:text-ink hover:file:bg-muted" />
+        <input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) onUpload(file); event.target.value = ""; }} className="block w-full text-[14px] text-ink-secondary file:mr-3 file:min-h-11 file:rounded-control file:border file:border-line file:bg-panel file:px-4 file:font-semibold file:text-ink hover:file:bg-muted" />
       </Field>
       {value.imageUrl ? (
         <>

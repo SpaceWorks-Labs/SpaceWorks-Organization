@@ -1,117 +1,62 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { SegmentedControl } from "@/components/ui/choice";
-import { Field, Input, Textarea } from "@/components/ui/field";
-import { LAYER_PLACEHOLDERS, LAYER_TEXT_MAX, type CardLayer, type CardTextLayer, type LayerPlaceholder } from "@/lib/cards/design/layers";
+import { Field, Input } from "@/components/ui/field";
+import type { CardLayer } from "@/lib/cards/design/layerTypes";
 import { layerLabel } from "../CardLayerView";
-import { ColourField } from "./ColourField";
-import { NumberSlider, SwitchLine } from "./controls";
-import { FontPicker } from "./FontPicker";
-
-const PLACEHOLDER_LABELS: Record<Exclude<LayerPlaceholder, `level${number}`>, string> = {
-  name: "Name", role: "Role", plan: "Plan", number: "Card number", validUntil: "Valid until", unit: "Unit", unitCode: "Unit code", units: "All units",
-};
+import { DesignColours } from "./inspector/DesignColours";
+import { Group, Slider, type ColourContext } from "./inspector/fields";
+import { ImageInspector } from "./inspector/ImageInspector";
+import { C } from "./inspector/inspectorControls";
+import { BarcodeInspector, IconInspector, LineInspector, PhotoInspector, QrInspector } from "./inspector/MarkInspector";
+import { PaintInspector } from "./inspector/PaintInspector";
+import { TextInspector } from "./inspector/TextInspector";
 
 /**
- * The placeholders to offer, each with its label. Unit placeholders follow the organisation's levels:
- * one per named level ("Area", "Unit"), and none when it has no units. Unknown levels read "Level 1"….
+ * Settings of the selected layer, by kind: what it shows and how it looks, then how faded it is.
+ * Where it sits, its size and turn are in the Position panel; aligning, flipping and stacking in
+ * Arrange. With `onReplaceColour`, the colours used in the design are listed to replace everywhere.
  */
-function placeholders(unitLevels: readonly string[] | undefined) {
-  return LAYER_PLACEHOLDERS.flatMap((key) => {
-    const level = /^level(\d)$/.exec(key);
-    if (level) {
-      const index = Number(level[1]) - 1;
-      if (unitLevels && index >= unitLevels.length) return [];
-      return [{ key, label: unitLevels?.[index] ?? `Level ${index + 1}` }];
-    }
-    if ((key === "unit" || key === "unitCode" || key === "units") && unitLevels?.length === 0) return [];
-    return [{ key, label: PLACEHOLDER_LABELS[key as keyof typeof PLACEHOLDER_LABELS] }];
-  });
-}
-
-function TextSettings({ layer, onChange, orgAccent, unitLevels }: { layer: CardTextLayer; onChange: (patch: Partial<CardTextLayer>) => void; orgAccent: string; unitLevels?: readonly string[] }) {
-  return (
-    <>
-      <Field label="Text" helperText="Placeholders fill in for each member.">
-        <Textarea rows={3} maxLength={LAYER_TEXT_MAX} value={layer.text} onChange={(event) => onChange({ text: event.target.value })} />
-      </Field>
-      <div className="flex flex-wrap gap-1.5" aria-label="Insert a placeholder">
-        {placeholders(unitLevels).map(({ key, label }) => (
-          <button key={key} type="button" onClick={() => onChange({ text: `${layer.text}{${key}}`.slice(0, LAYER_TEXT_MAX) })} className="rounded-full border border-line bg-panel px-2.5 py-1 text-caption text-ink hover:bg-muted">
-            {label}
-          </button>
-        ))}
-      </div>
-      <FontPicker value={layer.font} onChange={(font) => onChange({ font })} />
-      <NumberSlider label="Text size" unit="pt" min={4} max={96} step={0.5} value={layer.sizePt} onChange={(sizePt) => onChange({ sizePt })} />
-      <SegmentedControl<CardTextLayer["align"]> ariaLabel="Alignment" size="sm" value={layer.align} onValueChange={(align) => onChange({ align })} options={[{ value: "left", label: "Left" }, { value: "center", label: "Centre" }, { value: "right", label: "Right" }]} className="self-start" />
-      <SwitchLine label="Bold" checked={layer.bold} onCheckedChange={(bold) => onChange({ bold })} />
-      <SwitchLine label="Capitals" checked={layer.uppercase} onCheckedChange={(uppercase) => onChange({ uppercase })} />
-      <ColourField label="Text colour" value={layer.color} orgAccent={orgAccent} onChange={(color) => color && onChange({ color })} />
-      <NumberSlider label="Letter spacing" unit="em" min={-0.1} max={0.5} step={0.01} value={layer.trackingEm} onChange={(trackingEm) => onChange({ trackingEm })} />
-      <NumberSlider label="Line height" unit="×" min={0.8} max={2.5} step={0.05} value={layer.lineHeight} onChange={(lineHeight) => onChange({ lineHeight })} />
-    </>
-  );
-}
-
-/** Settings of the selected layer: what it shows, where it sits, how it is turned and faded. */
-export function LayerInspector({ layer, card, orgAccent, uploading, unitLevels, onChange, onReplaceImage }: {
+export function LayerInspector({ layer, orgAccent, uploading, unitLevels, brandColours, brandFonts, documentColours, onChange, onReplaceImage, onReplaceColour }: {
   layer: CardLayer;
-  card: { widthMm: number; heightMm: number };
+  /** The card's size; kept for callers, the Position panel uses it now. */
+  card?: { widthMm: number; heightMm: number };
   orgAccent: string;
   uploading: boolean;
   /** The organisation's level names, top first; left out, unit placeholders use generic names. */
   unitLevels?: readonly string[];
+  /** The brand kit's colours and card font ids, offered first. */
+  brandColours?: readonly string[];
+  brandFonts?: readonly string[];
+  /** Every colour the design uses (`documentColours(design)`). */
+  documentColours?: readonly string[];
   onChange: (patch: Partial<CardLayer>) => void;
   onReplaceImage: (file: File) => void;
+  /** Replace one colour with another across the whole design, both sides. */
+  onReplaceColour?: (from: string, to: string) => void;
 }) {
-  const round = (value: number) => Math.round(value * 10) / 10;
+  const colours: ColourContext = { orgAccent, brandColours, documentColours };
+  const set = <T extends CardLayer>(patch: Partial<T>) => onChange(patch as Partial<CardLayer>);
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-line p-3.5">
+    <div className="flex flex-col gap-3 rounded-xl border border-line p-3.5">
       <p className="text-label font-semibold text-ink">{layerLabel(layer)}</p>
-      {layer.locked ? <p className="text-caption text-ink-muted">Locked: unlock it in the layers list to move it on the card.</p> : null}
-      <Field label="Layer name" optional><Input maxLength={40} value={layer.name} placeholder={layerLabel({ ...layer, name: "" })} onChange={(event) => onChange({ name: event.target.value })} /></Field>
+      {layer.locked ? <p className="text-caption text-ink-muted">Locked: unlock it in the layers list to change it on the card.</p> : null}
+      <Field label={C.name.label} optional><Input maxLength={40} value={layer.name} placeholder={layerLabel({ ...layer, name: "" })} onChange={(event) => onChange({ name: event.target.value })} /></Field>
 
-      {layer.kind === "text" ? <TextSettings layer={layer} orgAccent={orgAccent} unitLevels={unitLevels} onChange={onChange} /> : null}
-      {layer.kind === "image" ? (
-        <>
-          <SegmentedControl<"cover" | "contain"> ariaLabel="Fit" size="sm" value={layer.fit} onValueChange={(fit) => onChange({ fit })} options={[{ value: "cover", label: "Fill the box" }, { value: "contain", label: "Show it all" }]} className="self-start" />
-          {layer.fit === "cover" ? <NumberSlider label="Corner rounding" unit="mm" min={0} max={50} step={0.5} value={layer.radiusMm} onChange={(radiusMm) => onChange({ radiusMm })} /> : null}
-          <SwitchLine label="Black and white" checked={layer.grayscale} onCheckedChange={(grayscale) => onChange({ grayscale })} />
-          <Field label="Replace the image" helperText="PNG, JPEG or WebP, up to 5 MB.">
-            <input type="file" accept="image/png,image/jpeg,image/webp" disabled={uploading} onChange={(event) => { const file = event.target.files?.[0]; if (file) onReplaceImage(file); event.target.value = ""; }} className="block w-full text-[14px] text-ink-secondary file:mr-3 file:min-h-11 file:rounded-full file:border file:border-line file:bg-panel file:px-4 file:font-semibold file:text-ink hover:file:bg-muted" />
-          </Field>
-        </>
-      ) : null}
-      {layer.kind === "rect" || layer.kind === "ellipse" ? (
-        <>
-          <ColourField label="Fill" allowNone value={layer.fill} orgAccent={orgAccent} onChange={(fill) => onChange({ fill })} />
-          <ColourField label="Outline" allowNone value={layer.stroke} orgAccent={orgAccent} onChange={(stroke) => onChange({ stroke })} />
-          {layer.stroke ? <NumberSlider label="Outline width" unit="mm" min={0.1} max={5} step={0.1} value={layer.strokeMm} onChange={(strokeMm) => onChange({ strokeMm })} /> : null}
-          {layer.kind === "rect" ? <NumberSlider label="Corner rounding" unit="mm" min={0} max={50} step={0.5} value={layer.radiusMm} onChange={(radiusMm) => onChange({ radiusMm })} /> : null}
-        </>
-      ) : null}
-      {layer.kind === "line" ? (
-        <>
-          <ColourField label="Colour" value={layer.color} orgAccent={orgAccent} onChange={(color) => color && onChange({ color })} />
-          <NumberSlider label="Thickness" unit="mm" min={0.1} max={5} step={0.1} value={layer.hMm} onChange={(hMm) => onChange({ hMm })} />
-        </>
-      ) : null}
+      {layer.kind === "text" ? <TextInspector layer={layer} colours={colours} unitLevels={unitLevels} brandFonts={brandFonts} onChange={set} /> : null}
+      {layer.kind === "image" ? <ImageInspector layer={layer} colours={colours} uploading={uploading} onReplaceImage={onReplaceImage} onChange={set} /> : null}
+      {layer.kind === "rect" || layer.kind === "ellipse" || layer.kind === "shape" ? <PaintInspector layer={layer} colours={colours} onChange={set} /> : null}
+      {layer.kind === "line" ? <LineInspector layer={layer} colours={colours} onChange={set} /> : null}
+      {layer.kind === "icon" ? <IconInspector layer={layer} colours={colours} onChange={set} /> : null}
+      {layer.kind === "qr" ? <QrInspector layer={layer} colours={colours} onChange={set} /> : null}
+      {layer.kind === "barcode" ? <BarcodeInspector layer={layer} colours={colours} onChange={set} /> : null}
+      {layer.kind === "photo" ? <PhotoInspector layer={layer} colours={colours} onChange={set} /> : null}
 
-      <NumberSlider label="Turn" unit="°" min={-180} max={180} step={1} value={layer.rotationDeg} onChange={(rotationDeg) => onChange({ rotationDeg })} />
-      <NumberSlider label="Opacity" unit="%" min={0} max={100} step={1} value={layer.opacityPct} onChange={(opacityPct) => onChange({ opacityPct })} />
-      <div className="grid grid-cols-2 gap-2">
-        <Field label="From left (mm)"><Input type="number" step={0.5} value={layer.xMm} onChange={(event) => onChange({ xMm: round(Number(event.target.value)) })} /></Field>
-        <Field label="From top (mm)"><Input type="number" step={0.5} value={layer.yMm} onChange={(event) => onChange({ yMm: round(Number(event.target.value)) })} /></Field>
-        <Field label="Width (mm)"><Input type="number" step={0.5} min={1} value={layer.wMm} onChange={(event) => onChange({ wMm: round(Number(event.target.value)) })} /></Field>
-        {layer.kind === "line" ? null : <Field label="Height (mm)"><Input type="number" step={0.5} min={1} value={layer.hMm} onChange={(event) => onChange({ hMm: round(Number(event.target.value)) })} /></Field>}
-      </div>
-      <div className="flex flex-wrap gap-1">
-        <Button size="sm" variant="secondary" onClick={() => onChange({ xMm: round((card.widthMm - layer.wMm) / 2) })}>Centre across</Button>
-        <Button size="sm" variant="secondary" onClick={() => onChange({ yMm: round((card.heightMm - layer.hMm) / 2) })}>Centre down</Button>
-        {layer.kind === "image" || layer.kind === "rect" ? <Button size="sm" variant="secondary" onClick={() => onChange({ xMm: 0, yMm: 0, wMm: card.widthMm, hMm: card.heightMm, rotationDeg: 0 })}>Fill the card</Button> : null}
-      </div>
+      <Slider label={C.opacity.label} unit="%" min={0} max={100} step={1} value={layer.opacityPct} onChange={(opacityPct) => onChange({ opacityPct })} />
+      {onReplaceColour && documentColours?.length ? (
+        <Group title="Colours in this design">
+          <DesignColours colours={documentColours} onReplace={onReplaceColour} />
+        </Group>
+      ) : null}
     </div>
   );
 }

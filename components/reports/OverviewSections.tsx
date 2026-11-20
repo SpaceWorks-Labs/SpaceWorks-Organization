@@ -41,7 +41,7 @@ export function MembershipBridge({ view }: { view: View }) {
           const body = (
             <>
               <span className="block text-label text-ink-secondary">{step.label}</span>
-              <span className={cn("mt-0.5 block font-display font-extrabold leading-tight text-ink", step.strong ? "text-[30px]" : "text-[24px]")}>
+              <span className={cn("mt-0.5 block font-semibold leading-tight text-ink", step.strong ? "text-[30px]" : "text-[24px]")}>
                 {step.sign ? <span aria-hidden className="mr-0.5 text-ink-muted">{step.sign}</span> : null}
                 <span className="sr-only">{step.sign === "+" ? "plus " : step.sign === "−" ? "minus " : ""}</span>
                 {step.value.toLocaleString("en-IN")}

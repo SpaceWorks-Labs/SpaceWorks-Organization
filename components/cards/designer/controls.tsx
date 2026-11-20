@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import { Switch } from "@/components/ui/choice";
 import { Chip, type ChipTone } from "@/components/ui/display";
 import { Input } from "@/components/ui/field";
@@ -75,7 +75,7 @@ export function SwatchGroup<T extends string>({ label, value, options, colourOf,
               aria-checked={active}
               onClick={() => onChange(key)}
               className={cn(
-                "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-[14px] text-ink transition-colors duration-[120ms] hover:bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+                "inline-flex min-h-11 items-center gap-1.5 rounded-control border px-3 text-[14px] text-ink transition-colors duration-(--sw-dur-fast) hover:bg-subtle focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--sw-ui-focus))]",
                 active ? "border-primary bg-subtle font-semibold shadow-[inset_0_0_0_1px_var(--color-primary)]" : "border-line",
               )}
             >
@@ -101,28 +101,6 @@ export function NumberSlider({ label, unit, min, max, step, value, onChange }: {
         </span>
       </div>
       <input id={id} type="range" min={min} max={max} step={step} value={value} onChange={(event) => onChange(Number(event.target.value))} className="w-full accent-[var(--color-primary)]" />
-    </div>
-  );
-}
-
-/** Measures the space and hands the card the largest scale that fits. */
-export function FitArea({ widthMm, heightMm, children }: { widthMm: number; heightMm: number; children: (pxPerMm: number) => ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [box, setBox] = useState({ width: 0, height: 0 });
-  useEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) setBox({ width: entry.contentRect.width, height: entry.contentRect.height });
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-  const fit = box.width ? Math.min((box.width - 40) / widthMm, (Math.max(box.height, 320) - 40) / heightMm) : 0;
-  const pxPerMm = Math.min(7, Math.max(2.5, fit || 4));
-  return (
-    <div ref={ref} className="grid min-h-[380px] flex-1 place-items-center overflow-auto p-5" style={{ backgroundImage: "radial-gradient(circle, rgb(20 44 42 / 18%) 1px, transparent 1px)", backgroundSize: "16px 16px" }}>
-      {box.width ? children(pxPerMm) : null}
     </div>
   );
 }

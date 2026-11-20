@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { archiveStaffRole, createStaffRole, updateStaffRole } from "@/app/actions/staff-roles";
+import { useFocusFirstError } from "@/components/forms/focusFirstError";
+import { useUnsavedChangesGuard } from "@/components/forms/useUnsavedChangesGuard";
 import { Button } from "@/components/ui/button";
 import { CheckboxField } from "@/components/ui/choice";
 import { Callout, Chip } from "@/components/ui/display";
+import { ConfirmDialog } from "@/components/ui/dialog";
 import { Field, Input } from "@/components/ui/field";
 import { CAPABILITY_GROUPS, isOrgWide, ROLE_TEMPLATES } from "@/lib/team/capabilities";
 import type { Capability } from "@/lib/permissionRoles";
@@ -32,8 +35,14 @@ export function StaffRoleForm({ slug, role, allowed, onDone }: { slug: string; r
   const [chosen, setChosen] = useState<Set<string>>(new Set(role?.capabilities ?? ["org.view"]));
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[] | undefined>>({});
+  const [confirmArchive, setConfirmArchive] = useState(false);
   const [pending, startTransition] = useTransition();
   const permitted = new Set<string>(allowed);
+  const formRef = useRef<HTMLFormElement>(null);
+  useFocusFirstError(formRef, fieldErrors);
+  const initialCapabilities = [...new Set(role?.capabilities ?? ["org.view"])].sort().join(",");
+  const dirty = name !== (role?.name ?? "") || description !== (role?.description ?? "") || [...chosen].sort().join(",") !== initialCapabilities;
+  useUnsavedChangesGuard(dirty && !pending);
 
   const toggle = (capability: Capability, on: boolean) => setChosen((current) => {
     const next = new Set(current);
@@ -43,6 +52,7 @@ export function StaffRoleForm({ slug, role, allowed, onDone }: { slug: string; r
   });
 
   const finish = (result: { ok: true } | { ok: false; error: string; fieldErrors?: Record<string, string[] | undefined> }) => {
+    setConfirmArchive(false);
     if (!result.ok) {
       setError(result.error);
       setFieldErrors(result.fieldErrors ?? {});
@@ -64,8 +74,16 @@ export function StaffRoleForm({ slug, role, allowed, onDone }: { slug: string; r
     finish(await archiveStaffRole({ organisationSlug: slug, roleId: role.id, archived: !role.archived }));
   });
 
+  // Archiving is refused while anyone holds the role or an open invite gives it, so say that before asking.
+  const askToArchive = () => {
+    if (!role) return;
+    if (role.holders > 0) setError(`${role.holders === 1 ? "1 person holds" : `${role.holders} people hold`} this role. Give them another role first.`);
+    else if (role.invites > 0) setError("An open invite link gives this role. Revoke it first.");
+    else setConfirmArchive(true);
+  };
+
   return (
-    <form className="flex flex-col gap-5 rounded-xl border border-line bg-surface p-4" onSubmit={(event) => { event.preventDefault(); save(); }}>
+    <form ref={formRef} className="flex flex-col gap-5 rounded-xl border border-line bg-surface p-4" onSubmit={(event) => { event.preventDefault(); save(); }}>
       {error ? <Callout tone="danger" role="alert">{error}</Callout> : null}
       {role && role.holders > 0 ? (
         <Callout tone="info">{role.holders === 1 ? "1 person holds" : `${role.holders} people hold`} this role. They get any change straight away.</Callout>
@@ -126,11 +144,22 @@ export function StaffRoleForm({ slug, role, allowed, onDone }: { slug: string; r
         <Button type="submit" variant="primary" loading={pending} disabled={name.trim().length < 2}>{role ? "Save role" : "Add role"}</Button>
         <Button type="button" variant="ghost" onClick={onDone}>Cancel</Button>
         {role ? (
-          <Button type="button" variant="dangerQuiet" className="ml-auto" disabled={pending} onClick={archive}>
+          <Button type="button" variant={role.archived ? "secondary" : "dangerQuiet"} className="ml-auto" disabled={pending} onClick={role.archived ? archive : askToArchive}>
             {role.archived ? "Restore role" : "Archive role"}
           </Button>
         ) : null}
       </div>
+      {role ? (
+        <ConfirmDialog
+          open={confirmArchive}
+          title={`Archive ${role.name}?`}
+          message="Nobody holds this role and no open invite gives it, so no one loses access. It can't be given to anyone until you restore it."
+          confirmLabel="Archive role"
+          loading={pending}
+          onConfirm={archive}
+          onCancel={() => setConfirmArchive(false)}
+        />
+      ) : null}
     </form>
   );
 }

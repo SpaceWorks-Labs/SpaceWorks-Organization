@@ -46,12 +46,14 @@ describe("Patch", () => {
     expect(html).not.toContain("aria-hidden");
   });
 
-  it("greets first-time empty lists instead of the mood tile, and walks the page loader", () => {
+  it("greets first-time empty lists instead of the mood tile, and keeps Patch away from the box loader", () => {
     const empty = renderToStaticMarkup(createElement(EmptyState, { patch: true, mood: "sleepy", title: "No members yet" }));
     expect(empty).toContain("sw-patch");
     expect(empty).not.toContain("sw-face");
     const loader = renderToStaticMarkup(createElement(BrandPageLoader, {}));
-    expect(loader).toContain('data-pose="walk"');
+    // Patch is never put beside the box logo: the page loader is the box alone (components/brand/LogoLoader.tsx).
+    expect(loader).not.toContain("sw-patch");
+    expect(loader).toContain("sw-box loop");
     expect(loader).toContain('role="status"');
   });
 });

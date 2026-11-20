@@ -5,7 +5,7 @@ import { revalidatePath as nextRevalidatePath } from "next/cache";
 import { trackedRevalidation } from "@/lib/frontend/revalidation";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { orgActionAccess, type StaffMembership } from "@/lib/permissions";
-import { mayGrant, reachOf } from "@/lib/team/granting";
+import { limitPaths, mayGrant, reachOf } from "@/lib/team/granting";
 
 const revalidatePath = trackedRevalidation(nextRevalidatePath);
 
@@ -40,13 +40,13 @@ export async function manageableTarget(tx: Prisma.TransactionClient, actor: Staf
   await tx.$queryRaw`SELECT 1 FROM "TeamMember" WHERE "userId" = ${targetUserId} AND "organisationId" = ${actor.organisationId} FOR NO KEY UPDATE`;
   const target = await tx.teamMember.findUnique({
     where: { userId_organisationId: { userId: targetUserId, organisationId: actor.organisationId } },
-    include: { orgRole: true, unit: { select: { path: true } } },
+    include: { orgRole: true, unit: { select: { path: true } }, scopes: { select: { groupingId: true, valueId: true } } },
   });
   if (!target) throw new TeamError("That person isn't on the team.");
   if (target.userId === actor.userId) throw new TeamError("You can't change your own access. Ask someone else on the team.");
   if (target.orgRole.isOwner) throw new TeamError("The owner can't be changed here. The owner can transfer ownership instead.");
-  const scope = await reachOf(tx, actor.organisationId, actor.unitId);
-  if (!mayGrant(actor, scope, { role: target.orgRole, unitId: target.unitId, unitPath: target.unit?.path ?? null })) {
+  const scope = await reachOf(tx, actor.organisationId, actor);
+  if (!mayGrant(actor, scope, { role: target.orgRole, unitId: target.unitId, unitPath: target.unit?.path ?? null, limits: await limitPaths(tx, actor.organisationId, target.scopes) })) {
     throw new TeamError("Your role doesn't allow you to change this person's access.");
   }
   return { target, scope };

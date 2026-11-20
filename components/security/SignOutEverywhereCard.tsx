@@ -21,11 +21,10 @@ export function SignOutEverywhereCard() {
         id="sign-out-everywhere"
         tone="danger"
         title="Sign out everywhere"
-        description="Revoke every signed-in browser and device, including this one. You will need to sign in again."
+        description="End every signed-in browser and device, including this one. You will need to sign in again."
         action={
-          <Button variant="danger" disabled={pending} onClick={() => setConfirming(true)} className="w-full sm:w-auto">
-            <LogOut aria-hidden />
-            Revoke all sessions
+          <Button variant="danger" startIcon={<LogOut />} disabled={pending} onClick={() => setConfirming(true)} className="w-full sm:w-auto">
+            Sign out everywhere
           </Button>
         }
       >
@@ -33,9 +32,9 @@ export function SignOutEverywhereCard() {
       </AccountCard>
       <ConfirmationDialog
         open={confirming}
-        title="Revoke all sessions?"
+        title="Sign out everywhere?"
         message="Every signed-in browser and device, including this one, will be signed out immediately."
-        confirmLabel="Revoke sessions"
+        confirmLabel="Sign out everywhere"
         loading={pending}
         onCancel={() => setConfirming(false)}
         onConfirm={() => {

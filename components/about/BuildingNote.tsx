@@ -59,7 +59,7 @@ export function BuildingNote({ className }: { className?: string }) {
       </DialogPrimitive.Trigger>
 
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[rgb(20_44_42/0.62)] backdrop-blur-[3px] data-[state=open]:animate-[sw-fade-in_400ms_ease-out]" />
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-scrim/48 data-[state=open]:animate-[sw-fade-in_var(--sw-dur-slow)_var(--sw-ease-enter)]" />
         <DialogPrimitive.Content
           aria-describedby={undefined}
           onOpenAutoFocus={(event) => event.preventDefault()}
@@ -71,7 +71,7 @@ export function BuildingNote({ className }: { className?: string }) {
               ref={closeButton}
               type="button"
               aria-label="Close the letter"
-              className="absolute right-4 top-4 z-30 inline-flex size-11 items-center justify-center rounded-full bg-sw-cream text-sw-ink transition-colors hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sw-cream"
+              className="absolute right-4 top-4 z-30 inline-flex size-11 items-center justify-center rounded-full bg-sw-cream text-sw-ink transition-colors hover:bg-[color-mix(in_srgb,var(--sw-cream)_90%,var(--sw-ink))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sw-cream"
             >
               <X className="size-5" />
             </button>
@@ -85,7 +85,7 @@ export function BuildingNote({ className }: { className?: string }) {
               <button
                 type="button"
                 onClick={() => setReading(true)}
-                className="fixed bottom-6 left-1/2 z-30 min-h-11 -translate-x-1/2 whitespace-nowrap rounded-full bg-sw-ink/70 px-4 py-2 text-sm font-semibold text-sw-cream underline-offset-4 backdrop-blur-sm hover:underline"
+                className="fixed bottom-6 left-1/2 z-30 min-h-11 -translate-x-1/2 whitespace-nowrap rounded-control bg-sw-ink px-4 py-2 text-sm font-semibold text-sw-cream underline-offset-4 hover:underline"
               >
                 Skip to the letter
               </button>

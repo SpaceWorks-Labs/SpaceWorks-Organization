@@ -23,7 +23,7 @@ export default async function SuperAdminOrgsPage({ searchParams }: Props) {
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm transition-colors",
+        "inline-flex min-h-11 items-center gap-1.5 rounded-control border px-3.5 text-sm transition-colors",
         active ? "border-primary bg-primary font-semibold text-on-primary" : "border-line bg-panel text-ink hover:bg-muted",
       )}
     >

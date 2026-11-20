@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ClipboardList, Search, Settings } from "lucide-react";
+import { ClipboardList, Settings } from "lucide-react";
 import { loadPaymentsDirectory } from "@/lib/views/app__dashboard__orgSlug__payments__page";
 import { money } from "@/lib/membership/describe";
 import { formatCalendarDate, localDate } from "@/lib/membership/periods";
@@ -8,6 +8,7 @@ import { methodLabel, PAYMENT_FILTER_LABELS, PAYMENT_FILTERS, PROVIDER_LABELS } 
 import { OrgPageHeader } from "@/components/dashboard/org/OrgPageHeader";
 import { PaymentStatusChip } from "@/components/payments/PaymentStatusChip";
 import { buttonClasses } from "@/components/ui/button";
+import { SearchField } from "@/components/ui/search-field";
 import { Callout, Chip, EmptyState } from "@/components/ui/display";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { cn } from "@/lib/cn";
@@ -58,10 +59,12 @@ export default async function PaymentsPage({ params, searchParams }: Props) {
             key={key}
             href={query({ status: key === "all" ? "" : key, page: "" })}
             aria-current={filter === key ? "page" : undefined}
+            // An empty filter is disabled with the explicit recipe (CR-DISABLED-01), never dimmed.
+            aria-disabled={key !== "all" && counts[key] === 0 && filter !== key ? true : undefined}
             className={cn(
-              "inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm transition-colors",
+              "inline-flex min-h-11 items-center gap-1.5 rounded-control border px-3.5 text-sm transition-colors duration-(--sw-dur-fast) ease-sw",
               filter === key ? "border-primary bg-primary font-semibold text-on-primary" : "border-line bg-panel text-ink hover:bg-muted",
-              key !== "all" && counts[key] === 0 && filter !== key && "opacity-60",
+              key !== "all" && counts[key] === 0 && filter !== key && "pointer-events-none border-line bg-surface text-ink-muted",
             )}
           >
             {PAYMENT_FILTER_LABELS[key]} <span className="tabular-nums">{counts[key]}</span>
@@ -69,14 +72,13 @@ export default async function PaymentsPage({ params, searchParams }: Props) {
         ))}
       </nav>
 
-      <form role="search" action={base} className="flex max-w-[560px] gap-2">
+      <form role="search" action={base} className="flex max-w-[560px] flex-col gap-1.5">
         {filter !== "all" ? <input type="hidden" name="status" value={filter} /> : null}
-        <label htmlFor="payment-search" className="sr-only">Search payments</label>
-        <div className="relative flex-1">
-          <Search aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-ink-muted" />
-          <input id="payment-search" name="q" defaultValue={view.q} placeholder="Name, member no., UTR or receipt no." className="min-h-11 w-full rounded-control border border-line-strong bg-panel pl-10 pr-4 text-base text-ink placeholder:text-ink-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--sw-ui-focus))]" />
+        <label htmlFor="payment-search" className="text-label text-ink">Search payments</label>
+        <div className="flex gap-2">
+          <SearchField id="payment-search" name="q" defaultValue={view.q} placeholder="Name, member no., UTR or receipt no." className="min-w-0 flex-1" />
+          <button type="submit" className={buttonClasses({ variant: "secondary" })}>Search</button>
         </div>
-        <button type="submit" className={buttonClasses({ variant: "secondary" })}>Search</button>
       </form>
 
       {counts.confirm > 0 && filter !== "confirm" && view.canManage ? (
@@ -101,9 +103,15 @@ export default async function PaymentsPage({ params, searchParams }: Props) {
       ) : null}
 
       {payments.length === 0 ? (
-        <EmptyState {...(counts.all === 0 ? { patch: true } : { mood: "sleepy" as const })} title={counts.all === 0 ? "No payments yet" : "Nothing matches"}>
-          {counts.all === 0 ? "Payments appear here when members pay online, or when you record one on a member's page." : "Try another filter or search."}
-        </EmptyState>
+        counts.all === 0 ? (
+          <EmptyState patch title="No payments yet">
+            Payments appear here when members pay online, or when you record one on a member&apos;s page.
+          </EmptyState>
+        ) : (
+          <EmptyState mood="sleepy" title="No payments match these filters" action={<Link href={base} scroll={false} className={buttonClasses({ variant: "secondary" })}>Clear filters</Link>}>
+            Try another filter or search, or clear them to see every payment.
+          </EmptyState>
+        )
       ) : (
         <Table label="Payments">
           <THead>
@@ -123,12 +131,12 @@ export default async function PaymentsPage({ params, searchParams }: Props) {
               return (
                 <TR key={payment.id}>
                   <TD>
-                    <Link href={`${base}/${payment.id}`} className="font-semibold text-ink underline-offset-4 hover:underline">{payment.member.name}</Link>
+                    <Link href={view.canViewMembers ? `/dashboard/${org.slug}/members/${payment.member.id}` : `${base}/${payment.id}`} className="font-semibold text-ink underline-offset-4 hover:underline">{payment.member.name}</Link>
                     <span className="block text-caption tabular-nums text-ink-muted">No. {payment.member.memberNumber}</span>
                   </TD>
                   <TD className="text-ink-secondary">{payment.term?.plan.name ?? "—"}</TD>
                   <TD className="text-right tabular-nums">
-                    {money(payment.amountMinor, payment.currency, org.locale)}
+                    {view.canViewMembers ? <Link href={`${base}/${payment.id}`} className="underline-offset-4 hover:underline">{money(payment.amountMinor, payment.currency, org.locale)}</Link> : money(payment.amountMinor, payment.currency, org.locale)}
                     {refunded ? <span className="block text-caption text-ink-muted">{money(refunded, payment.currency, org.locale)} refunded</span> : null}
                   </TD>
                   <TD className="text-ink-secondary">{payment.provider === "OFFLINE" ? methodLabel(payment.method) ?? "Offline" : PROVIDER_LABELS[payment.provider]}{payment.utr ? <span className="block text-caption tabular-nums text-ink-muted">{payment.utr}</span> : null}</TD>

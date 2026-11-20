@@ -8,6 +8,9 @@ import {
   cardTemplateDecor,
   DETAILS_COLUMN_GAP_MM,
   DETAILS_ROW_GAP_MM,
+  estimateEmWidth,
+  fitTextSizePt,
+  nameBlockHeightMm,
   nameSizePt,
   PT_TO_MM,
   TILE_PADDING_MM,
@@ -15,12 +18,13 @@ import {
   type CardElement,
   type CardSideSettings,
 } from "@/lib/cards/design/elements";
-import { cardImageUrls, watermarkImageBox } from "@/lib/cards/layout";
+import { QR_CAPTION, qrTile } from "@/lib/cards/design/qrTile";
+import { cardImageUrls, INITIALS_WIDTH, PHOTO_BORDER_MM, watermarkImageBox } from "@/lib/cards/layout";
 import { resolveCardPalette, SYMBOL_ASSET } from "@/lib/cards/palette";
 import { holderInitials, labelledLine, printableFields, validUntilLine, type CardBranding, type CardHolder } from "@/lib/cards/types";
-import { SAFE_MARGIN_MM, useCanvasItems, type CanvasInteraction } from "./canvasInteraction";
+import { useCanvasItems, type CanvasInteraction } from "./canvasInteraction";
 import { CARD_FONT_FAMILY, cardFontStack, LayerFontFaces } from "./cardFonts";
-import { CardLayerView, LayerSelection } from "./CardLayerView";
+import { CardLayerView } from "./CardLayerView";
 import { useNameSizePt } from "./useNameFit";
 
 /**
@@ -56,9 +60,10 @@ export function CardCanvas({ settings, holder, branding, pxPerMm = 1, interactio
     ...(fontOf(element) ? { fontFamily: cardFontStack(fontOf(element)) } : {}),
     ...extra,
   });
+  // One line each, as the renderer draws them: shrunk a little when long, then cut with an ellipsis.
   const line = (element: "role" | "plan" | "idNumber" | "validUntil", text: string, extra: CSSProperties = {}) =>
     text ? (
-      <p {...itemProps(element)} style={itemStyle(element, { margin: 0, width: px(settings.elementSizes[element]), fontSize: ptPx(settings.elementTextSizes[element]), lineHeight: CARD_LINE_HEIGHT.body, fontWeight: weight(bold[element]), overflowWrap: "anywhere", ...extra })}>
+      <p {...itemProps(element)} style={itemStyle(element, { margin: 0, width: px(settings.elementSizes[element]), fontSize: ptPx(fitTextSizePt(text, settings.elementSizes[element], settings.elementTextSizes[element], bold[element], 0.75)), lineHeight: ptPx(settings.elementTextSizes[element] * CARD_LINE_HEIGHT.body), fontWeight: weight(bold[element]), whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", ...extra })}>
         {text}
       </p>
     ) : null;
@@ -93,6 +98,9 @@ export function CardCanvas({ settings, holder, branding, pxPerMm = 1, interactio
 
   const photoSide = settings.elementSizes.photo;
   const photoRadius = settings.photoShape === "circle" ? "50%" : px(photoSide * 0.2);
+  const photoBorder = `inset 0 0 0 ${Math.max(1, PHOTO_BORDER_MM * pxPerMm)}px ${palette.photoBorder}`;
+  const nameLines = Math.max(1, Math.floor((nameBlockHeightMm(settings.elementTextSizes.name) + 0.01) / (namePt * PT_TO_MM * CARD_LINE_HEIGHT.name)));
+  const tile = qrTile(settings.elementSizes.qr, settings.showQrCaption);
   const mark = settings.watermark;
   const markColour = mark.colour === "text" ? palette.text : palette.accent === palette.background ? palette.text : palette.accent;
   const markText = mark.kind === "text" ? mark.text.trim().toLocaleUpperCase("en") : "";
@@ -116,7 +124,6 @@ export function CardCanvas({ settings, holder, branding, pxPerMm = 1, interactio
         <img aria-hidden src={images.watermark} alt="" draggable={false} style={{ position: "absolute", left: px(markBox.x), top: px(markBox.y), width: px(markBox.w), height: px(markBox.h), objectFit: "contain", opacity: mark.opacityPct / 100, filter: mono ? "grayscale(1)" : undefined, pointerEvents: "none" }} />
       ) : null}
       {decor.frame ? <span aria-hidden style={{ position: "absolute", inset: px(decor.frame.insetMm), border: rule(decor.frame.ruleMm, palette.rule), borderRadius: px(decor.frame.radiusMm), pointerEvents: "none" }} /> : null}
-      {interaction ? <span aria-hidden style={{ position: "absolute", inset: px(SAFE_MARGIN_MM), border: "1px dashed rgb(0 110 99 / 40%)", pointerEvents: "none" }} /> : null}
 
       {showHeader ? (
         <div {...itemProps("header")} style={itemStyle("header", { width: px(settings.elementSizes.header), ...headerDecor })}>
@@ -126,7 +133,7 @@ export function CardCanvas({ settings, holder, branding, pxPerMm = 1, interactio
       ) : null}
 
       {settings.showName ? (
-        <p {...itemProps("name")} style={itemStyle("name", { margin: 0, width: px(settings.elementSizes.name), fontSize: ptPx(namePt), fontWeight: weight(bold.name), lineHeight: CARD_LINE_HEIGHT.name, letterSpacing: `${decor.nameTrackingEm}em`, textTransform: decor.nameUppercase ? "uppercase" : undefined, overflowWrap: "anywhere" })}>
+        <p {...itemProps("name")} style={itemStyle("name", { margin: 0, width: px(settings.elementSizes.name), fontSize: ptPx(namePt), fontWeight: weight(bold.name), lineHeight: CARD_LINE_HEIGHT.name, letterSpacing: `${decor.nameTrackingEm}em`, textTransform: decor.nameUppercase ? "uppercase" : undefined, overflowWrap: "anywhere", ...(settings.nameAutoFit ? { display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: nameLines, overflow: "hidden" } : {}) })}>
           {holder.displayName}
         </p>
       ) : null}
@@ -164,9 +171,9 @@ export function CardCanvas({ settings, holder, branding, pxPerMm = 1, interactio
       {settings.showPhoto ? (
         images.photo ? (
           // eslint-disable-next-line @next/next/no-img-element -- the member's own uploaded photo
-          <img {...itemProps("photo")} src={images.photo} alt="" draggable={false} style={itemStyle("photo", { width: px(photoSide), height: px(photoSide), objectFit: "cover", borderRadius: photoRadius, filter: mono ? "grayscale(1)" : undefined, zIndex: z("photo") })} />
+          <img {...itemProps("photo")} src={images.photo} alt="" draggable={false} style={itemStyle("photo", { width: px(photoSide), height: px(photoSide), objectFit: "cover", borderRadius: photoRadius, outline: `${Math.max(1, PHOTO_BORDER_MM * pxPerMm)}px solid ${palette.photoBorder}`, outlineOffset: `-${Math.max(1, PHOTO_BORDER_MM * pxPerMm)}px`, filter: mono ? "grayscale(1)" : undefined, zIndex: z("photo") })} />
         ) : (
-          <div {...itemProps("photo")} style={itemStyle("photo", { width: px(photoSide), height: px(photoSide), borderRadius: photoRadius, background: palette.photoPlaceholder, color: palette.onPhotoPlaceholder, display: "grid", placeItems: "center", fontSize: ptPx((photoSide * 0.36) / PT_TO_MM), fontWeight: 700, lineHeight: 1, zIndex: z("photo") })}>
+          <div {...itemProps("photo")} style={itemStyle("photo", { width: px(photoSide), height: px(photoSide), borderRadius: photoRadius, background: palette.photoPlaceholder, boxShadow: photoBorder, color: palette.onPhotoPlaceholder, display: "grid", placeItems: "center", fontSize: ptPx(Math.min(photoSide * 0.36, (photoSide * INITIALS_WIDTH) / estimateEmWidth(holderInitials(holder.displayName), true)) / PT_TO_MM), fontWeight: 700, lineHeight: 1, zIndex: z("photo") })}>
             {holderInitials(holder.displayName)}
           </div>
         )
@@ -178,8 +185,11 @@ export function CardCanvas({ settings, holder, branding, pxPerMm = 1, interactio
       ) : null}
 
       {settings.showQr ? (
-        <div {...itemProps("qr")} style={itemStyle("qr", { background: palette.qrLight, padding: px(TILE_PADDING_MM), lineHeight: 0, zIndex: z("qr") })}>
-          <QRCode value={holder.verifyUrl} size={Math.max(16, Math.round(settings.elementSizes.qr * pxPerMm))} bgColor={palette.qrLight} fgColor={palette.qrDark} level="M" />
+        <div {...itemProps("qr")} style={itemStyle("qr", { background: palette.qrLight, width: px(tile.width), height: px(tile.height), lineHeight: 0, zIndex: z("qr") })}>
+          <span style={{ position: "absolute", left: px(tile.code.offset), top: px(tile.code.offset) }}>
+            <QRCode value={holder.verifyUrl} size={Math.max(16, Math.round(tile.code.size * pxPerMm))} bgColor={palette.qrLight} fgColor={palette.qrDark} level="M" />
+          </span>
+          {tile.caption ? <span style={{ position: "absolute", left: 0, right: 0, top: px(tile.caption.top), textAlign: "center", fontSize: ptPx(tile.caption.sizePt), lineHeight: CARD_LINE_HEIGHT.label, fontWeight: 700, letterSpacing: "0.02em", color: palette.qrDark, whiteSpace: "nowrap" }}>{QR_CAPTION}</span> : null}
         </div>
       ) : null}
 
@@ -188,15 +198,11 @@ export function CardCanvas({ settings, holder, branding, pxPerMm = 1, interactio
   );
 
   if (!interaction) content = <div aria-hidden>{content}</div>;
-  const selectedLayer = interaction ? settings.layers.find((layer) => layer.id === interaction.selected) : undefined;
-  const guide = (vertical: boolean): CSSProperties => ({ position: "absolute", pointerEvents: "none", background: "rgb(236 72 153)", ...(vertical ? { left: "50%", top: -8, bottom: -8, width: 1 } : { top: "50%", left: -8, right: -8, height: 1 }) });
   return (
     <div data-card-frame className="relative shrink-0" style={{ width: px(settings.widthMm), height: px(settings.heightMm) }}>
       <LayerFontFaces fonts={[...Object.values(settings.elementFonts), ...settings.layers.flatMap((layer) => (layer.kind === "text" ? [layer.font] : []))]} />
       <div data-card-preview style={cardStyle}>{content}</div>
-      {interaction?.guides.x ? <span aria-hidden style={guide(true)} /> : null}
-      {interaction?.guides.y ? <span aria-hidden style={guide(false)} /> : null}
-      {selectedLayer && interaction ? <LayerSelection layer={selectedLayer} pxPerMm={pxPerMm} interaction={interaction} /> : null}
+      {interaction?.overlay}
     </div>
   );
 }

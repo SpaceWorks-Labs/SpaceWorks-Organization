@@ -5,7 +5,9 @@ import {
   PutObjectCommand,
 } from "@aws-sdk/client-s3";
 import { prisma } from "@/lib/db";
+import { PAGE_FILE_KEY } from "@/lib/publicPage/links";
 import { storageBucket, storageClient as client, storageConfigured } from "./client";
+import { looksLikePdf, MAX_PAGE_FILE_BYTES, PAGE_FILE_TYPE } from "./pageFiles";
 
 type UploadInput = {
   key: string;
@@ -24,7 +26,7 @@ const MEMBER_PHOTO_KEY =
   /^organisations\/([A-Za-z0-9_-]{1,128})\/members\/[A-Za-z0-9_-]{1,64}\/photo-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.webp$/i;
 
 export function isPublicDerivativeKey(key: string) {
-  return ORGANISATION_DERIVATIVE_KEY.test(key) || MEMBER_PHOTO_KEY.test(key) || USER_DERIVATIVE_KEY.test(key);
+  return ORGANISATION_DERIVATIVE_KEY.test(key) || MEMBER_PHOTO_KEY.test(key) || USER_DERIVATIVE_KEY.test(key) || PAGE_FILE_KEY.test(key);
 }
 
 async function bytes(input: UploadInput["body"]) {
@@ -34,16 +36,21 @@ async function bytes(input: UploadInput["body"]) {
 }
 
 export async function uploadFile(input: UploadInput): Promise<{ key: string }> {
-  const organisationKeyMatch = ORGANISATION_DERIVATIVE_KEY.exec(input.key) ?? MEMBER_PHOTO_KEY.exec(input.key);
+  const isPageFile = PAGE_FILE_KEY.test(input.key);
+  const organisationKeyMatch = ORGANISATION_DERIVATIVE_KEY.exec(input.key) ?? MEMBER_PHOTO_KEY.exec(input.key) ?? (isPageFile ? /^organisations\/([^/]+)\//.exec(input.key) : null);
   const userKeyMatch = USER_DERIVATIVE_KEY.exec(input.key);
   const validOwner =
     (organisationKeyMatch &&
       input.organisationId === organisationKeyMatch[1]) ||
     (userKeyMatch && input.userId === userKeyMatch[1]);
-  if (!validOwner || input.contentType !== "image/webp") {
+  if (!validOwner || input.contentType !== (isPageFile ? PAGE_FILE_TYPE : "image/webp")) {
     throw new Error("Invalid public derivative storage metadata.");
   }
   const uploadBody = await bytes(input.body);
+  // A page file is a PDF by its first bytes, not by what the browser said, and is size-capped.
+  if (isPageFile && (uploadBody.length > MAX_PAGE_FILE_BYTES || !looksLikePdf(uploadBody))) {
+    throw new Error("Invalid page file.");
+  }
   if (storageConfigured()) {
     await client().send(
       new PutObjectCommand({
@@ -102,7 +109,7 @@ export async function downloadFile(key: string) {
     where: { key },
     select: { provider: true, fileData: true, contentType: true },
   });
-  if (!asset || asset.contentType !== "image/webp") return null;
+  if (!asset || asset.contentType !== (PAGE_FILE_KEY.test(key) ? PAGE_FILE_TYPE : "image/webp")) return null;
   if (asset.provider === "s3") {
     if (!storageConfigured())
       throw new Error("Private object storage is not configured.");

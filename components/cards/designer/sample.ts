@@ -20,7 +20,7 @@ export function sampleNumberUnits(levelNames?: readonly string[]) {
   return { unitCode: units.at(-1)?.code ?? null, unitCodes: units.map((unit) => unit.code) };
 }
 
-export function sampleHolder(name: string, planName: string, roleName: string, idNumber: string, fields: DesignerField[], levelNames?: readonly string[]): CardHolder {
+export function sampleHolder(name: string, planName: string, roleName: string, idNumber: string, fields: DesignerField[], levelNames?: readonly string[], organisationName?: string): CardHolder {
   return {
     memberId: "sample",
     verifyToken: "sample",
@@ -33,5 +33,8 @@ export function sampleHolder(name: string, planName: string, roleName: string, i
     idNumber,
     validUntil: "31 Mar 2027",
     units: sampleUnits(levelNames),
+    // Sample contact details on reserved example domains and a fictional number; real cards print the organisation's own.
+    contact: { website: "example.org", email: "hello@example.org", phone: "+91 90000 00000" },
+    organisationName: organisationName ?? null,
   };
 }

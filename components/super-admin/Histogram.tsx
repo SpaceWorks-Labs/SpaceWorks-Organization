@@ -11,8 +11,8 @@ export function Histogram(props: {
           <span
             key={b.label}
             title={`${b.label}: ${b.count}`}
-            className="block w-3.5 rounded-sm bg-primary"
-            style={{ height: `${Math.max(4, Math.round((b.count / max) * 56))}px`, opacity: 0.18 + 0.72 * (b.count / max) }}
+            className="sw-chart-mark block w-3.5 rounded-sm"
+            style={{ height: `${Math.max(4, Math.round((b.count / max) * 56))}px`, background: "var(--chart-1)" }}
           />
         ))}
       </div>

@@ -29,6 +29,10 @@ afterEach(() => {
 
 describe("production environment validation", () => {
   it("accepts a complete TLS-protected configuration", () => expect(validateRuntimeEnvironment).not.toThrow());
+  it("treats empty optional email settings (compose passes ${NAME:-}) as unset", () => {
+    for (const name of ["SMTP_USER", "SMTP_PASSWORD", "AWS_SES_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "SES_TOPIC_ARN", "RESEND_API_KEY", "POSTMARK_SERVER_TOKEN", "EMAIL_WEBHOOK_SECRET"]) process.env[name] = "";
+    expect(validateRuntimeEnvironment).not.toThrow();
+  });
   it("rejects plaintext database and public origins", () => {
     process.env.DATABASE_URL = "postgresql://user:pass@db.example.test/sworg?sslmode=disable";
     expect(validateRuntimeEnvironment).toThrow(/DATABASE_URL must require TLS/);

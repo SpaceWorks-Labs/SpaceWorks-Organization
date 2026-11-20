@@ -1,26 +1,101 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { SpaceWorksProductLogo, SpaceWorksLogo } from "@/components/brand/SpaceWorksLogo";
-import { GITHUB_URL, LICENSE_URL } from "@/lib/openSource";
+import { SpaceWorksProductLogo } from "@/components/brand/SpaceWorksLogo";
+import { ExternalLink, InstallCommand, PROJECT_LINKS } from "@/components/marketing/ProjectLinks";
+import { PrivacyPreferencesLink } from "@/components/telemetry/PrivacyPreferencesLink";
+import { DOCS_PATH, GITHUB_URL, LICENSE_URL, RELEASE_URL, RELEASE_VERSION, docsPath } from "@/lib/openSource";
 
-const publicLinks = [
-  { label: "How it works", href: "/#how-it-works" },
+type FooterLink = { label: string; href: string };
+
+const productLinks: FooterLink[] = [
+  { label: "Features", href: "/features" },
   { label: "Organisations", href: "/organisations" },
-  { label: "Self-host", href: "/#self-host" },
-  { label: "Apply", href: "/start" },
+  { label: "Apply for your organisation", href: "/start" },
   { label: "About", href: "/about" },
+];
+const docsLinks: FooterLink[] = [
+  { label: "All documentation", href: DOCS_PATH },
+  { label: "Self-hosting", href: docsPath("self-hosting") },
+  { label: "Organisations and units", href: docsPath("units") },
+  { label: "Payments", href: docsPath("payments") },
+  { label: "Member cards", href: docsPath("member-cards") },
+];
+const legalLinks: FooterLink[] = [
   { label: "Privacy", href: "/privacy" },
   { label: "Terms", href: "/terms" },
 ];
 
-const linkClasses = "text-body-ui text-ink-secondary underline-offset-4 transition-colors hover:text-ink hover:underline";
+const linkClasses =
+  "inline-flex min-h-11 w-fit items-center gap-1 rounded-control text-body-ui text-ink-secondary underline-offset-4 transition-colors duration-(--sw-dur-fast) hover:text-ink hover:underline";
 const creditLinkClasses = "underline underline-offset-4 hover:text-ink";
 
-/** Who runs this instance, e.g. "Shaan Shoukath, Systems Engineer". Inlined at build time; empty hides it. */
+/** Who runs this instance, e.g. "Asha Menon, Systems Engineer". Inlined at build time; empty hides it. */
 const HOSTED_BY = process.env.NEXT_PUBLIC_HOSTED_BY?.trim() ?? "";
+
+function Column({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <nav aria-label={`Footer: ${title}`} className="grid content-start gap-1">
+      <h2 className="mb-2 font-sans text-overline font-semibold text-ink-muted">{title}</h2>
+      <ul className="grid gap-0.5">{children}</ul>
+    </nav>
+  );
+}
+
+/**
+ * Space Works Organization site footer (product rules §12.1): the product, the docs and the project's own links
+ * (GitHub, latest release, changelog, AGPL licence), the install command, and the AGPL source credit. The
+ * Privacy preferences link (components/telemetry) renders only while the consent panel applies to the page;
+ * `privacyLink` replaces it where a page needs its own.
+ */
+export function SiteFooter({ privacyLink }: { privacyLink?: ReactNode } = {}) {
+  const pathname = usePathname();
+  const { status } = useSession();
+  const product = status === "authenticated" ? [{ label: "Dashboard", href: "/dashboard" }, { label: "Account", href: "/account" }, ...productLinks] : [...productLinks, { label: "Sign in", href: "/login" }];
+  const internal = (link: FooterLink) => (
+    <li key={link.href}>
+      <Link href={link.href} aria-current={pathname === link.href ? "page" : undefined} className={linkClasses}>{link.label}</Link>
+    </li>
+  );
+
+  return (
+    <footer className="mt-auto border-t border-line bg-canvas">
+      <div className="mx-auto grid max-w-[1440px] gap-x-8 gap-y-10 px-4 py-12 sm:px-6 md:grid-cols-3 md:py-16 xl:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))] xl:px-8">
+        <div className="grid content-start gap-5 md:col-span-3 xl:col-span-1">
+          <Link href="/" className="inline-flex w-fit items-center rounded-md" aria-label="Space Works Organization home">
+            <SpaceWorksProductLogo height={32} label={null} />
+          </Link>
+          <p className="max-w-sm text-body-ui text-ink-secondary">Open-source membership software for clubs, associations and federations.</p>
+          <InstallCommand className="max-w-md" />
+        </div>
+        <Column title="Product">{product.map(internal)}</Column>
+        <Column title="Docs">{docsLinks.map(internal)}</Column>
+        <Column title="Project">
+          {PROJECT_LINKS.map((link) => (
+            <li key={link.href}>
+              <ExternalLink href={link.href} className={linkClasses}>{link.label}</ExternalLink>
+            </li>
+          ))}
+          {legalLinks.map(internal)}
+          <li>{privacyLink ?? <PrivacyPreferencesLink className={linkClasses} />}</li>
+        </Column>
+      </div>
+      <div className="border-t border-line">
+        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-5 text-caption text-ink-muted sm:px-6 xl:px-8">
+          <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+            <SourceCredit />
+          </p>
+          <a href={RELEASE_URL} target="_blank" rel="noopener noreferrer" className={`code-text ${creditLinkClasses}`}>
+            Version {RELEASE_VERSION}<span className="sr-only"> release notes on GitHub (opens in a new tab)</span>
+          </a>
+        </div>
+      </div>
+    </footer>
+  );
+}
 
 /** "Powered by Space Works" plus the AGPL source link (the licence asks every install to offer its source). */
 function SourceCredit() {
@@ -41,65 +116,5 @@ function SourceCredit() {
       <span aria-hidden>·</span>
       <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className={creditLinkClasses}>Source code</a>
     </>
-  );
-}
-
-/** Space Works Organization site footer (Figma 121:1333). */
-export function SiteFooter() {
-  const pathname = usePathname();
-  const { status } = useSession();
-  const links = status === "authenticated" ? [{ label: "Dashboard", href: "/dashboard" }, { label: "Account", href: "/account" }, ...publicLinks] : publicLinks;
-
-  return (
-    <footer className="mt-auto border-t border-line bg-canvas">
-      <div className="mx-auto flex max-w-[1160px] flex-col gap-5 px-4 py-10 sm:px-6 xl:px-0">
-        <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
-          <div className="flex flex-col gap-2.5">
-            <Link href="/" className="inline-flex items-center self-start" aria-label="Space Works Organization home">
-              <SpaceWorksProductLogo height={32} label={null} />
-            </Link>
-            <p className="text-body-ui text-ink-secondary">Memberships for the groups that make things happen.</p>
-          </div>
-          <nav aria-label="Footer">
-            <ul className="flex flex-wrap gap-x-6 gap-y-2">
-              {links.map((link) => (
-                <li key={link.href}>
-                  <Link href={link.href} aria-current={pathname === link.href ? "page" : undefined} className={linkClasses}>
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-              <li>
-                <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className={linkClasses}>GitHub</a>
-              </li>
-            </ul>
-          </nav>
-        </div>
-        <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-line pt-5 text-caption text-ink-muted">
-          <SourceCredit />
-        </p>
-      </div>
-    </footer>
-  );
-}
-
-/** Compact footer for an organisation's public pages: the organisation leads, Space Works steps back. */
-export function OrganisationFooter() {
-  return (
-    <footer className="mt-auto border-t border-line bg-canvas">
-      <div className="mx-auto flex max-w-[1160px] flex-col gap-3 px-4 py-6 text-sm text-ink-muted sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <Link href="/" className="inline-flex items-center gap-2 self-start hover:text-ink">
-          <SpaceWorksLogo variant="app-icon" height={18} label={null} />
-          <span>Powered by Space Works</span>
-        </Link>
-        <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
-          <Link href="/privacy" className={creditLinkClasses}>Privacy</Link>
-          <span aria-hidden>·</span>
-          <Link href="/terms" className={creditLinkClasses}>Terms</Link>
-          <span aria-hidden>·</span>
-          <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className={creditLinkClasses}>Source code</a>
-        </p>
-      </div>
-    </footer>
   );
 }

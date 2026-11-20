@@ -29,7 +29,7 @@ export async function updateOrganisation(
   if (!parsed.success) {
     return {
       ok: false,
-      error: "Invalid input.",
+      error: "Check the highlighted fields.",
       fieldErrors: flattenZodErrors(parsed.error),
     };
   }

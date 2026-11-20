@@ -30,7 +30,7 @@ export async function sendRenewalReminders(input: unknown): Promise<{ ok: true; 
   if (!access.ok) return access;
   if (await isActionRateLimited("action", access.userId)) return { ok: false, error: "Too many requests. Try again shortly." };
   const org = await prisma.organisation.findUniqueOrThrow({ where: { id: access.organisation.id }, select: { id: true, slug: true, timezone: true } });
-  const scope = await teamScope(org.id, access.membership.unitId);
+  const scope = await teamScope(org.id, access.membership);
   const result = await queueManualReminders(scope, org.timezone, [...new Set(parsed.data.termIds)]);
   await recordAuditEvent({ action: "RENEWAL_REMINDERS_SENT", actorUserId: access.userId, organisationId: org.id, targetType: "Organisation", targetId: org.id, metadata: { requested: parsed.data.termIds.length, queued: result.queued, skipped: result.skipped } });
   revalidatePath(`/dashboard/${org.slug}/reports/renewals`);

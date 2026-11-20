@@ -93,7 +93,7 @@ describe("standard card templates", () => {
     const front = design.front;
     expect([front.showPhoto, front.showName, front.showRole, front.showPlan, front.showIdNumber, front.showValidUntil, front.showQr]).toEqual([true, true, true, true, true, true, true]);
     expect(front.layers).toEqual([expect.objectContaining({ kind: "text", text: "{units}" })]);
-    expect(front.order.at(-1)).toBe("lstdunits");
+    expect(front.order.at(-1)).toBe("lunits");
     expect(CARD_TEMPLATE_INFO[id].label).toMatch(/^Standard/);
   });
 
@@ -112,7 +112,7 @@ describe("standard card templates", () => {
     const applied = applyCardTemplate(existing, "standard-portrait", context);
     expect(applied.backEnabled).toBe(false);
     expect(applied.front.printFieldKeys).toEqual(["blood"]);
-    expect(applied.front.layers.map((layer) => layer.id)).toEqual(["lstdunits"]);
+    expect(applied.front.layers.map((layer) => layer.id)).toEqual(["lunits"]);
   });
 });
 

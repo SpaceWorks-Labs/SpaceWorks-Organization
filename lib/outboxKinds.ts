@@ -13,9 +13,10 @@ import { asErasurePayload, deliverErasureNotice } from "@/lib/email/erasure";
 import { asRefundPayload, deliverRefundNotice } from "@/lib/email/refunds";
 import { asChatPayload, deliverChatNotice } from "@/lib/chat/notify";
 import { asLoginAlertPayload, asLoginCodePayload, deliverLoginAlert, deliverLoginCode } from "@/lib/email/loginSecurity";
+import { asSmsCodePayload, deliverSmsCode } from "@/lib/sms/outbox";
 import { asOwnershipPayload, deliverOwnershipNotice } from "@/lib/team/ownershipEmail";
+import { memberMessage } from "@/lib/notify/outbox";
 import { asLegacyPhotoPurgePayload, asPhotoPurgePayload, deleteFilesWithHistory, purgeErasedMemberPhotos } from "@/lib/storage/memberPhotos";
-
 /** What a handler reports after a delivery attempt. Throw to retry; throw PermanentOutboxError to give up. */
 export type DeliveryOutcome = "sent" | "dropped";
 
@@ -28,9 +29,7 @@ export type OutboxKindHandler = {
   durable?: boolean;
   deliver(payload: Prisma.JsonValue, messageId: string): Promise<DeliveryOutcome>;
 };
-
 // ---------- payload checks shared by handlers ----------
-
 export function asRecord(value: Prisma.JsonValue): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
@@ -204,6 +203,13 @@ const loginCode: OutboxKindHandler = {
   },
 };
 
+// A phone code is a sign-in capability: the row (number and code) is deleted after sending.
+const smsCode: OutboxKindHandler = {
+  capability: true,
+  shortLived: true,
+  deliver: async (value, messageId) => { const payload = asSmsCodePayload(value); if (!payload) throw new PermanentOutboxError(); return deliverSmsCode(payload, messageId); },
+};
+
 const loginAlert: OutboxKindHandler = {
   capability: false,
   async deliver(value, messageId) {
@@ -283,6 +289,8 @@ export const OUTBOX_KINDS = {
   "chat-notice": chatNotice,
   "login-code": loginCode,
   "login-alert": loginAlert,
+  "sms-code": smsCode,
+  "member-message": memberMessage,
   "ownership-transfer": ownershipTransfer,
   "member-photo-purge": memberPhotoPurge,
   "legacy-photo-purge": legacyPhotoPurge,

@@ -47,6 +47,7 @@ export async function loadOrgReportsActivity({ params, searchParams }: Props) {
   const nameOf = new Map(visible.map((member) => [member.userId, member.user.name ?? member.user.email ?? "Team member"]));
   return {
     shell: reportShell(ctx, "activity"),
+    timeZone: ctx.org.timezone,
     total: events.length,
     capped: events.length === 5000,
     series: buckets.map((bucket, index) => ({ label: bucket.label, count: perBucket[index] })),

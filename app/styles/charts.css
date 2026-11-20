@@ -1,56 +1,65 @@
 /*
- * Report chart roles (dataviz method; palette validated with the dataviz validator against the chart
- * surfaces: panel #ffffff light, #1f433f dark). Six categorical slots in a fixed order, led by Maker Teal.
- * Light: all checks pass; slots 4 and 6 sit under 3:1, so every chart ships a table view and direct labels.
- * Dark: all checks pass; slot 6 sits under 3:1, same relief. Never add a seventh slot: fold into "Other".
- * Text never wears a series colour; marks do.
+ * Report chart roles (CR-CHART-01, SpaceWorks-Design docs/theming.md §6). The kit's chart tokens arrive in
+ * tokens.css as --sw-chart-* triplets; these are the full colours the charts use.
+ *
+ * - Series are --chart-1 … --chart-5 (teal, orange, citron, sky, yellow), identical in light and dark, in that
+ *   fixed order. Never add a sixth slot: fold the rest into "Other" (--chart-muted).
+ * - Contrast comes from --chart-edge (Deep Ink in light, Cream in dark): a 1px edge on every filled mark (bars,
+ *   segments, points, legend swatches; .sw-chart-mark for HTML marks) and a 4px casing under every 2px line.
+ * - --chart-danger is the explicit negative/error role, never an ordinary series.
+ * - Text never wears a series colour; marks do. Every chart ships a table view and direct labels.
  */
 :root {
-  --chart-1: #00897b;
-  --chart-2: #eb6834;
-  --chart-3: #2a78d6;
-  --chart-4: #eda100;
-  --chart-5: #6250d6;
-  --chart-6: #e87ba4;
-  /* De-emphasis ("Other", context series, sparkline history). */
-  --chart-muted: #9b9a92;
-  /* Ordinal ramp (ageing buckets, tenure bands, cohort heat): one hue, light to dark, light end ≥ 2:1. */
-  --chart-ord-1: #86b6ef;
-  --chart-ord-2: #5598e7;
-  --chart-ord-3: #2a78d6;
-  --chart-ord-4: #1c5cab;
-  --chart-ord-5: #0d366b;
-  /* Text set inside an ordinal cell, picked by the fill's luminance. */
-  --chart-ord-on-1: #142c2a;
-  --chart-ord-on-2: #142c2a;
-  --chart-ord-on-3: #ffffff;
-  --chart-ord-on-4: #ffffff;
-  --chart-ord-on-5: #ffffff;
-  --chart-grid: rgb(var(--sw-ui-line) / 0.7);
+  --chart-1: rgb(var(--sw-chart-1));
+  --chart-2: rgb(var(--sw-chart-2));
+  --chart-3: rgb(var(--sw-chart-3));
+  --chart-4: rgb(var(--sw-chart-4));
+  --chart-5: rgb(var(--sw-chart-5));
+  --chart-edge: rgb(var(--sw-chart-edge));
+  --chart-danger: rgb(var(--sw-chart-danger));
+  /* De-emphasis ("Other", context series, sparkline history): not a series colour. */
+  --chart-muted: rgb(var(--sw-color-outline));
+  --chart-grid: rgb(var(--sw-ui-line));
   --chart-axis: rgb(var(--sw-ui-line-strong));
   --chart-surface: rgb(var(--sw-ui-panel));
+  /* The hovered column's band: the opaque hover step, drawn under the marks. */
+  --chart-hover: rgb(var(--sw-ui-muted));
+  /* Area wash under a single line: an opaque mix of series 1 into the panel, never an alpha fill. */
+  --chart-wash: color-mix(in srgb, var(--chart-1) 14%, var(--chart-surface));
+
+  /*
+   * Ordinal ramp (ageing buckets, tenure bands, cohort heat): one hue, series 1, mixed into the panel and
+   * then towards Deep Ink, light to dark. Text inside a cell is picked per step and keeps 4.5:1.
+   */
+  --chart-ord-1: color-mix(in srgb, var(--chart-1) 15%, var(--chart-surface));
+  --chart-ord-2: color-mix(in srgb, var(--chart-1) 35%, var(--chart-surface));
+  --chart-ord-3: color-mix(in srgb, var(--chart-1) 60%, var(--chart-surface));
+  --chart-ord-4: var(--chart-1);
+  --chart-ord-5: color-mix(in srgb, var(--chart-1) 70%, var(--sw-ink));
+  --chart-ord-on-1: rgb(var(--sw-color-ink));
+  --chart-ord-on-2: rgb(var(--sw-color-ink));
+  --chart-ord-on-3: rgb(var(--sw-color-ink));
+  --chart-ord-on-4: rgb(var(--sw-color-on-accent));
+  --chart-ord-on-5: rgb(var(--sw-color-on-accent));
 }
 
+/* Dark: the ramp rises from the black panel to teal and then to the dark accent ink, so more is lighter. */
 :root.dark {
-  --chart-1: #1fa08e;
-  --chart-2: #e8683a;
-  --chart-3: #4a8ee0;
-  --chart-4: #c98500;
-  --chart-5: #8579e6;
-  --chart-6: #d55181;
-  --chart-muted: #7f8f8a;
-  /* Dark flips the anchor: more is lighter. Validated --ordinal against #1f433f. */
-  --chart-ord-1: #256abf;
-  --chart-ord-2: #3987e5;
-  --chart-ord-3: #6da7ec;
-  --chart-ord-4: #9ec5f4;
-  --chart-ord-5: #cde2fb;
-  --chart-ord-on-1: #ffffff;
-  --chart-ord-on-2: #142c2a;
-  --chart-ord-on-3: #142c2a;
-  --chart-ord-on-4: #142c2a;
-  --chart-ord-on-5: #142c2a;
-  --chart-grid: rgb(var(--sw-ui-line) / 0.55);
+  --chart-ord-1: color-mix(in srgb, var(--chart-1) 25%, var(--chart-surface));
+  --chart-ord-2: color-mix(in srgb, var(--chart-1) 45%, var(--chart-surface));
+  --chart-ord-3: color-mix(in srgb, var(--chart-1) 65%, var(--chart-surface));
+  --chart-ord-4: var(--chart-1);
+  --chart-ord-5: rgb(var(--sw-color-accent-ink));
+  --chart-ord-on-1: rgb(var(--sw-color-ink));
+  --chart-ord-on-2: rgb(var(--sw-color-ink));
+  --chart-ord-on-3: rgb(var(--sw-color-ink));
+  --chart-ord-on-4: rgb(var(--sw-color-on-accent));
+  --chart-ord-on-5: var(--sw-ink);
+}
+
+/* A filled HTML mark (bar, segment, swatch) carries the 1px edge. */
+.sw-chart-mark {
+  box-shadow: inset 0 0 0 1px var(--chart-edge);
 }
 
 /* Charts for forced colours and print: identity falls back to line style and labels. */

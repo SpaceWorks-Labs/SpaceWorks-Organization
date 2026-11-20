@@ -2,7 +2,7 @@
    then one Citron and Sky Blue sweep crosses it. Transform and opacity only; under reduced motion the
    card simply appears. */
 .issued {
-  animation: card-issue 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: card-issue calc(var(--sw-dur-slow) * 3.75) var(--sw-ease-enter) both;
 }
 
 @keyframes card-issue {
@@ -21,11 +21,11 @@
   inset: 0;
   pointer-events: none;
   mix-blend-mode: soft-light;
-  background-image: linear-gradient(105deg, transparent 32%, rgb(223 255 143 / 0.7) 44%, rgb(255 255 255 / 0.85) 50%, rgb(181 205 255 / 0.7) 56%, transparent 68%);
+  background-image: linear-gradient(105deg, transparent 32%, color-mix(in srgb, var(--sw-brand-citron) 70%, transparent) 44%, color-mix(in srgb, white 85%, transparent) 50%, color-mix(in srgb, var(--sw-brand-sky-blue) 70%, transparent) 56%, transparent 68%);
   background-size: 260% 100%;
   background-position: 120% 0;
   opacity: 0;
-  animation: card-sweep 1200ms 500ms cubic-bezier(0.45, 0, 0.2, 1) both;
+  animation: card-sweep calc(var(--sw-dur-slow) * 5) calc(var(--sw-dur-slow) * 2) var(--sw-ease-standard) both;
 }
 
 @keyframes card-sweep {

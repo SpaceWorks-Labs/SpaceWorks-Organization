@@ -32,11 +32,19 @@ for (const [kind, entries] of [["view", catalog.readers], ["action", catalog.act
   }
 }
 const permissionsSource = ts.createSourceFile("permissions.ts", readFileSync(path.join(root, "lib/permissions.ts"), "utf8"), ts.ScriptTarget.Latest, true);
-const guards = permissionsSource.statements.filter((node) => ts.isFunctionDeclaration(node) && node.name && node.modifiers?.some((item) => item.kind === ts.SyntaxKind.ExportKeyword) && node.modifiers.some((item) => item.kind === ts.SyntaxKind.AsyncKeyword));
-writeFileSync(path.join(target, "lib/permissions.ts"), `import "server-only";\nimport type * as Backend from "../../lib/permissions";\nexport type * from "../../lib/permissions";\nexport * from "./permissionRoles";\nimport { invokeBackend } from "@/lib/frontend/client";\n` + guards.map((node) => node.name.text === "requireSuperAdmin"
+const exported = (node) => node.modifiers?.some((item) => item.kind === ts.SyntaxKind.ExportKeyword);
+const isAsync = (node) => Boolean(node?.modifiers?.some((item) => item.kind === ts.SyntaxKind.AsyncKeyword));
+// Guards are exported async functions, or exported consts wrapping one in React `cache(async …)`.
+const guards = permissionsSource.statements.flatMap((node) => {
+  if (ts.isFunctionDeclaration(node) && node.name && exported(node) && isAsync(node)) return [node.name.text];
+  if (!ts.isVariableStatement(node) || !exported(node)) return [];
+  return node.declarationList.declarations.filter((item) => ts.isIdentifier(item.name) && item.initializer && ts.isCallExpression(item.initializer)
+    && ts.isIdentifier(item.initializer.expression) && item.initializer.expression.text === "cache" && isAsync(item.initializer.arguments[0])).map((item) => item.name.text);
+});
+writeFileSync(path.join(target, "lib/permissions.ts"), `import "server-only";\nimport type * as Backend from "../../lib/permissions";\nexport type * from "../../lib/permissions";\nexport * from "./permissionRoles";\nimport { invokeBackend } from "@/lib/frontend/client";\n` + guards.map((name) => name === "requireSuperAdmin"
   // The backend's super-admin shell reader runs the same gate; its redirect or not-found travels back.
   ? `export const requireSuperAdmin: typeof Backend.requireSuperAdmin = async () => invokeBackend("view", "app__super-admin__layout:loadSuperAdminShell", []);`
-  : `export const ${node.name.text}: typeof Backend.${node.name.text} = async () => { throw new Error("Backend-only operation reached the frontend."); };`).join("\n") + "\n");
+  : `export const ${name}: typeof Backend.${name} = async () => { throw new Error("Backend-only operation reached the frontend."); };`).join("\n") + "\n");
 writeFileSync(path.join(target, "lib/db.ts"), `import type { PrismaClient } from "@prisma/client";\nthrow new Error("Database access cannot run in the frontend workspace. Move it into a guarded view reader.");\nexport const prisma = {} as PrismaClient;\n`);
 const enums = Prisma.dmmf.datamodel.enums.map((item) => `export const ${item.name} = ${JSON.stringify(Object.fromEntries(item.values.map((value) => [value.name, value.name])))} as const;\nexport type ${item.name} = (typeof ${item.name})[keyof typeof ${item.name}];`).join("\n");
 writeFileSync(path.join(target, "lib/prismaEnums.ts"), enums + '\nexport const Prisma = new Proxy({}, { get() { throw new Error("Backend-only Prisma API reached the frontend."); } });\n');

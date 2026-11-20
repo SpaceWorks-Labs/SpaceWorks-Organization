@@ -4,6 +4,7 @@ import { OrgPageHeader } from "@/components/dashboard/org/OrgPageHeader";
 import { SettingsTabs } from "@/components/settings/SettingsTabs";
 import { CardDesigner } from "@/components/cards/designer/CardDesigner";
 import { DesignScopePicker } from "@/components/cards/DesignScopePicker";
+import { BrandKitPanel } from "@/components/cards/brandKit/BrandKitPanel";
 import Link from "next/link";
 import { Callout, Card, CardHeader, Chip } from "@/components/ui/display";
 
@@ -39,8 +40,10 @@ export default async function OrgCardSettingsPage({ params, searchParams }: { pa
           numbering={view.numbering}
           approval={view.approval}
           unitLevels={view.unitLevels}
+          brandKit={view.brandKit}
         />
       ) : null}
+      {view.canEdit ? <BrandKitPanel organisationSlug={org.slug} currentLogoUrl={org.logoUrl} initialKit={view.brandKitSaved} canEdit={view.canEdit} /> : null}
       {view.roleCards.length ? (
         <Card as="section" className="rounded-xl">
           <CardHeader title="Role cards" description="Every member uses the organisation's card unless their main role has its own. Only the owner approves a role's card." />

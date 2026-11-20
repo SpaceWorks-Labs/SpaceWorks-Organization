@@ -8,13 +8,17 @@ import { prisma } from "@/lib/db";
 import { recordAuditEvent } from "@/lib/audit";
 import { isActionRateLimited } from "@/lib/actionRateLimit";
 import { orgActionAccess, type OrgActionAccess } from "@/lib/permissions";
-import { teamScope, unitInScope, type TeamScope } from "@/lib/membership/scope";
+import { memberWhere, teamScope, unitInScope, type TeamScope } from "@/lib/membership/scope";
+import { giveGroupingValues } from "@/lib/groupings/memberValues";
+import { GroupingError } from "@/lib/groupings/service";
 import { pathWithin, planOffersUnit } from "@/lib/membership/planUnits";
 import { decideTerm, extendTerm, MembershipError, openTerm, startRenewal, upsertMember } from "@/lib/membership/service";
 import { memberProfileSchema } from "@/lib/membership/validators";
 import { replaceUnionAnswers, resolvePlanAnswers } from "@/lib/membership/planAnswers";
 import { memberQuestionPlans, organisationQuestionPlans } from "@/lib/membership/questionPlans";
-import { lockMember, lockMemberByEmail } from "@/lib/membership/memberLock";
+import { hasRoomForMember, lockMember, lockMemberByEmail } from "@/lib/membership/memberLock";
+import { membershipChanged } from "@/lib/membership/afterChange";
+import { auditAnswerChange, auditMemberUpdated } from "@/lib/membership/answerAudit";
 import { reissueCardsForRoleChange } from "@/lib/cards/issue";
 import { addDays, startOfLocalDay } from "@/lib/membership/periods";
 import type { Capability } from "@/lib/permissionRoles";
@@ -32,7 +36,7 @@ async function access(slug: unknown, capability: Capability): Promise<{ ok: fals
   if (!result.ok) return result;
   if (await isActionRateLimited("action", result.userId)) return { ok: false, error: "Too many requests. Try again shortly." };
   const org = await prisma.organisation.findUniqueOrThrow({ where: { id: result.organisation.id }, select: { id: true, slug: true, timezone: true, financialYearStartMonth: true } });
-  return { ok: true, access: result, scope: await teamScope(result.organisation.id, result.membership.unitId), org };
+  return { ok: true, access: result, scope: await teamScope(result.organisation.id, result.membership), org };
 }
 
 async function unitPath(organisationId: string, unitId: string | null) {
@@ -41,21 +45,21 @@ async function unitPath(organisationId: string, unitId: string | null) {
   return unit?.path ?? undefined;
 }
 
-/** The member, if it exists in this organisation and in the manager's unit scope. */
+/** The member, if it exists in this organisation and inside the manager's reach (unit and groupings). */
 async function scopedMember(scope: TeamScope, memberId: string) {
-  const member = await prisma.member.findFirst({ where: { id: memberId, organisationId: scope.organisationId }, include: { unit: { select: { path: true } } } });
-  if (!member || !unitInScope(scope, member.unit?.path ?? null)) return null;
-  return member;
+  return prisma.member.findFirst({ where: { AND: [memberWhere(scope), { id: memberId }] }, include: { unit: { select: { path: true } } } });
 }
 
-function refresh(slug: string, memberId?: string) {
+async function refresh(org: { id: string; slug: string }, memberId?: string) {
+  const slug = org.slug;
+  await membershipChanged(org.id);
   revalidatePath(`/dashboard/${slug}/members`);
   revalidatePath(`/dashboard/${slug}`);
   if (memberId) revalidatePath(`/dashboard/${slug}/members/${memberId}`);
 }
 
 function failure(error: unknown): { ok: false; error: string } {
-  if (error instanceof MembershipError) return { ok: false, error: error.message };
+  if (error instanceof MembershipError || error instanceof GroupingError) return { ok: false, error: error.message };
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") return { ok: false, error: "This person already has an open application or unpaid membership on that plan." };
   // The no-overlap exclusion constraint has no Prisma error code, so it arrives as an unknown request error.
   if (error instanceof Prisma.PrismaClientUnknownRequestError && error.message.includes("MembershipTerm_no_overlap")) return { ok: false, error: "That would overlap a membership this person already has." };
@@ -66,6 +70,8 @@ const addSchema = z.object({
   organisationSlug: z.string().trim().min(1),
   profile: z.unknown(),
   planId: id.optional().nullable(),
+  /** Grouping values to give the new member (staff limited by a grouping must give one inside their reach). */
+  groupingValueIds: z.array(id).max(60).optional().default([]),
 });
 
 /**
@@ -92,22 +98,20 @@ export async function addMember(input: unknown): Promise<ActionResult<{ memberId
   const answers = resolvePlanAnswers(questions, profile.data.fieldValues, true, { organisationPlans });
   if (Object.keys(answers.errors).length) return { ok: false, error: "Answer the plan's questions.", fieldErrors: answers.errors };
 
-  const limit = await prisma.organisation.findUniqueOrThrow({ where: { id: ctx.org.id }, select: { memberLimit: true, _count: { select: { members: true } } } });
-  if (limit.memberLimit && limit._count.members >= limit.memberLimit) return { ok: false, error: "This organisation has reached its member limit. Ask the platform admin to raise it." };
-
   try {
     const member = await prisma.$transaction(async (tx) => {
       const locked = await lockMemberByEmail(tx, ctx.org.id, profile.data.email);
-      // An existing member filed outside a scoped manager's unit is never taken over.
-      const existing = locked && (await tx.member.findUnique({ where: { id: locked.id }, select: { unit: { select: { path: true } } } }));
-      if (existing && !unitInScope(ctx.scope, existing.unit?.path ?? null)) throw new MembershipError("Someone with this email is a member outside your unit.");
+      // An existing member filed outside a scoped manager's reach is never taken over.
+      if (locked && !(await tx.member.count({ where: { AND: [memberWhere(ctx.scope), { id: locked.id }] } }))) throw new MembershipError("Someone with this email is a member outside your unit.");
+      if (!locked && !(await hasRoomForMember(tx, ctx.org.id))) throw new MembershipError("This organisation has reached its member limit. Ask the platform admin to raise it.");
       const fieldValues = plan ? replaceUnionAnswers((locked?.fieldValues ?? {}) as Record<string, unknown>, questions, profile.data.fieldValues, true, { organisationPlans }) : undefined;
       const saved = await upsertMember(tx, ctx.org.id, { ...profile.data, fieldValues, fieldValuesMode: "replace", source: "MANUAL" });
+      await giveGroupingValues(tx, ctx.org.id, ctx.scope, saved.id, parsed.data.groupingValueIds);
       if (plan) await openTerm(tx, { org: ctx.org, plan, memberId: saved.id, byManager: true, actorUserId: ctx.access.userId });
       await recordAuditEvent({ action: "MEMBER_ADDED", actorUserId: ctx.access.userId, organisationId: ctx.org.id, targetType: "Member", targetId: saved.id, client: tx });
       return saved;
     });
-    refresh(ctx.org.slug, member.id);
+    await refresh(ctx.org, member.id);
     return { ok: true, data: { memberId: member.id } };
   } catch (error) {
     return failure(error);
@@ -141,7 +145,8 @@ export async function updateMember(input: unknown): Promise<ActionResult> {
     await prisma.$transaction(async (tx) => {
       const locked = await lockMember(tx, ctx.org.id, member.id);
       if (!locked || locked.anonymisedAt) throw new MembershipError("This member's details were erased.");
-      await tx.member.update({
+      const nextAnswers = replaceUnionAnswers(locked.fieldValues as Record<string, unknown>, questions, profile.data.fieldValues, true, { organisationPlans });
+      const next = await tx.member.update({
         where: { id: member.id },
         data: {
           name: profile.data.name,
@@ -153,18 +158,19 @@ export async function updateMember(input: unknown): Promise<ActionResult> {
           guardianName: profile.data.guardianName,
           guardianEmail: profile.data.guardianEmail,
           guardianPhone: profile.data.guardianPhone,
-          fieldValues: replaceUnionAnswers(locked.fieldValues as Record<string, unknown>, questions, profile.data.fieldValues, true, { organisationPlans }) as Prisma.InputJsonValue,
+          fieldValues: nextAnswers as Prisma.InputJsonValue,
           // A changed email unlinks the account; the new owner links again by signing in.
           ...(profile.data.email !== member.email ? { userId: null } : {}),
           ...(parsed.data.notes !== undefined ? { notes: parsed.data.notes } : {}),
         },
       });
-      await recordAuditEvent({ action: "MEMBER_UPDATED", actorUserId: ctx.access.userId, organisationId: ctx.org.id, targetType: "Member", targetId: member.id, client: tx });
+      await auditMemberUpdated(tx, { organisationId: ctx.org.id, actorUserId: ctx.access.userId, memberId: member.id, before: locked, after: next, notesChanged: parsed.data.notes !== undefined && parsed.data.notes !== locked.notes });
+      await auditAnswerChange(tx, { organisationId: ctx.org.id, actorUserId: ctx.access.userId, memberId: member.id, before: locked.fieldValues as Record<string, unknown>, after: nextAnswers, by: "staff" });
     });
   } catch (error) {
     return failure(error);
   }
-  refresh(ctx.org.slug, member.id);
+  await refresh(ctx.org, member.id);
   return { ok: true };
 }
 
@@ -185,17 +191,13 @@ export async function decideMemberships(input: unknown): Promise<ActionResult<{ 
   const ctx = await access(parsed.data.organisationSlug, "members.manage");
   if (!ctx.ok) return ctx;
   const terms = await prisma.membershipTerm.findMany({
-    where: { id: { in: parsed.data.termIds }, organisationId: ctx.org.id },
-    select: { id: true, member: { select: { unit: { select: { path: true } } } } },
+    where: { id: { in: parsed.data.termIds }, organisationId: ctx.org.id, member: { is: memberWhere(ctx.scope) } },
+    select: { id: true },
   });
   let done = 0;
   let skipped = parsed.data.termIds.length - terms.length;
   let lastError: string | null = null;
   for (const term of terms) {
-    if (!unitInScope(ctx.scope, term.member.unit?.path ?? null)) {
-      skipped += 1;
-      continue;
-    }
     try {
       await prisma.$transaction((tx) => decideTerm(tx, { org: ctx.org, termId: term.id, action: parsed.data.action, actorUserId: ctx.access.userId, reason: parsed.data.reason }));
       done += 1;
@@ -204,7 +206,7 @@ export async function decideMemberships(input: unknown): Promise<ActionResult<{ 
       lastError = failure(error).error;
     }
   }
-  refresh(ctx.org.slug);
+  await refresh(ctx.org);
   if (done === 0) return { ok: false, error: lastError ?? "Nothing could be changed. Reload and try again." };
   return { ok: true, data: { done, skipped } };
 }
@@ -227,7 +229,7 @@ export async function renewMember(input: unknown): Promise<ActionResult> {
   } catch (error) {
     return failure(error);
   }
-  refresh(ctx.org.slug, member.id);
+  await refresh(ctx.org, member.id);
   return { ok: true };
 }
 
@@ -244,8 +246,8 @@ export async function extendMembership(input: unknown): Promise<ActionResult> {
   if (!parsed.success) return { ok: false, error: "Check the highlighted fields.", fieldErrors: flattenZodErrors(parsed.error) };
   const ctx = await access(parsed.data.organisationSlug, "members.manage");
   if (!ctx.ok) return ctx;
-  const term = await prisma.membershipTerm.findFirst({ where: { id: parsed.data.termId, organisationId: ctx.org.id }, select: { id: true, memberId: true, member: { select: { unit: { select: { path: true } } } } } });
-  if (!term || !unitInScope(ctx.scope, term.member.unit?.path ?? null)) return { ok: false, error: "Membership not found." };
+  const term = await prisma.membershipTerm.findFirst({ where: { id: parsed.data.termId, organisationId: ctx.org.id, member: { is: memberWhere(ctx.scope) } }, select: { id: true, memberId: true } });
+  if (!term) return { ok: false, error: "Membership not found." };
   const [year, month, day] = parsed.data.lastDay.split("-").map(Number);
   // The stored end is exclusive: midnight after the last valid day, in the organisation's timezone.
   const exclusiveEnd = startOfLocalDay(addDays({ year, month, day }, 1), ctx.org.timezone);
@@ -254,7 +256,7 @@ export async function extendMembership(input: unknown): Promise<ActionResult> {
   } catch (error) {
     return failure(error);
   }
-  refresh(ctx.org.slug, term.memberId);
+  await refresh(ctx.org, term.memberId);
   return { ok: true };
 }
 
@@ -284,6 +286,6 @@ export async function assignMemberRoles(input: unknown): Promise<ActionResult> {
     await recordAuditEvent({ action: "MEMBER_ROLES_CHANGED", actorUserId: ctx.access.userId, organisationId: ctx.org.id, targetType: "Member", targetId: member.id, metadata: { roles: roleIds.length }, client: tx });
     if ((before?.roleId ?? null) !== primary) await reissueCardsForRoleChange(tx, ctx.org.id, member.id, ctx.access.userId);
   });
-  refresh(ctx.org.slug, member.id);
+  await refresh(ctx.org, member.id);
   return { ok: true };
 }

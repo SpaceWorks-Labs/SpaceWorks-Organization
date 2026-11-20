@@ -22,11 +22,11 @@ export function NumberingSection({ value, onChange, role, unitLevels }: { value:
         <Input value={value.prefix} maxLength={6} onChange={(event) => onChange({ ...value, prefix: event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "") })} className="w-[10rem] uppercase tabular-nums" />
       </Field>
       <Field label="Card number pattern" error={error ? `${error} The pattern isn't saved until then.` : undefined} helperText={error ? undefined : `For example ${example}. A renewal, a reissue or a new role keeps the number; a new registration gets a new one.`}>
-        <Input value={value.format} maxLength={40} spellCheck={false} onChange={(event) => onChange({ ...value, format: event.target.value.toUpperCase() })} className="font-mono uppercase" />
+        <Input value={value.format} maxLength={40} spellCheck={false} onChange={(event) => onChange({ ...value, format: event.target.value.toUpperCase() })} className="code-text uppercase" />
       </Field>
       <div className="flex flex-wrap gap-1.5" aria-label="Insert into the pattern">
         {TOKENS.map((token) => (
-          <button key={token} type="button" onClick={() => onChange({ ...value, format: `${value.format}${token}`.slice(0, 40) })} className="rounded-full border border-line bg-panel px-2.5 py-1 font-mono text-caption text-ink hover:bg-muted">
+          <button key={token} type="button" onClick={() => onChange({ ...value, format: `${value.format}${token}`.slice(0, 40) })} className="rounded-full border border-line bg-panel px-2.5 py-1 code-text text-caption text-ink hover:bg-muted">
             {token}
           </button>
         ))}

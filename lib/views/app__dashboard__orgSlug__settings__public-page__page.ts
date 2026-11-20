@@ -1,11 +1,14 @@
 import { prisma } from "@/lib/db";
 import { can, requireOrgCapability } from "@/lib/permissions";
+import { loadPublicCounts } from "@/lib/publicPage/counts";
+import { sampleCardFor } from "@/lib/publicPage/sampleCard";
 import { loadStoredPage } from "@/lib/publicPage/server";
 import { starterDocument } from "@/lib/publicPage/sections";
 
 /**
  * The public page editor: what is published, the working draft (or the published page, or a starter
- * document for a first edit), and the live plans and units the preview shows.
+ * document for a first edit), and the live plans, units, counts (the same suppressed aggregates visitors would see)
+ * and sample card the preview shows.
  */
 export async function loadPublicPageEditorView({ params }: { params: Promise<{ orgSlug: string }> }) {
   const { orgSlug } = await params;
@@ -31,6 +34,8 @@ export async function loadPublicPageEditorView({ params }: { params: Promise<{ o
     prisma.orgUnit.findMany({ where: { organisationId: organisation.id, archivedAt: null }, orderBy: [{ level: "asc" }, { sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, level: true, parentId: true }, take: 500 }),
   ]);
   const working = stored.draft ?? stored.published ?? starterDocument(org);
+  // Every count, so a counts section added in the editor previews straight away; still aggregates, small ones removed.
+  const [counts, sampleCard] = await Promise.all([loadPublicCounts(organisation.id, { total: true, byPlan: true, byUnit: true }), sampleCardFor(org)]);
   return {
     org,
     canEdit: can(membership, "org.settings", { write: true }),
@@ -40,5 +45,7 @@ export async function loadPublicPageEditorView({ params }: { params: Promise<{ o
     document: working,
     plans,
     units,
+    counts,
+    sampleCard,
   };
 }

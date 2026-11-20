@@ -1,9 +1,9 @@
 import type { OrganisationReviewAction, OrganisationStatus } from "@prisma/client";
 
 /** Lifecycle decisions an organisation's owners are told about by email. */
-export type OrganisationNotice = "received" | "approved" | "changes-requested" | "rejected" | "suspended" | "reactivated" | "created";
+export type OrganisationNotice = "received" | "approved" | "changes-requested" | "rejected" | "suspended" | "reactivated" | "created" | "payee-changed";
 
-export const ORGANISATION_NOTICES: readonly OrganisationNotice[] = ["received", "approved", "changes-requested", "rejected", "suspended", "reactivated", "created"];
+export const ORGANISATION_NOTICES: readonly OrganisationNotice[] = ["received", "approved", "changes-requested", "rejected", "suspended", "reactivated", "created", "payee-changed"];
 
 /** What a platform admin can decide about an organisation. */
 export type ReviewDecision = "approve" | "request-changes" | "reject" | "suspend" | "reactivate" | "archive";

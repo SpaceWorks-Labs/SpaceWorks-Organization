@@ -7,7 +7,8 @@ import { getMembership, hasAuthenticator, STAFF_AUTHENTICATOR_MESSAGE } from "@/
 import { toCsvRow } from "@/lib/csv";
 import { deriveStatus, TERM_STATUS_LABELS } from "@/lib/membership/lifecycle";
 import { formatCalendarDate, lastValidDay } from "@/lib/membership/periods";
-import { memberWhere, teamScope } from "@/lib/membership/scope";
+import { isLimited, memberWhere, teamScope } from "@/lib/membership/scope";
+import { groupFilters } from "@/lib/groupings/filters";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ function refuse(status: number, message: string) {
  * Members as CSV, streamed page by page. One row per member: details, unit, roles, and their current
  * standing on each plan they have held. Limited to the requester's unit when they are unit-scoped.
  */
-export async function GET(_request: Request, { params }: { params: Promise<{ orgSlug: string }> }) {
+export async function GET(request: Request, { params }: { params: Promise<{ orgSlug: string }> }) {
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) return refuse(401, "Sign in to export members.");
@@ -33,15 +34,19 @@ export async function GET(_request: Request, { params }: { params: Promise<{ org
   if (!organisationAllows(org.status, "members.export") || !can(membership, "members.export")) return refuse(403, "Your role can't export members.");
   if (!(await checkRateLimitById("reportExport", `user:${userId}`))) return refuse(429, "Too many exports. Try again later.");
 
-  const scope = await teamScope(org.id, membership.unitId);
+  const scope = await teamScope(org.id, membership);
   // Email and phone stay blank for staff who may not see members' contact details.
   const showContact = can(membership, "members.contact");
   const plans = await prisma.membershipPlan.findMany({ where: { organisationId: org.id }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } });
   const fields = await prisma.planField.findMany({ where: { organisationId: org.id, section: false }, distinct: ["key"], select: { key: true, label: true } });
   const now = new Date();
-  await recordAuditEvent({ action: "MEMBERS_EXPORTED", actorUserId: userId, organisationId: org.id, targetType: "Organisation", targetId: org.id, metadata: { scoped: Boolean(scope.unitId) } });
+  // The members page's grouping value and smart group filters, inside the requester's reach.
+  const query = new URL(request.url).searchParams;
+  const extra = await groupFilters(org.id, { valueId: query.get("gv")?.slice(0, 64), smartGroupId: query.get("sg")?.slice(0, 64) });
+  const groupings = await prisma.orgGrouping.findMany({ where: { organisationId: org.id }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true } });
+  await recordAuditEvent({ action: "MEMBERS_EXPORTED", actorUserId: userId, organisationId: org.id, targetType: "Organisation", targetId: org.id, metadata: { scoped: isLimited(scope), filtered: extra.length > 0 } });
 
-  const header = ["Member number", "Name", "Email", "Phone", "State", "Unit", "Roles", ...plans.flatMap((plan) => [`${plan.name}: status`, `${plan.name}: valid until`]), ...fields.map((field) => field.label), "Joined"];
+  const header = ["Member number", "Name", "Email", "Phone", "State", "Unit", "Roles", ...plans.flatMap((plan) => [`${plan.name}: status`, `${plan.name}: valid until`]), ...fields.map((field) => field.label), ...groupings.map((grouping) => grouping.name), "Joined"];
   const encoder = new TextEncoder();
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -49,13 +54,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ org
       let cursor: string | undefined;
       for (;;) {
         const members = await prisma.member.findMany({
-          where: { ...memberWhere(scope), anonymisedAt: null },
+          where: { AND: [memberWhere(scope), { anonymisedAt: null }, ...extra] },
           orderBy: { id: "asc" },
           take: PAGE,
           ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
           include: {
             unit: { select: { name: true } },
             roles: { include: { role: { select: { name: true } } }, orderBy: { isPrimary: "desc" } },
+            groupingValues: { select: { groupingId: true, value: { select: { label: true } } } },
             terms: { select: { id: true, planId: true, status: true, startsAt: true, endsAt: true, graceUntil: true, paymentDueBy: true, renewedFromId: true, createdAt: true } },
           },
         });
@@ -73,6 +79,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ org
             member.roles.map((assignment) => assignment.role.name).join("; "),
             ...planCells,
             ...fields.map((field) => values[field.key] ?? ""),
+            ...groupings.map((grouping) => member.groupingValues.filter((held) => held.groupingId === grouping.id).map((held) => held.value.label).join("; ")),
             member.createdAt.toISOString().slice(0, 10),
           ];
           controller.enqueue(encoder.encode(`${toCsvRow(row)}\r\n`));

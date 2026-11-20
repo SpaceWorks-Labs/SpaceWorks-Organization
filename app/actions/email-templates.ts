@@ -24,6 +24,8 @@ const templateSchema = base.extend({
   subject: text("subject", TEMPLATE_LIMITS.subject),
   heading: text("heading", TEMPLATE_LIMITS.heading),
   body: z.string().transform((value) => value.replace(/\r\n?/g, "\n")).pipe(text("text", TEMPLATE_LIMITS.body)),
+  /** Short text for SMS, WhatsApp, Telegram, Slack, Discord and Mattermost; empty uses the standard short text. */
+  short: z.string().trim().max(TEMPLATE_LIMITS.short, `Keep it to ${TEMPLATE_LIMITS.short} characters`).default(""),
 });
 
 async function access(slug: string) {
@@ -41,8 +43,8 @@ export async function saveEmailTemplate(input: unknown): Promise<ActionResult> {
   if (!parsed.success) return { ok: false, error: "Check the highlighted fields.", fieldErrors: flattenZodErrors(parsed.error) };
   const ctx = await access(parsed.data.organisationSlug);
   if (!ctx.ok) return ctx;
-  const { kind, subject, heading, body } = parsed.data;
-  const values = { subject, heading, body };
+  const { kind, subject, heading, body, short } = parsed.data;
+  const values = { subject, heading, body, shortText: short };
   const organisationId = ctx.organisation.id;
   await prisma.$transaction(async (tx) => {
     await tx.orgEmailTemplate.upsert({ where: { organisationId_kind: { organisationId, kind } }, create: { organisationId, kind, ...values, updatedById: ctx.userId }, update: { ...values, updatedById: ctx.userId } });

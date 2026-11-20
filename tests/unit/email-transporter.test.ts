@@ -32,7 +32,7 @@ describe("production SMTP configuration", () => {
       connectionTimeout: 30_000, greetingTimeout: 30_000, socketTimeout: 60_000,
       ...(settings.service ? { service: settings.service } : { host: settings.host, port: settings.port, secure: settings.secure }),
     }));
-    result.transporter?.close();
+    result.transporter?.close?.();
   });
 
   it("fails closed when production SMTP is missing", async () => {

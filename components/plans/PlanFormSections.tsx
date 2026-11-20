@@ -81,7 +81,7 @@ export function LengthSection({ values, set, errors, disabled }: SectionProps) {
 }
 
 export function JoiningSection({ values, set, disabled }: SectionProps) {
-  const priced = Boolean(values.priceNew && values.priceNew !== "0") || Boolean(values.joiningFee && values.joiningFee !== "0");
+  const priced = values.paymentMode !== "FREE" && (Boolean(values.priceNew && values.priceNew !== "0") || Boolean(values.joiningFee && values.joiningFee !== "0"));
   return (
     <div className="flex flex-col gap-5">
       <RadioGroup value={values.joinMode} onValueChange={(value) => set("joinMode", value as PlanFormValues["joinMode"])} className="grid grid-cols-1 gap-3 sm:grid-cols-2" aria-label="How people join" disabled={disabled}>

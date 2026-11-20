@@ -23,7 +23,7 @@ export function PageDetailsFields({ slug, value, fallbackAccent, disabled, error
 }) {
   const accent = value.accentColor ?? fallbackAccent;
   const check = checkAccentContrast(accent);
-  const swatch = "inline-flex size-11 items-center justify-center rounded-full border-2 transition-colors duration-[120ms] ease-sw";
+  const swatch = "inline-flex size-11 items-center justify-center rounded-full border-2 transition-colors duration-(--sw-dur-fast) ease-sw";
 
   return (
     <div className="flex flex-col gap-6">
@@ -63,7 +63,7 @@ export function PageDetailsFields({ slug, value, fallbackAccent, disabled, error
             {check.level === "fail" && `Button labels can't be read on this colour (${check.label}:1). Choose another.`}
           </span>
         </p>
-        {errors.accentColor?.[0] ? <p role="alert" className="text-caption text-danger-fg">{errors.accentColor[0]}</p> : null}
+        {errors.accentColor?.[0] ? <p className="text-caption text-danger-fg">{errors.accentColor[0]}</p> : null}
       </fieldset>
 
       <div className="flex flex-col gap-3">

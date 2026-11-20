@@ -20,7 +20,7 @@ const PERIODS = [
 /**
  * The one filter row above every report: period first, then plan and unit. Every choice lives in the
  * address, so a filtered report can be bookmarked or shared, and the tabs carry it along. While the next
- * view loads, the page keeps the current one (dimmed by the parent through `data-pending`).
+ * view loads, the page keeps the current one and the row says "Updating…" (text stays opaque, CR-OPACITY-01).
  */
 export function ReportFilters({ plans, units, initial, unitLabel }: { plans: Option[]; units: Option[]; initial: { period: string; from: string; to: string; plan: string; unit: string }; unitLabel: string }) {
   const router = useRouter();

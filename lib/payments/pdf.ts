@@ -11,6 +11,9 @@ import { DOCUMENT_KIND_LABELS } from "./numbering";
 
 /*
  * Tax documents are drawn from their frozen snapshot with pdf-lib, in Gilroy from the brand fonts.
+ * Not Outfit (CR-TYPE-01 for screens): the kit ships Outfit only as a variable font whose default instance is
+ * Thin (wght 100), and pdf-lib embeds font bytes as given (no variation instancing), so it would draw hairline
+ * text. Gilroy Light and ExtraBold are static faces at their real weights. Swap when a static Outfit ships.
  * Amounts are written with the ISO code ("INR 1,180.00"): unambiguous on a tax document and safe in any
  * font. Characters the font lacks are replaced rather than dropped silently.
  */

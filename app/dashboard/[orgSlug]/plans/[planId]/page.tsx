@@ -12,7 +12,7 @@ import { Card, CardHeader, Chip } from "@/components/ui/display";
 export const metadata: Metadata = { title: "Plan", robots: { index: false, follow: false } };
 
 export default async function PlanPage({ params }: { params: Promise<{ orgSlug: string; planId: string }> }) {
-  const { org, plan, units, invites, canManagePlan, canInvite, conflictingKeys } = await loadPlanView({ params });
+  const { org, plan, units, otherPlans, invites, canManagePlan, canInvite, canViewMembers, conflictingKeys, groupings, groups } = await loadPlanView({ params });
   const base = (process.env.NEXT_PUBLIC_BASE_URL ?? "").replace(/\/$/, "");
   return (
     <div className="flex max-w-[920px] flex-col gap-6">
@@ -24,7 +24,7 @@ export default async function PlanPage({ params }: { params: Promise<{ orgSlug: 
         organisation={org}
         title={plan.name}
         description={`${plan._count.terms} ${plan._count.terms === 1 ? "membership" : "memberships"} on this plan so far.`}
-        actions={plan.archivedAt ? <Chip>Archived</Chip> : undefined}
+        actions={<>{plan.archivedAt ? <Chip>Archived</Chip> : null}{canViewMembers ? <Link href={`/dashboard/${org.slug}/members?plan=${plan.id}`} className="text-label text-ink-muted underline-offset-4 hover:text-ink hover:underline">View members on this plan</Link> : null}</>}
       />
 
       {canInvite && !plan.archivedAt ? (
@@ -39,6 +39,8 @@ export default async function PlanPage({ params }: { params: Promise<{ orgSlug: 
         planId={plan.id}
         initial={planToValues(plan)}
         units={units}
+        otherPlans={otherPlans}
+        groups={groups}
         currencyLocked={plan._count.terms > 0}
         archived={Boolean(plan.archivedAt)}
         disabled={!canManagePlan}
@@ -51,7 +53,8 @@ export default async function PlanPage({ params }: { params: Promise<{ orgSlug: 
           planId={plan.id}
           disabled={!canManagePlan}
           conflicts={conflictingKeys}
-          initial={plan.fields.map(({ key, label, helpText, type, required, options, adminOnly, multiple, section, showIfKey, showIfValue }) => ({ key, label, helpText, type, required, options, adminOnly, multiple, section, showIfKey, showIfValue }))}
+          initial={plan.fields.map(({ key, label, helpText, type, required, options, adminOnly, multiple, section, showIfKey, showIfValue, groupingId }) => ({ key, label, helpText, type, required, options, adminOnly, multiple, section, showIfKey, showIfValue, groupingId }))}
+          groupings={groupings}
         />
       </Card>
     </div>
