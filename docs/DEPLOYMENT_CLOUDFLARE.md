@@ -174,7 +174,9 @@ Cloudflare Workers and Pages on the free plan cannot host this app by themselves
 - Cards and photos use native modules (`sharp`) that do not run in the Workers runtime.
 - It needs PostgreSQL 16 and Redis, which Workers cannot run (a hosted database would work only with a different
   data layer than this one).
-- The worker and beat roles are long-running BullMQ processes; Workers are request-driven.
+- The worker and beat roles are long-running BullMQ processes; Workers are request-driven. A Worker cron trigger can
+  still drive the jobs on a host that runs only the web service: see
+  [No worker at all](DEPLOYMENT_CLOUD.md#no-worker-at-all-online-scheduler).
 
 Hence the VM plus Tunnel design above.
 

@@ -1,0 +1,16 @@
+# The online scheduler for hosts with no worker or beat. Deploy from this folder:
+#   npx wrangler secret put CRON_SECRET     # the same value as the app's CRON_SECRET
+#   npx wrangler deploy
+# Uses one of the free plan's cron triggers. See docs/DEPLOYMENT_CLOUD.md, "No worker at all".
+name = "spaceworks-organization-cron"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+# No public workers.dev address: the Worker only runs on its schedule.
+workers_dev = false
+
+[triggers]
+crons = ["* * * * *"]
+
+[vars]
+# Your site's public address, where /api/internal/run-jobs is reachable (not through an edge that blocks it).
+SITE_URL = "https://members.example.org"

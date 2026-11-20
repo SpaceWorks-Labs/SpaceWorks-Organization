@@ -76,6 +76,16 @@ beat is enough; more workers share the load, and a second beat does no harm.
 **Updating:** back up the database with your provider (point-in-time recovery or a snapshot), then set the new
 `SWO_IMAGE_TAG` and run `pull` and `up -d --wait` again. `scripts/update.sh` is for the bundled topology.
 
+## Background jobs: two options
+
+Every layout supports both; pick one per installation.
+
+1. **Worker and beat** (the default in `docker-compose.cloud.yml`, `render.yaml` and the bundled stack): two
+   long-running processes from the backend image. Messages go out within seconds. Without a beat, keep the worker
+   and use the [cron fallback](#without-a-beat-process-cron-fallback).
+2. **Online scheduler**: no worker or beat at all. A free online cron calls `/api/internal/run-jobs` once a minute
+   and the app runs the due jobs itself. See [No worker at all](#no-worker-at-all-online-scheduler).
+
 ## Render
 
 [`render.yaml`](../render.yaml) defines a Docker web service (`sworg-backend`, health check `/api/health`,
@@ -101,6 +111,45 @@ curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://<backend>/api/
 `/api/internal/jobs` queues the registry's due jobs and `/api/internal/outbox` queues due outbox rows; a worker
 still has to run to do the work. Repeated calls within the same minute are harmless. Both answer 404 without
 the secret, so the calls must reach the backend directly, not through an edge that blocks `/api/internal/*`.
+
+## No worker at all (online scheduler)
+
+On a host that runs only the web service (a free container plan, for example), an online cron can do the worker's
+and the beat's job. Once a minute it calls:
+
+```bash
+curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://<backend>/api/internal/run-jobs
+```
+
+The app then runs every scheduled job that is due (membership sweep, reconciles, digests, clean-ups) and delivers the
+outbox in that request, about five batches of 20 messages per call. Each occurrence runs once even when calls
+overlap: Redis claims it, and production already needs Redis (Upstash's free plan works). The answer is `200` with
+the jobs that ran, `500` when one failed (it runs again at its next occurrence), and `404` without the secret.
+Use this or a worker and beat, not both. Messages go out up to a minute later than with a worker, and a host that
+sleeps when idle is woken by the call.
+
+**Recommended: a Cloudflare Worker cron trigger (free).** [`deploy/cloudflare-cron`](../deploy/cloudflare-cron)
+holds a ready Worker with no public address. Set `SITE_URL` in its `wrangler.toml`, then from that folder:
+
+```bash
+npx wrangler secret put CRON_SECRET    # the app's CRON_SECRET
+npx wrangler deploy
+```
+
+It uses one of the free plan's cron triggers (five per account) and about 1,440 of the 100,000 daily requests.
+
+Other free schedulers that work, because each one only has to make the same call once a minute:
+
+| Scheduler | Every minute on the free plan | Notes |
+|---|---|---|
+| Cloudflare Workers cron trigger | Yes | Recommended: code in this repository, secret kept in Cloudflare |
+| cron-job.org | Yes | No code; paste the URL and add the `Authorization` header |
+| Inngest | About 43,000 calls a month, near the free plan's executions | A scheduled function that calls the endpoint |
+| Upstash QStash | No: the free plan's daily messages run out | Fine every five minutes or slower |
+| Trigger.dev | No: the free plan's monthly runs run out | Fine for slower schedules |
+| GitHub Actions `schedule` | No: five minutes at best, often delayed | Fine as a backup |
+
+Free-plan limits change; check each provider's pricing page.
 
 ## Other platforms
 

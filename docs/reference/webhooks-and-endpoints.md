@@ -83,14 +83,15 @@ More on setting these up: [Email providers](../NOTIFICATIONS.md#email-providers)
 
 ## Scheduler and outbox
 
-For hosts without a `beat` process, an outside cron can drive the background jobs. Workers still run the jobs; these routes only queue them.
+For hosts without a `beat` process, an outside cron can drive the background jobs. With a worker, the first two routes only queue the jobs for it; with no worker at all, `run-jobs` runs them in the request ([No worker at all](../DEPLOYMENT_CLOUD.md#no-worker-at-all-online-scheduler)).
 
 | Route | Method | What it does | Answer |
 |---|---|---|---|
 | `/api/internal/jobs` | `POST` | Queues one tick of every scheduled job | `204`, or `503` if queueing failed |
 | `/api/internal/outbox` | `POST` | Queues outbox rows that are due | `200` with `{ ok: true, ... }`, or `503` |
+| `/api/internal/run-jobs` | `POST` | Runs the due scheduled jobs and delivers the outbox in the request, each occurrence once (`lib/queue/inline.ts`) | `200` with `{ ok, ran, failed, outbox }`, `500` if a job failed, or `503` |
 
-Both need `Authorization: Bearer <CRON_SECRET>`, compared in constant time (`lib/bearerSecret.ts`). A missing or wrong secret, or no `CRON_SECRET` set, answers `404`.
+All three need `Authorization: Bearer <CRON_SECRET>`, compared in constant time (`lib/bearerSecret.ts`). A missing or wrong secret, or no `CRON_SECRET` set, answers `404`.
 
 ```bash
 curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://members.example.org/api/internal/jobs

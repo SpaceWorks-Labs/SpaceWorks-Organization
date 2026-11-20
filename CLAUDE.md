@@ -270,7 +270,10 @@ npx vitest run tests/unit/health.test.ts
     The `beat` role (`scripts/queue/beat.ts`) upserts the repeatable schedules; the `worker` role
     (`scripts/queue/worker.ts`) runs them and delivers outbox rows one id at a time. Both are bundled by
     `scripts/build-jobs.mjs` into `dist/` and expose `/health` on `JOBS_HEALTH_PORT`. Hosts without a beat can
-    call `POST /api/internal/jobs` and `/api/internal/outbox` with `CRON_SECRET`. Local development without
+    call `POST /api/internal/jobs` and `/api/internal/outbox` with `CRON_SECRET`. Hosts with no worker at all have an
+    online cron (`deploy/cloudflare-cron`) call `POST /api/internal/run-jobs`, which runs the due registry jobs and
+    the outbox in the request (`runDueJobsInline`, `lib/queue/inline.ts`, each occurrence claimed once in Redis); use it
+    or a worker, never both. Local development without
     Redis may set `JOBS_INPROCESS=true` (`runOutboxScheduler` in `lib/outboxWorker.ts` on a one-minute timer).
   - Every new environment variable goes into `.env.example`, `.env.production.example`, the compose
     `x-app-env` blocks and `docs/CONFIGURATION.md`.

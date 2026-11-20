@@ -6,7 +6,7 @@
 <h3 align="center">Your members, in good standing.</h3>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.10.1-006E63?style=flat-square&labelColor=142C2A" alt="Version 0.10.1" /></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.10.2-006E63?style=flat-square&labelColor=142C2A" alt="Version 0.10.2" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/licence-AGPL--3.0--or--later-006E63?style=flat-square&labelColor=142C2A" alt="Licence: AGPL-3.0-or-later" /></a>
   <a href="https://github.com/SpaceWorks-Labs/SpaceWorks-Organization/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/SpaceWorks-Labs/SpaceWorks-Organization/tests.yml?style=flat-square&label=tests&labelColor=142C2A&color=DFFF8F" alt="Tests" /></a>
   <a href="https://github.com/SpaceWorks-Labs/SpaceWorks-Organization/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/SpaceWorks-Labs/SpaceWorks-Organization/release.yml?branch=main&style=flat-square&label=release&labelColor=142C2A&color=FFD447" alt="Release" /></a>
@@ -235,6 +235,18 @@ beat and operator checks, by role), and the frontend, `ghcr.io/spaceworks-labs/s
 (the website alone, for split hosting). The bundled stack pins PostgreSQL 16, Redis 7, Silo object storage (the
 maintained, S3-compatible fork of MinIO) and the Caddy web edge, each speaking TLS signed by the install's own private
 CA.
+
+### Background jobs: two options
+
+Reminders, the membership sweep, payment checks and email delivery run in the background, in one of two ways:
+
+| Option | How it runs | Best for |
+|---|---|---|
+| **Worker and beat** (default) | Two long-running processes from the backend image, included in every Compose layout | A server or any host that keeps processes running; messages go out within seconds |
+| **Online scheduler** | A free Cloudflare Worker cron (or cron-job.org) calls `POST /api/internal/run-jobs` once a minute and the app runs the due jobs in that request | Hosts that run only the web service, such as free container plans |
+
+Pick one per installation. The online scheduler is set up in
+[No worker at all](docs/DEPLOYMENT_CLOUD.md#no-worker-at-all-online-scheduler).
 
 ### The installer
 

@@ -4,6 +4,17 @@ Releases are published from `main` and titled **`Space Works Organization <versi
 file selects the series; each build is tagged `v<series>-main.<run>.<sha>`, which is what a deployment pins
 to. Pushes to `dev` publish staging images tagged `dev` without a release.
 
+## 0.10.2 (2026-11-20)
+
+- **Background jobs with no worker:** `POST /api/internal/run-jobs` runs the due scheduled jobs and delivers the
+  outbox in the request, each occurrence once (claimed in Redis), so a host that runs only the web service can be
+  driven by an online cron. Use it or a worker and beat, not both.
+- **Free online scheduler:** `deploy/cloudflare-cron` is a ready Cloudflare Worker with a one-minute cron trigger and
+  no public address. `docs/DEPLOYMENT_CLOUD.md` compares it with cron-job.org, Inngest, QStash, Trigger.dev and
+  GitHub Actions.
+- **Upgrade notes:** nothing to do. No migrations or new app settings; the Worker has its own `SITE_URL` and
+  `CRON_SECRET`.
+
 ## 0.10.1 (2026-11-20)
 
 - **README:** rebuilt in the design system's product README order (product rules §12.3): a rounded brand banner in
