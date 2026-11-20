@@ -79,6 +79,10 @@ const envSchema = z.object({
   NEXT_PUBLIC_BASE_URL: z.string().url().optional(),
   REDIS_URL: z.string().url().optional(),
   CRON_SECRET: secret.optional(),
+  // Inngest, the fully cloud option for background jobs (lib/queue/inngest.ts).
+  INNGEST_SIGNING_KEY: optionalText,
+  INNGEST_JOBS_CRON: z.preprocess((value) => value === "" ? undefined : value, z.string().regex(/^\S+( \S+){4}$/, "must be a five-field cron expression").optional()),
+  INNGEST_DEV: z.preprocess((value) => value === "" ? undefined : value, z.enum(["0", "1"]).optional()),
   HEALTHCHECK_SECRET: secret.optional(),
   NEXT_SERVER_ACTIONS_ENCRYPTION_KEY: serverActionsKey.optional(),
   MFA_ENCRYPTION_KEY: mfaEncryptionKey.optional(),
@@ -139,6 +143,8 @@ export function validateRuntimeEnvironment() {
   if ((!httpAllowed && (baseUrl.protocol !== "https:" || authUrl.protocol !== "https:")) || baseUrl.origin !== authUrl.origin) {
     throw new Error("AUTH_URL and NEXT_PUBLIC_BASE_URL must be the same HTTPS origin in production.");
   }
+  // Dev mode would let anyone call /api/inngest without a signature.
+  if (process.env.INNGEST_DEV === "1") throw new Error("INNGEST_DEV is for the local Inngest dev server; unset it in production.");
   for (const key of ["DATABASE_URL", "DIRECT_URL"] as const) {
     if (!process.env[key]) continue;
     const databaseUrl = new URL(process.env[key]);

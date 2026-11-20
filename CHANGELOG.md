@@ -6,14 +6,17 @@ to. Pushes to `dev` publish staging images tagged `dev` without a release.
 
 ## 0.10.2 (2026-11-20)
 
-- **Background jobs with no worker:** `POST /api/internal/run-jobs` runs the due scheduled jobs and delivers the
-  outbox in the request, each occurrence once (claimed in Redis), so a host that runs only the web service can be
-  driven by an online cron. Use it or a worker and beat, not both.
-- **Free online scheduler:** `deploy/cloudflare-cron` is a ready Cloudflare Worker with a one-minute cron trigger and
-  no public address. `docs/DEPLOYMENT_CLOUD.md` compares it with cron-job.org, Inngest, QStash, Trigger.dev and
-  GitHub Actions.
-- **Upgrade notes:** nothing to do. No migrations or new app settings; the Worker has its own `SITE_URL` and
-  `CRON_SECRET`.
+- **Fully cloud background jobs with Inngest:** with `INNGEST_SIGNING_KEY` set, Inngest's `run-due-jobs` function calls
+  `/api/inngest` once a minute and the due jobs run there, outbox delivery included, so a host with only the web
+  service needs no worker or beat (about 44,000 runs a month, inside Inngest's free plan). Servers keep the BullMQ
+  worker and beat.
+- **Without an Inngest account:** `POST /api/internal/run-jobs` runs the same jobs behind `CRON_SECRET`, and
+  `deploy/cloudflare-cron` is a ready Cloudflare Worker that calls it from a free one-minute cron trigger.
+  `docs/DEPLOYMENT_CLOUD.md` compares the free schedulers.
+- Each occurrence runs once, claimed in Redis, however the jobs are driven.
+- **README gallery:** light screenshots first for every reader, with the dark versions in their own section.
+- **Upgrade notes:** nothing to do. No migrations. New optional settings: `INNGEST_SIGNING_KEY`, `INNGEST_JOBS_CRON`
+  and `INNGEST_DEV` (local only; production refuses it).
 
 ## 0.10.1 (2026-11-20)
 

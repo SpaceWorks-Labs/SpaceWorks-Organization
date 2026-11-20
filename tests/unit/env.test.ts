@@ -29,6 +29,15 @@ afterEach(() => {
 
 describe("production environment validation", () => {
   it("accepts a complete TLS-protected configuration", () => expect(validateRuntimeEnvironment).not.toThrow());
+  it("refuses the Inngest dev mode and a malformed Inngest schedule in production", () => {
+    process.env.INNGEST_DEV = "1";
+    expect(validateRuntimeEnvironment).toThrow(/INNGEST_DEV/);
+    process.env.INNGEST_DEV = "";
+    process.env.INNGEST_JOBS_CRON = "every minute";
+    expect(validateRuntimeEnvironment).toThrow(/INNGEST_JOBS_CRON/);
+    process.env.INNGEST_JOBS_CRON = "*/2 * * * *";
+    expect(validateRuntimeEnvironment).not.toThrow();
+  });
   it("treats empty optional email settings (compose passes ${NAME:-}) as unset", () => {
     for (const name of ["SMTP_USER", "SMTP_PASSWORD", "AWS_SES_REGION", "AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN", "SES_TOPIC_ARN", "RESEND_API_KEY", "POSTMARK_SERVER_TOKEN", "EMAIL_WEBHOOK_SECRET"]) process.env[name] = "";
     expect(validateRuntimeEnvironment).not.toThrow();

@@ -41,74 +41,98 @@ release pipeline.
 
 ## A look around
 
-Every screen comes in light and dark; your GitHub theme picks which one you see.
+Every screen comes in light and dark. The light versions are shown first; the dark ones are under **Dark mode**.
 
 <table>
   <tr>
     <td width="50%" valign="top">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/public-page-dark.webp" />
-        <img src="docs/readme/screens/public-page-light.webp" alt="An organisation's public page with its name, contact details and three membership plans with Join buttons" />
-      </picture>
+      <img src="docs/readme/screens/public-page-light.webp" alt="An organisation's public page with its name, contact details and three membership plans with Join buttons" />
       <p><strong>Public page.</strong> Every plan, and one clear way to join.</p>
     </td>
     <td width="50%" valign="top">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/plans-and-join-forms-dark.webp" />
-        <img src="docs/readme/screens/plans-and-join-forms-light.webp" alt="The membership plans list with prices, joining fees, active members and waiting applications" />
-      </picture>
+      <img src="docs/readme/screens/plans-and-join-forms-light.webp" alt="The membership plans list with prices, joining fees, active members and waiting applications" />
       <p><strong>Plans and join forms.</strong> Prices, payment modes and the questions each plan asks.</p>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/members-dark.webp" />
-        <img src="docs/readme/screens/members-light.webp" alt="The member register with status filters, plan, unit, role and grouping filters, and members with their roles" />
-      </picture>
+      <img src="docs/readme/screens/members-light.webp" alt="The member register with status filters, plan, unit, role and grouping filters, and members with their roles" />
       <p><strong>Members.</strong> Who is active, waiting, in grace or lapsed, filtered your way.</p>
     </td>
     <td width="50%" valign="top">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/groupings-dark.webp" />
-        <img src="docs/readme/screens/groupings-light.webp" alt="Groupings settings with Profession and Interests and their values" />
-      </picture>
+      <img src="docs/readme/screens/groupings-light.webp" alt="Groupings settings with Profession and Interests and their values" />
       <p><strong>Groupings.</strong> Profession, region, batch: any dimension, with smart groups on top.</p>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/member-cards-dark.webp" />
-        <img src="docs/readme/screens/member-cards-light.webp" alt="The card designer with design presets, the canvas with rulers and the layer settings" />
-      </picture>
+      <img src="docs/readme/screens/member-cards-light.webp" alt="The card designer with design presets, the canvas with rulers and the layer settings" />
       <p><strong>Card designer.</strong> Front and back edited the same way, approved by the owner.</p>
     </td>
     <td width="50%" valign="top">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/units-dark.webp" />
-        <img src="docs/readme/screens/units-light.webp" alt="Units and roles settings with two levels, Region and Chapter, and the region and chapter tree with member counts" />
-      </picture>
+      <img src="docs/readme/screens/units-light.webp" alt="Units and roles settings with two levels, Region and Chapter, and the region and chapter tree with member counts" />
       <p><strong>Units.</strong> Regions and chapters, with staff limited to their own.</p>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/reports-and-analytics-dark.webp" />
-        <img src="docs/readme/screens/reports-and-analytics-light.webp" alt="The reports overview with membership change, renewal rate and charts" />
-      </picture>
+      <img src="docs/readme/screens/reports-and-analytics-light.webp" alt="The reports overview with membership change, renewal rate and charts" />
       <p><strong>Reports.</strong> The year at a glance, for the committee.</p>
     </td>
     <td width="50%" valign="top">
-      <picture>
-        <source media="(prefers-color-scheme: dark)" srcset="docs/readme/screens/renewals-dark.webp" />
-        <img src="docs/readme/screens/renewals-light.webp" alt="The renewals report with memberships due to renew, renewal rate, churn and retention, and charts by month" />
-      </picture>
+      <img src="docs/readme/screens/renewals-light.webp" alt="The renewals report with memberships due to renew, renewal rate, churn and retention, and charts by month" />
       <p><strong>Renewals.</strong> Who is due, who renewed and what is coming up.</p>
     </td>
   </tr>
 </table>
+
+<details>
+<summary><strong>Dark mode</strong>: the same screens in the dark theme</summary>
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/readme/screens/public-page-dark.webp" alt="An organisation's public page with its name, contact details and three membership plans with Join buttons, in dark mode" />
+      <p><strong>Public page.</strong> Dark mode.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/readme/screens/plans-and-join-forms-dark.webp" alt="The membership plans list with prices, joining fees, active members and waiting applications, in dark mode" />
+      <p><strong>Plans and join forms.</strong> Dark mode.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/readme/screens/members-dark.webp" alt="The member register with status filters, plan, unit, role and grouping filters, and members with their roles, in dark mode" />
+      <p><strong>Members.</strong> Dark mode.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/readme/screens/groupings-dark.webp" alt="Groupings settings with Profession and Interests and their values, in dark mode" />
+      <p><strong>Groupings.</strong> Dark mode.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/readme/screens/member-cards-dark.webp" alt="The card designer with design presets, the canvas with rulers and the layer settings, in dark mode" />
+      <p><strong>Card designer.</strong> Dark mode.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/readme/screens/units-dark.webp" alt="Units and roles settings with two levels, Region and Chapter, and the region and chapter tree with member counts, in dark mode" />
+      <p><strong>Units.</strong> Dark mode.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/readme/screens/reports-and-analytics-dark.webp" alt="The reports overview with membership change, renewal rate and charts, in dark mode" />
+      <p><strong>Reports.</strong> Dark mode.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/readme/screens/renewals-dark.webp" alt="The renewals report with memberships due to renew, renewal rate, churn and retention, and charts by month, in dark mode" />
+      <p><strong>Renewals.</strong> Dark mode.</p>
+    </td>
+  </tr>
+</table>
+
+</details>
 
 Screenshots come from the demo data (`npm run db:seed-demo` and `npm run db:seed-reports`), captured by
 `scripts/capture-screens.mjs` and copied here by `node scripts/generate-readme-art.mjs`. The organisations are fictional and the
@@ -202,6 +226,7 @@ Grouped the way an organisation's year actually goes.
 | SMS | Twilio, MSG91 |
 | Member and team chat | WhatsApp (approved templates), Telegram, Slack, Discord, Mattermost, signed webhooks |
 | Sign-in | Email and password (on by default), passkeys, phone codes, Google, Apple, GitHub, any OIDC provider, SAML, Supabase Auth, Firebase Auth |
+| Background jobs | BullMQ with Redis (servers), Inngest (fully cloud), or a Cloudflare Worker cron |
 | Storage | Silo (bundled), Cloudflare R2 or any S3-compatible bucket |
 | Web analytics | Plausible, Umami, GA4, Firebase Analytics and Performance, PostHog, Clarity, Sentry, Mixpanel; all off until configured and consented |
 | Import | CSV and Google Sheets |
@@ -236,17 +261,17 @@ beat and operator checks, by role), and the frontend, `ghcr.io/spaceworks-labs/s
 maintained, S3-compatible fork of MinIO) and the Caddy web edge, each speaking TLS signed by the install's own private
 CA.
 
-### Background jobs: two options
+### Background jobs: BullMQ or Inngest
 
 Reminders, the membership sweep, payment checks and email delivery run in the background, in one of two ways:
 
 | Option | How it runs | Best for |
 |---|---|---|
-| **Worker and beat** (default) | Two long-running processes from the backend image, included in every Compose layout | A server or any host that keeps processes running; messages go out within seconds |
-| **Online scheduler** | A free Cloudflare Worker cron (or cron-job.org) calls `POST /api/internal/run-jobs` once a minute and the app runs the due jobs in that request | Hosts that run only the web service, such as free container plans |
+| **BullMQ worker and beat** (default) | Two long-running processes from the backend image, with the queues in Redis, included in every Compose layout | A server, or any host that keeps processes running; messages go out within seconds |
+| **Inngest** (fully cloud) | Inngest calls `/api/inngest` once a minute and the app runs the due jobs there, on its free plan | Hosts that run only the web service, such as free container plans |
 
-Pick one per installation. The online scheduler is set up in
-[No worker at all](docs/DEPLOYMENT_CLOUD.md#no-worker-at-all-online-scheduler).
+Pick one per installation; see [Fully cloud with Inngest](docs/DEPLOYMENT_CLOUD.md#fully-cloud-with-inngest). Without an
+Inngest account, a free Cloudflare Worker cron (`deploy/cloudflare-cron`) can drive the same jobs.
 
 ### The installer
 

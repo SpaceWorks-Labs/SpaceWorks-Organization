@@ -83,7 +83,7 @@ More on setting these up: [Email providers](../NOTIFICATIONS.md#email-providers)
 
 ## Scheduler and outbox
 
-For hosts without a `beat` process, an outside cron can drive the background jobs. With a worker, the first two routes only queue the jobs for it; with no worker at all, `run-jobs` runs them in the request ([No worker at all](../DEPLOYMENT_CLOUD.md#no-worker-at-all-online-scheduler)).
+For hosts without a `beat` process, an outside cron can drive the background jobs. With a worker, the first two routes only queue the jobs for it; with no worker at all, `run-jobs` runs them in the request ([Fully cloud with Inngest](../DEPLOYMENT_CLOUD.md#fully-cloud-with-inngest)).
 
 | Route | Method | What it does | Answer |
 |---|---|---|---|
@@ -92,6 +92,8 @@ For hosts without a `beat` process, an outside cron can drive the background job
 | `/api/internal/run-jobs` | `POST` | Runs the due scheduled jobs and delivers the outbox in the request, each occurrence once (`lib/queue/inline.ts`) | `200` with `{ ok, ran, failed, outbox }`, `500` if a job failed, or `503` |
 
 All three need `Authorization: Bearer <CRON_SECRET>`, compared in constant time (`lib/bearerSecret.ts`). A missing or wrong secret, or no `CRON_SECRET` set, answers `404`.
+
+`/api/inngest` (`GET`, `POST`, `PUT`) is Inngest's sync, introspection and run endpoint for the fully cloud option (`lib/queue/inngest.ts`). The Inngest SDK verifies every call against `INNGEST_SIGNING_KEY` before anything runs; with no signing key (and no local `INNGEST_DEV`) the route answers `404`.
 
 ```bash
 curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://members.example.org/api/internal/jobs
