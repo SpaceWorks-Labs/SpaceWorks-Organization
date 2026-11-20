@@ -76,6 +76,16 @@ beat is enough; more workers share the load, and a second beat does no harm.
 **Updating:** back up the database with your provider (point-in-time recovery or a snapshot), then set the new
 `SWO_IMAGE_TAG` and run `pull` and `up -d --wait` again. `scripts/update.sh` is for the bundled topology.
 
+## Background jobs: BullMQ or Inngest
+
+Pick one per installation.
+
+1. **BullMQ worker and beat** (servers; the default in `docker-compose.cloud.yml`, `render.yaml` and the bundled
+   stack): two long-running processes from the backend image, with Redis carrying the queues. Messages go out within
+   seconds. Without a beat, keep the worker and use the [cron fallback](#without-a-beat-process-cron-fallback).
+2. **Inngest** (fully cloud): no worker or beat at all. Inngest calls the app on a schedule and the due jobs run
+   there. See [Fully cloud with Inngest](#fully-cloud-with-inngest).
+
 ## Render
 
 [`render.yaml`](../render.yaml) defines a Docker web service (`sworg-backend`, health check `/api/health`,
@@ -101,6 +111,57 @@ curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://<backend>/api/
 `/api/internal/jobs` queues the registry's due jobs and `/api/internal/outbox` queues due outbox rows; a worker
 still has to run to do the work. Repeated calls within the same minute are harmless. Both answer 404 without
 the secret, so the calls must reach the backend directly, not through an edge that blocks `/api/internal/*`.
+
+## Fully cloud with Inngest
+
+On a host that runs only the web service (a free container plan, for example), [Inngest](https://www.inngest.com)
+does the worker's and the beat's job. Its `run-due-jobs` function (`lib/queue/inngest.ts`) calls the app once a
+minute; the app runs every scheduled job that is due (membership sweep, reconciles, digests, clean-ups) and delivers
+the outbox, about five batches of 20 messages per run. Each occurrence runs once even when runs overlap: Redis claims
+it, and production already needs Redis (Upstash's free plan works).
+
+1. Create a free Inngest account and an app, and copy its **signing key**.
+2. On the web service, set `INNGEST_SIGNING_KEY` (and optionally `INNGEST_JOBS_CRON` for a slower schedule). Don't
+   run the worker or beat roles.
+3. Deploy, then in the Inngest dashboard sync the app at `https://<your-site>/api/inngest`. The function
+   **Run due background jobs** appears and runs every minute.
+
+The SDK verifies every call from Inngest with the signing key; without the key `/api/inngest` answers 404. One run
+a minute with no steps and no retries is about 44,000 executions a month, inside the free plan (check Inngest's
+pricing page, which changes); `INNGEST_JOBS_CRON='*/2 * * * *'` halves it. A failed job fails that run in the
+Inngest dashboard and runs again at its next occurrence. Messages go out up to a minute later than with a worker, and
+a host that sleeps when idle is woken by the call.
+
+For local testing, run `npx inngest-cli dev` and set `INNGEST_DEV=1` (never in production; the app refuses to start
+with it).
+
+### Without an Inngest account
+
+Any online cron can do the same by calling the app once a minute:
+
+```bash
+curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" https://<backend>/api/internal/run-jobs
+```
+
+The answer is `200` with the jobs that ran, `500` when one failed, and `404` without the secret.
+[`deploy/cloudflare-cron`](../deploy/cloudflare-cron) is a ready Cloudflare Worker with a one-minute cron trigger
+and no public address. Set `SITE_URL` in its `wrangler.toml`, then from that folder:
+
+```bash
+npx wrangler secret put CRON_SECRET    # the app's CRON_SECRET
+npx wrangler deploy
+```
+
+| Scheduler | Every minute on the free plan | Notes |
+|---|---|---|
+| Inngest | Yes, about 44,000 of the monthly executions | The supported fully cloud option, with a dashboard of runs |
+| Cloudflare Workers cron trigger | Yes | One of five free cron triggers; code in this repository |
+| cron-job.org | Yes | No code; paste the URL and add the `Authorization` header |
+| Upstash QStash | No: the free plan's daily messages run out | Fine every five minutes or slower |
+| Trigger.dev | No: the free plan's monthly runs run out | Fine for slower schedules |
+| GitHub Actions `schedule` | No: five minutes at best, often delayed | Fine as a backup |
+
+Use one scheduler or a worker and beat, never two at once.
 
 ## Other platforms
 

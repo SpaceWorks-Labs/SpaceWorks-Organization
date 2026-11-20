@@ -27,7 +27,10 @@ a plain-text database or Redis connection, or mismatched public origins.
 | `ALLOWED_ACTION_ORIGINS` | no | Extra hostnames allowed to call Server Actions (a CDN in front). Build time only; release images refuse it. |
 | `TRUSTED_PROXY_IP_HEADER` | production | The client-IP header your edge overwrites: `x-real-ip` (bundled Caddy), `cf-connecting-ip` (Cloudflare) or `x-forwarded-for`. |
 | `TRUSTED_PROXY_HOPS` | no | With `x-forwarded-for`, how many trusted proxies append to it (default 1). |
-| `CRON_SECRET` | production | Bearer secret for `POST /api/internal/jobs` and `POST /api/internal/outbox`, the fallback for hosts without a beat process. |
+| `CRON_SECRET` | production | Bearer secret for `POST /api/internal/jobs` and `POST /api/internal/outbox` (hosts without a beat process) and `POST /api/internal/run-jobs` (hosts with no worker, driven by an online cron). |
+| `INNGEST_SIGNING_KEY` | no | Switches on the fully cloud option for background jobs: Inngest calls `/api/inngest` on a schedule and the due jobs run there, with no worker or beat. The SDK verifies every call with this key; without it `/api/inngest` answers 404. Write-only; from the Inngest dashboard. |
+| `INNGEST_JOBS_CRON` | no | How often Inngest runs the jobs, as a five-field cron expression. Default `* * * * *` (once a minute, about 44,000 runs a month). |
+| `INNGEST_DEV` | no | `1` lets the local Inngest dev server call `/api/inngest` without a signing key. Development only: production refuses to start with it. |
 | `OUTBOX_RETENTION_DAYS` | no | Days to keep delivered outbox rows (30). |
 | `HEALTHCHECK_SECRET` | production | Bearer secret for `GET /api/health/db`. `/api/health` is open liveness. |
 | `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` | production | Base64 of a 16, 24 or 32-byte key, stable across every container. Release images refuse to start without it. |

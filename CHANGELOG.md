@@ -4,6 +4,20 @@ Releases are published from `main` and titled **`Space Works Organization <versi
 file selects the series; each build is tagged `v<series>-main.<run>.<sha>`, which is what a deployment pins
 to. Pushes to `dev` publish staging images tagged `dev` without a release.
 
+## 0.10.2 (2026-11-20)
+
+- **Fully cloud background jobs with Inngest:** with `INNGEST_SIGNING_KEY` set, Inngest's `run-due-jobs` function calls
+  `/api/inngest` once a minute and the due jobs run there, outbox delivery included, so a host with only the web
+  service needs no worker or beat (about 44,000 runs a month, inside Inngest's free plan). Servers keep the BullMQ
+  worker and beat.
+- **Without an Inngest account:** `POST /api/internal/run-jobs` runs the same jobs behind `CRON_SECRET`, and
+  `deploy/cloudflare-cron` is a ready Cloudflare Worker that calls it from a free one-minute cron trigger.
+  `docs/DEPLOYMENT_CLOUD.md` compares the free schedulers.
+- Each occurrence runs once, claimed in Redis, however the jobs are driven.
+- **README gallery:** light screenshots first for every reader, with the dark versions in their own section.
+- **Upgrade notes:** nothing to do. No migrations. New optional settings: `INNGEST_SIGNING_KEY`, `INNGEST_JOBS_CRON`
+  and `INNGEST_DEV` (local only; production refuses it).
+
 ## 0.10.1 (2026-11-20)
 
 - **README:** rebuilt in the design system's product README order (product rules §12.3): a rounded brand banner in
