@@ -4,6 +4,16 @@ Releases are published from `main` and titled **`Space Works Organization <versi
 file selects the series; each build is tagged `v<series>-main.<run>.<sha>`, which is what a deployment pins
 to. Pushes to `dev` publish staging images tagged `dev` without a release.
 
+## 0.10.1 (2026-11-20)
+
+- **README:** rebuilt in the design system's product README order (product rules §12.3): a rounded brand banner in
+  light and dark, the landing page's promise, version, licence and CI badges, and sections for who it is for,
+  integrations, areas, hosting, architecture, API, roles, roadmap and contributing.
+- **README gallery:** eight areas as light and dark pairs from the demo captures (§12.6), copied by
+  `node scripts/generate-readme-art.mjs`, which now also draws the banner as SVG with outlined brand type. The old
+  PNG banner, swatches and single-theme screenshots are removed.
+- **Upgrade notes:** nothing to do. No migrations, settings or behaviour change.
+
 ## 0.10.0 (2026-11-20)
 
 Organisations divided any way they need, plans that are free or paid in hand, reminders on every channel, a full
