@@ -42,10 +42,16 @@ describe("build-docs", () => {
     }
   });
 
+  // Builds every docs page twice; about a second alone, but slower when the whole suite runs in parallel.
   it("is deterministic and matches the committed modules' pages", () => {
     expect(buildDocs(root)).toEqual(buildDocs(root));
     expect(DOCS.map((doc) => doc.slug)).toEqual(docs.map((doc) => doc.slug));
     expect(DOCS.map((doc) => doc.section)).toEqual(docs.map((doc) => doc.section));
+  }, 30_000);
+
+  it("never quotes the image placeholder hosts, which the entrypoint would find in the built docs", () => {
+    const text = JSON.stringify(DOCS);
+    for (const host of ["origin", "backend"]) expect(text).not.toContain(`spaceworks-organization-${host}.invalid`);
   });
 
   it("takes the first heading and the first plain paragraph", () => {

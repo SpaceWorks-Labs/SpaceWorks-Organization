@@ -54,7 +54,7 @@ test("accepting loads the vendor and reports a route template, never a raw URL",
   await expect.poll(() => vendorRequests.some((item) => item.url.includes("/track/"))).toBe(true);
   const track = vendorRequests.find((item) => item.url.includes("/track/"))!;
   expect(track.url).toContain("ip=0");
-  expect(JSON.parse(track.body ?? "[]")[0].properties).toMatchObject({ page: "/about", client: "web" });
+  expect(JSON.parse(track.body ?? "[]")[0].properties).toMatchObject({ route: "/about", client: "web" });
   expect(track.body).not.toContain("?");
 });
 

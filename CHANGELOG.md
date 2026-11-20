@@ -55,6 +55,10 @@ landing-page builder, a Canva-style card editor, an activity log and much faster
   - Recent sign-in is required for payment and team changes.
   - Member photos are no longer CDN-cached.
 - **Installer:** a "Cloudflare Tunnel" option alongside Caddy and an external proxy.
+- **Docker fixes:**
+  - The bundled backend starts again. In 0.9.0 the built-in docs quoted the image's placeholder hosts, so the
+    backend asked for a frontend origin it doesn't use.
+  - The worker and beat accept email settings left empty in the compose file.
 - **Upgrade notes:**
   - Run migrations 0023–0028 (the update does this).
   - New optional environment variables are listed in `docs/CONFIGURATION.md`.
