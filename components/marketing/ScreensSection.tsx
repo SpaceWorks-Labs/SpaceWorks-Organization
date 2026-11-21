@@ -7,6 +7,8 @@ const SCREENS: ReadonlyArray<{ name: ScreenName; area: string; title: string; al
   { name: "reports-and-analytics", area: "reports-and-analytics", title: "Reports", alt: "The reports overview: active members, renewals and money collected, with charts." },
   { name: "member-cards", area: "member-cards", title: "Member cards", alt: "A member card with its QR code, in the card designer." },
   { name: "public-page", area: "public-page", title: "Public page", alt: "An organisation's public page with its plans and a join button." },
+  { name: "members", area: "units", title: "Members", alt: "The member register with status, plan, area and grouping filters, and each member's role and membership." },
+  { name: "certificates", area: "certificates", title: "Certificates", alt: "Certificate designs and the certificates issued to members, each with its number and status." },
 ];
 
 /** The product in the visitor's own theme: light captures in light, dark captures in dark. */

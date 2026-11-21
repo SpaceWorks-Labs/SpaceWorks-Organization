@@ -51,7 +51,8 @@ describe("webhook verification", () => {
     expect(verifyDiscordSignature(raw, ts, body, sig)).toBe(true);
     expect(verifyDiscordSignature(raw, ts, `${body} `, sig)).toBe(false);
     expect(verifyDiscordSignature(raw, "1700000001", body, sig)).toBe(false);
-    expect(verifyDiscordSignature(raw, ts, body, `${sig.slice(0, -1)}0`)).toBe(false);
+    // Always change the last digit: replacing it with a fixed "0" left one signature in 16 untouched.
+    expect(verifyDiscordSignature(raw, ts, body, `${sig.slice(0, -1)}${sig.endsWith("0") ? "1" : "0"}`)).toBe(false);
     expect(verifyDiscordSignature("zz", ts, body, sig)).toBe(false);
   });
 

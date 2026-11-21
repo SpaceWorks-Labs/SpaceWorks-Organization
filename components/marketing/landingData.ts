@@ -21,8 +21,13 @@ export const FAQ: readonly FaqItem[] = [
   },
   {
     q: "We have branches or chapters. Does that fit?",
-    a: "Yes. How branches, their staff and what each person can see work is on the features page.",
+    a: "Yes. Each branch can have its own page, card design, card numbers and contact details, and staff can be limited to their own branch. How it all works is on the features page.",
     more: { href: "/features#units", label: "Read about units and staff" },
+  },
+  {
+    q: "Can we give members certificates?",
+    a: "Yes. Design certificates for membership, appreciation, completion or anything else, issue them to chosen members, a plan or a group, and email them as PDFs. Each one has a number and a QR code anyone can check.",
+    more: { href: "/features#certificates", label: "Read about certificates" },
   },
   {
     q: "Who decides whether our organisation can join this platform?",
