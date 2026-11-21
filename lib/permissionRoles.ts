@@ -10,18 +10,19 @@ export const CAPABILITY_LIST = [
   "members.manage", "cards.manage", "audit.view", "erasure.decide", "team.manage",
   "plans.manage", "payments.settings", "org.settings", "structure.manage", "cards.design", "accounts.manage", "reports.gstr1",
   "roles.manage", "cards.approve", "org.delete", "ownership.transfer", "groupings.manage",
+  "certificates.issue", "certificates.design", "certificates.approve",
 ] as const;
 
 export type Capability = (typeof CAPABILITY_LIST)[number];
 
 /** ◆ Org-wide to change: someone holding the role for one unit may read these screens but never change them. */
-export const ORG_WIDE_TO_CHANGE: ReadonlySet<Capability> = new Set<Capability>(["plans.manage", "payments.settings", "org.settings", "structure.manage", "cards.design", "accounts.manage", "roles.manage"]);
+export const ORG_WIDE_TO_CHANGE: ReadonlySet<Capability> = new Set<Capability>(["plans.manage", "payments.settings", "org.settings", "structure.manage", "cards.design", "accounts.manage", "roles.manage", "certificates.design"]);
 
 /** ● Org-wide for any use: whole-organisation data, refused to someone holding the role for one unit. */
 export const ORG_WIDE_ONLY: ReadonlySet<Capability> = new Set<Capability>(["reports.gstr1", "groupings.manage"]);
 
 /** ★ Owner only: no other role can hold these. */
-export const OWNER_ONLY: ReadonlySet<Capability> = new Set<Capability>(["cards.approve", "org.delete", "ownership.transfer"]);
+export const OWNER_ONLY: ReadonlySet<Capability> = new Set<Capability>(["cards.approve", "org.delete", "ownership.transfer", "certificates.approve"]);
 
 /** The permissions an organisation can put in its own roles. */
 export const GRANTABLE_CAPABILITIES: readonly Capability[] = CAPABILITY_LIST.filter((capability) => !OWNER_ONLY.has(capability));
@@ -34,6 +35,7 @@ const MANAGER: Capability[] = [
   "org.view", "members.view", "reports.membership", "members.contact", "members.export", "payments.view", "payments.manage", "reports.finance",
   "members.manage", "cards.manage", "audit.view", "erasure.decide", "team.manage",
   "plans.manage", "payments.settings", "org.settings", "structure.manage", "cards.design", "accounts.manage", "reports.gstr1", "groupings.manage",
+  "certificates.issue", "certificates.design",
 ];
 const TREASURER: Capability[] = ["org.view", "members.view", "reports.membership", "members.contact", "members.export", "payments.view", "payments.manage", "reports.finance", "accounts.manage", "reports.gstr1"];
 const VIEWER: Capability[] = ["org.view", "members.view", "reports.membership"];

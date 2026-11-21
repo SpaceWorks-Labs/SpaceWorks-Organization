@@ -36,7 +36,7 @@ const TEMPLATES: Template[] = [
     tagline: "Good company, every week",
     hero: { headline: "A club for people who like doing things together", subtitle: "Meet-ups, outings and a friendly crowd. Join for a year and come along to everything.", layout: "split" },
     about: "## Who we are\nWe are a members' club run by volunteers. Write a few lines about how you started and what a usual month looks like.\n\n- Regular meet-ups\n- Trips and outings\n- A say in how the club is run",
-    middle: [counts, { type: "committee", patch: { title: "Committee" } }, { type: "gallery", patch: { title: "Club life" } }],
+    middle: [counts, { type: "membersPreview" }, { type: "committee", patch: { title: "Committee" } }, { type: "gallery", patch: { title: "Club life" } }],
     faq: [
       { question: "Who can join?", answer: "Anyone who agrees to the club rules. Say here if there are age or area limits." },
       { question: "When do you meet?", answer: "Write your usual day, time and place." },
@@ -50,7 +50,7 @@ const TEMPLATES: Template[] = [
     tagline: "Once a student, always part of it",
     hero: { headline: "Stay connected with the people you studied with", subtitle: "Reunions, mentoring and a network that keeps growing. Membership keeps you in touch.", layout: "cover" },
     about: "## Our association\nTell people when the association began, who can join and what it does for alumni and current students.",
-    middle: [{ type: "timeline", patch: { title: "Our story" } }, counts, { type: "committee", patch: { title: "Office bearers" } }, { type: "units", patch: { title: "Chapters" } }, { type: "testimonials" }],
+    middle: [{ type: "timeline", patch: { title: "Our story" } }, counts, { type: "membersPreview" }, { type: "committee", patch: { title: "Office bearers" } }, { type: "units", patch: { title: "Chapters" } }, { type: "testimonials" }],
     faq: [
       { question: "Who counts as an alumnus?", answer: "Say which years, courses or campuses can join." },
       { question: "Is there a life membership?", answer: "Explain your plans here; they are listed above with their prices." },

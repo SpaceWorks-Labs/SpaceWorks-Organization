@@ -6,6 +6,9 @@ import { PermanentOutboxError, type OutboxKindHandler } from "@/lib/outboxKinds"
 import { deliverMemberMessage, type MemberMessage } from "./deliver";
 import { cleanValues } from "./send";
 
+/** `certificate-email` is a member message too (the certificate PDF); it lives with the certificate email code. */
+export { certificateEmail } from "@/lib/email/certificate";
+
 const isId = (value: unknown): value is string => typeof value === "string" && value.length > 0 && value.length <= 64;
 
 /** The queued row, checked again at delivery: ids, a known kind, and bounded plain values. */

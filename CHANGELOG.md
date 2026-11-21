@@ -4,6 +4,49 @@ Releases are published from `main` and titled **`Space Works Organization <versi
 file selects the series; each build is tagged `v<series>-main.<run>.<sha>`, which is what a deployment pins
 to. Pushes to `dev` publish staging images tagged `dev` without a release.
 
+## 0.11.0 (2026-11-21)
+
+Certificates, a live visual editor for the public page, a page and card design for every area, and richer platform
+analytics.
+
+- **Certificates:**
+  - Design numbered certificates in the card editor's layers on an A4 or US Letter page, landscape or portrait, with
+    three ready-made layouts, a background picture and placeholders for the member's name, number, title, reason,
+    date, plan and unit. The Owner approves a design before anything is issued from it.
+  - Issue to chosen members, everyone current on a plan or a smart group, up to 200 at a time. A member who already
+    holds the same certificate is skipped. Staff limited to a unit or grouping issue inside their reach.
+  - Email each member the PDF, download PDF or PNG, take a batch as a ZIP of PDFs or one combined PDF, and revoke
+    with a reason.
+  - A QR on each certificate opens a public check page (valid or revoked, title, holder while valid, number and
+    date, nothing else); staff of the organisation see a short panel. Members see theirs at `/account/certificates`.
+  - New permissions `certificates.issue`, `certificates.design` and the Owner-only `certificates.approve`; a
+    `certificate-issued` member message (18 kinds now).
+- **Public page editor:**
+  - A visual editor: click a section or its text to change it, drag sections into order, undo and redo, preview in
+    light or dark at desktop, tablet or phone width.
+  - Drafts autosave; Publish makes them live. The last 20 published versions are kept and can be previewed and
+    restored to the draft.
+  - Eight new blocks: live numbers (total, joined this year, growth, by area, plan or grouping), an areas directory,
+    columns, button group, icon list, divider, badges and a members' area preview. 28 block types in all.
+- **Area pages:** every unit has a page at `/o/<slug>/a/<CODE>` built from the same published page, with the plans
+  the area offers, numbers for the area and its sub-areas, its contact details and join buttons that carry its code.
+  They are in the sitemap.
+- **Per-area cards and contacts:**
+  - A unit can have its own card design and card number series. A card uses its role design, then the nearest area's,
+    then its plan's, then the organisation's. Numbers already issued never change.
+  - Each unit has its own email, phone and website, taken one by one from the unit above and then the organisation,
+    printed on card backs and shown on area pages. Audited as `UNIT_CONTACT_CHANGED`.
+- **Platform analytics:** Growth, Money, Organisations and Operations tabs for the super admin. Growth, renewals,
+  lapses and churn against the previous period (30 days, 90 days, 12 months or the financial year); money per
+  currency; a sortable organisation ranking; and daily health of the outbox, email, member messages, SMS codes,
+  sign-ins, background jobs and storage. Aggregates only.
+- **Fixes:** count charts show whole-number ticks only.
+- **Upgrade notes:**
+  - Migrations 0029–0031 run with the update.
+  - Migration 0030 gives the new `certificates.issue` and `certificates.design` permissions to existing Manager
+    roles.
+  - Nothing to configure.
+
 ## 0.10.2 (2026-11-20)
 
 - **Fully cloud background jobs with Inngest:** with `INNGEST_SIGNING_KEY` set, Inngest's `run-due-jobs` function calls

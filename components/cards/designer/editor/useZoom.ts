@@ -20,7 +20,8 @@ type Card = { widthMm: number; heightMm: number };
 export function fitPxPerMm(box: Box, card: Card) {
   if (!box.w) return 4;
   const fit = Math.min((box.w - VIEWPORT_PADDING_PX) / card.widthMm, (Math.max(box.h, 360) - VIEWPORT_PADDING_PX) / card.heightMm);
-  return Math.min(12, Math.max(2, fit));
+  // At least 1 px a millimetre, so a whole certificate page (297 mm) still fits a narrow column; a card never gets near it.
+  return Math.min(12, Math.max(1, fit));
 }
 
 const clampPercent = (percent: number) => Math.round(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, percent)));

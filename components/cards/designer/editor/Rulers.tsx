@@ -1,6 +1,7 @@
 "use client";
 
 import type { PointerEvent } from "react";
+import { reword, useDesignerNoun } from "../wording";
 import type { GuideAxis } from "./useGuides";
 
 export const RULER_PX = 20;
@@ -10,6 +11,7 @@ export const RULER_PX = 20;
  * card places a guide across it: the top ruler gives horizontal guides, the left one vertical guides.
  */
 export function Ruler({ axis, lengthMm, pxPerMm, onStartGuide }: { axis: "x" | "y"; lengthMm: number; pxPerMm: number; onStartGuide: (guideAxis: GuideAxis, event: PointerEvent<HTMLElement>) => void }) {
+  const noun = useDesignerNoun();
   const horizontal = axis === "x";
   const length = lengthMm * pxPerMm;
   const step = pxPerMm >= 4 ? 1 : pxPerMm >= 2 ? 2 : 5;
@@ -24,7 +26,7 @@ export function Ruler({ axis, lengthMm, pxPerMm, onStartGuide }: { axis: "x" | "
     <div
       data-ruler
       aria-hidden
-      title={horizontal ? "Drag down onto the card to add a horizontal guide" : "Drag right onto the card to add a vertical guide"}
+      title={reword(horizontal ? "Drag down onto the card to add a horizontal guide" : "Drag right onto the card to add a vertical guide", noun)}
       onPointerDown={(event) => onStartGuide(horizontal ? "y" : "x", event)}
       className="absolute select-none border-line bg-canvas text-ink-muted"
       style={horizontal

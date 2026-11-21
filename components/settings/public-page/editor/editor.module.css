@@ -1,0 +1,44 @@
+/*
+ * The visual editor's canvas (components/settings/public-page/editor). The page's theme colours come from
+ * ../preview.module.css (`.frame[data-mode]`); this file adds the device widths, the in-place text box and the
+ * hidden text under it. Tokens only.
+ */
+
+/* Device widths: the house 768 (tablet) and 375 (phone) breakpoints, centred in the canvas. */
+.tablet { width: 768px; max-width: 100%; margin-inline: auto; }
+.phone { width: 375px; max-width: 100%; margin-inline: auto; }
+
+/* The rendered text stays in place (so the layout doesn't move) but can't be seen while the box covers it. */
+.page :global([data-inline-editing]) { color: transparent !important; }
+.page :global([data-inline-editing] svg) { visibility: hidden; }
+
+.inline {
+  position: absolute;
+  z-index: 20;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 2px;
+  background: transparent;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  caret-color: currentColor;
+  outline: 2px solid rgb(var(--sw-color-focus));
+  outline-offset: 4px;
+  field-sizing: content;
+}
+
+/* A dragged section's landing place. */
+.dropBefore::before,
+.dropAfter::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  height: 3px;
+  border-radius: 9999px;
+  background: rgb(var(--sw-color-focus));
+}
+.dropBefore::before { top: -40px; }
+.dropAfter::after { bottom: -40px; }

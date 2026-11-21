@@ -13,6 +13,7 @@ import { isOneGroup } from "@/lib/cards/design/editor/groups";
 import { canMoveInOrder } from "@/lib/cards/design/editor/order";
 import { styleFits } from "@/lib/cards/design/editor/style";
 import type { CardLayer } from "@/lib/cards/design/layerTypes";
+import { reword, useDesignerNoun } from "../wording";
 import { ALIGN_CONTROLS, EDIT_CONTROLS, ORDER_CONTROLS, withShortcut } from "./arrangeControls";
 import type { EditorActions } from "./useEditorActions";
 
@@ -40,6 +41,7 @@ function Row({ title, children }: { title: string; children: ReactNode }) {
  * lock, hide and copy a style. With one item, aligning lines it up with the card.
  */
 export function ArrangePanel({ layers, selected, order, selection, actions }: { layers: CardLayer[]; selected: CardLayer[]; order: string[]; selection: readonly string[]; actions: EditorActions }) {
+  const noun = useDesignerNoun();
   const ids = selected.map((layer) => layer.id);
   const units = selectionUnits(layers, ids).length;
   const grouped = isOneGroup(layers, ids);
@@ -64,11 +66,11 @@ export function ArrangePanel({ layers, selected, order, selection, actions }: { 
       </Row>
       {ids.length === 0 ? null : (
         <>
-          <Row title={units === 1 ? "Align to the card" : "Align the selection"}>
+          <Row title={units === 1 ? reword("Align to the card", noun) : "Align the selection"}>
             {ALIGN_CONTROLS.map((control) => {
               const Icon = ALIGN_ICONS[control.id];
               const distribute = "axis" in control;
-              const name = !distribute && units === 1 ? `${control.label} on the card` : control.label;
+              const name = !distribute && units === 1 ? reword(`${control.label} on the card`, noun) : control.label;
               return (
                 <IconButton key={control.id} size="sm" label={name} disabled={distribute ? units < 3 : units < 1} onClick={() => ("axis" in control ? actions.distribute(control.axis) : actions.align(control.edge))}>
                   <Icon />
@@ -99,7 +101,7 @@ export function ArrangePanel({ layers, selected, order, selection, actions }: { 
         </>
       )}
       <p className="text-caption text-ink-muted" aria-live="polite">
-        {actions.painting ? "Click a layer to give it this style, or select layers and choose Apply copied style. Esc stops." : "Shift-click or drag across the card to select several. Press ? for shortcuts."}
+        {actions.painting ? "Click a layer to give it this style, or select layers and choose Apply copied style. Esc stops." : reword("Shift-click or drag across the card to select several. Press ? for shortcuts.", noun)}
       </p>
     </section>
   );

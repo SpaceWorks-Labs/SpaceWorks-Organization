@@ -11,7 +11,7 @@ import { keepKeysInside } from "./shared";
 
 const SEARCH_DELAY_MS = 250;
 
-type Target = { organisationSlug: string; planId: string | null; roleId: string | null };
+type Target = { organisationSlug: string; planId: string | null; roleId: string | null; unitId: string | null };
 export type PreviewMember = { id: string; name: string };
 
 /**
@@ -25,7 +25,7 @@ export function PreviewMemberPicker({ target, chosen, onChosen, onPreviewHolder 
   const [results, setResults] = useState<PreviewMemberOption[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { organisationSlug, planId, roleId } = target;
+  const { organisationSlug, planId, roleId, unitId } = target;
   // Results belong to the current query; an empty field shows none.
   const shown = open && query.trim() ? results : null;
 
@@ -52,7 +52,7 @@ export function PreviewMemberPicker({ target, chosen, onChosen, onPreviewHolder 
 
   const pick = async (member: PreviewMemberOption) => {
     setError(null);
-    const result = await loadCardPreviewHolder({ organisationSlug, planId, roleId, memberId: member.id });
+    const result = await loadCardPreviewHolder({ organisationSlug, planId, roleId, unitId, memberId: member.id });
     if (!result.ok || !result.data) {
       setError(result.ok ? "That member can't be previewed." : result.error);
       return;

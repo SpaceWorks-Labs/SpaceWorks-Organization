@@ -117,8 +117,10 @@ See [Monitoring and health](../guides/hosting/monitoring-and-health.md) for the 
 | `/api/cards/{cardId}?format=pdf\|png&side=front\|back` | `GET` | Signed in | Staff of the card's organisation who manage cards or see contact details, with an authenticator and the member in scope; or the member. Revoked cards are for staff only. Audited as `CARD_DOWNLOADED`. Rate limit `cardRender`. |
 | `/api/verify/{token}/card?side=front\|back` | `GET` | Anyone | The PNG on the public check page. Token must be 43 URL-safe characters; only a live, current card in an active organisation draws. Rate limit `verifyCardImage` (30 a minute). |
 | `/api/o/{orgSlug}/sample-card` | `GET` | Anyone, while the published public page shows a card section; otherwise staff with `org.settings` and an authenticator | A WebP of the live design with fictional holder data. Rate limit `sampleCard`. |
+| `/api/certificates/{certificateId}?format=pdf\|png` | `GET` | Signed in | Staff holding `certificates.issue` or `members.contact`, with an authenticator and the member in scope; or the member (verified email, member accounts on). Revoked certificates are for staff only. Everyone else gets `404`. Rate limit `cardRender`. Audited as `CERTIFICATE_DOWNLOADED`. |
+| `/api/exports/certificate-draft/{orgSlug}?design={id}&format=pdf\|png&member={id}` | `GET` | Signed in | Staff holding `certificates.design`: the designer's preview of the saved draft, with a sample member unless `member` is given (which needs `members.view` and the member in scope). |
 
-The card check page itself is `/verify/{token}`, a page rather than an API route. See [Member cards](../features/member-cards.md).
+The card check page itself is `/verify/{token}`, and the certificate check page is `/verify/certificate/{token}`: pages rather than API routes, both limited by `verifyCard`. See [Member cards](../features/member-cards.md) and [Certificates](../features/certificates.md). A unit's public page is `/o/{orgSlug}/a/{unitCode}`; see [Public page](../features/public-page.md).
 
 ## Exports
 
@@ -130,6 +132,7 @@ Every export needs a signed-in session. Staff exports also need an authenticator
 | `/api/exports/reports/{orgSlug}/{report}` | `reports.membership` or `reports.finance`, by report | `REPORT_EXPORTED` or `FINANCE_REPORT_EXPORTED` |
 | `/api/exports/gstr1/{orgSlug}` | `reports.gstr1` (organisation-wide staff only) | `FINANCE_REPORT_EXPORTED` |
 | `/api/exports/cards/{orgSlug}?format=sheet\|cards\|zip` | `cards.manage` | `CARD_EXPORT_DOWNLOADED` |
+| `/api/exports/certificates/{orgSlug}?design={id}&format=zip\|pdf` | `certificates.issue` | `CERTIFICATE_EXPORT_DOWNLOADED` |
 | `/api/visits/export/{orgSlug}` | `reports.membership` | `REPORT_EXPORTED` |
 | `/api/exports/platform/analytics` | Verified super admin | `PLATFORM_REPORT_EXPORTED` |
 | `/api/exports/account` | The signed-in person's own data only (`?format=csv` for memberships) | `ACCOUNT_DATA_EXPORTED` |

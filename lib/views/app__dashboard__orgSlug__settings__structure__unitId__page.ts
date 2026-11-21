@@ -4,6 +4,7 @@ import { absoluteUrl } from "@/lib/email/message";
 import { teamScope, unitInScope } from "@/lib/membership/scope";
 import { planOffersUnit } from "@/lib/membership/planUnits";
 import { can, requireOrgCapability } from "@/lib/permissions";
+import { contactFor, unitChainNearestFirst } from "@/lib/units/contact";
 import { unitChain } from "@/lib/payments/payGuidance";
 import { resolveUnitInstructions } from "@/lib/payments/unitInstructions";
 
@@ -14,7 +15,7 @@ export async function loadOrgUnitView({ params }: { params: Promise<{ orgSlug: s
   const organisationId = organisation.id;
   const unit = await prisma.orgUnit.findFirst({
     where: { organisationId, id: unitId.slice(0, 64) },
-    select: { id: true, name: true, code: true, level: true, path: true, parentId: true, archivedAt: true, paymentInstructions: true },
+    select: { id: true, name: true, code: true, level: true, path: true, parentId: true, archivedAt: true, paymentInstructions: true, contactEmail: true, contactPhone: true, website: true },
   });
   if (!unit) notFound();
   // Staff limited to a unit see only units inside their reach.
@@ -24,7 +25,7 @@ export async function loadOrgUnitView({ params }: { params: Promise<{ orgSlug: s
   const fullPath = unit.path.split("/");
   const pathIds = membership.unitId ? fullPath.slice(fullPath.indexOf(membership.unitId)) : fullPath;
   const subtree = { OR: [{ path: unit.path }, { path: { startsWith: `${unit.path}/` } }] };
-  const [org, ancestors, children, staff, plans, members, parents, chain, paySettings] = await Promise.all([
+  const [org, ancestors, children, staff, plans, members, parents, chain, paySettings, above, orgContact] = await Promise.all([
     prisma.organisation.findUniqueOrThrow({ where: { id: organisationId }, select: { name: true, slug: true, logoUrl: true, unitLevels: true } }),
     prisma.orgUnit.findMany({ where: { organisationId, id: { in: pathIds.slice(0, -1) } }, select: { id: true, name: true, level: true } }),
     prisma.orgUnit.findMany({ where: { organisationId, parentId: unit.id }, orderBy: { name: "asc" }, select: { id: true, name: true, code: true, archivedAt: true } }),
@@ -41,6 +42,9 @@ export async function loadOrgUnitView({ params }: { params: Promise<{ orgSlug: s
       : Promise.resolve([]),
     unitChain(organisationId, unit.path),
     prisma.orgPaymentSettings.findUnique({ where: { organisationId }, select: { offlineInstructions: true } }),
+    // The whole chain above this unit, whatever the viewer's reach: the contact it would otherwise show is public anyway.
+    prisma.orgUnit.findMany({ where: { organisationId, id: { in: fullPath.slice(0, -1) } }, select: { id: true, path: true, contactEmail: true, contactPhone: true, website: true } }),
+    prisma.organisation.findUniqueOrThrow({ where: { id: organisationId }, select: { contactEmail: true, contactPhone: true, website: true } }),
   ]);
   const ancestorName = new Map(ancestors.map((entry) => [entry.id, entry.name]));
 
@@ -52,6 +56,13 @@ export async function loadOrgUnitView({ params }: { params: Promise<{ orgSlug: s
     childLevelName: org.unitLevels[unit.level + 1] ?? null,
     /** This unit's own offline payment instructions, and what members here see without them. */
     payment: { instructions: unit.paymentInstructions, inherited: resolveUnitInstructions(chain.slice(0, -1), paySettings?.offlineInstructions ?? "") },
+    /** This unit's own contact details (empty: not set), and what its members' card backs print without them. */
+    contact: {
+      email: unit.contactEmail ?? "",
+      phone: unit.contactPhone ?? "",
+      website: unit.website ?? "",
+      inherited: contactFor(unitChainNearestFirst({ path: fullPath.slice(0, -1).join("/") }, above), orgContact),
+    },
     children,
     members,
     staff: staff.map((entry) => ({

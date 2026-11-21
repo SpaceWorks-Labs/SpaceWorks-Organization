@@ -6,6 +6,10 @@ import { DownloadsFields, GalleryFields, ImageTextFields, VideoFields } from "./
 import { CardFields, CountsFields, IntroFields, StatsFields } from "./fields/MembershipFields";
 import { CommitteeFields, TestimonialsFields, TimelineFields } from "./fields/PeopleFields";
 import { CtaFields, HeroFields } from "./fields/WelcomeFields";
+import { AreasFields } from "./fields/AreasFields";
+import { ColumnsFields } from "./fields/ColumnsFields";
+import { BadgesFields, ButtonsFields, DividerFields, IconListFields, MembersPreviewFields } from "./fields/LayoutFields";
+import { LiveStatsFields } from "./fields/LiveStatsFields";
 import type { FieldContext } from "./fields/shared";
 
 /** The fields for one section, by type. Every value is validated again on the server when saved. */
@@ -31,5 +35,13 @@ export function SectionFields({ section, onChange, ...context }: FieldContext & 
     case "contact": return <ContactFields {...context} section={section} onChange={onChange} />;
     case "map": return <MapFields {...context} section={section} onChange={onChange} />;
     case "text": return <TextFields {...context} section={section} onChange={onChange} />;
+    case "liveStats": return <LiveStatsFields {...context} section={section} onChange={onChange} />;
+    case "areas": return <AreasFields {...context} section={section} onChange={onChange} />;
+    case "columns": return <ColumnsFields {...context} section={section} onChange={onChange} />;
+    case "buttons": return <ButtonsFields {...context} section={section} onChange={onChange} />;
+    case "iconList": return <IconListFields {...context} section={section} onChange={onChange} />;
+    case "divider": return <DividerFields {...context} section={section} onChange={onChange} />;
+    case "badges": return <BadgesFields {...context} section={section} onChange={onChange} />;
+    case "membersPreview": return <MembersPreviewFields {...context} section={section} onChange={onChange} />;
   }
 }

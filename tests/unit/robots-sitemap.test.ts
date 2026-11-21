@@ -4,6 +4,7 @@ import sitemap from "@/app/sitemap";
 
 vi.mock("@/lib/views/app__sitemap", () => ({
   loadSitemapOrganisations: vi.fn(async () => [{ slug: "kunj-company", updatedAt: new Date("2026-10-01T00:00:00Z") }]),
+  loadSitemapAreas: vi.fn(async () => [{ slug: "kunj-company", code: "NORTH", updatedAt: new Date("2026-10-01T00:00:00Z") }]),
 }));
 
 describe("robots and sitemap", () => {
@@ -25,6 +26,6 @@ describe("robots and sitemap", () => {
   it("lists the public pages and listed organisations", async () => {
     vi.stubEnv("NEXT_PUBLIC_BASE_URL", "https://members.test");
     const urls = (await sitemap()).map((entry) => entry.url);
-    expect(urls).toEqual(expect.arrayContaining(["https://members.test/privacy", "https://members.test/terms", "https://members.test/organisations", "https://members.test/o/kunj-company"]));
+    expect(urls).toEqual(expect.arrayContaining(["https://members.test/privacy", "https://members.test/terms", "https://members.test/organisations", "https://members.test/o/kunj-company", "https://members.test/o/kunj-company/a/NORTH"]));
   });
 });

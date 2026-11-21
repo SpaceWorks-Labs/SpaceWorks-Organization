@@ -93,6 +93,12 @@ export const STANDARD_MESSAGES: Record<MemberMessageKind, MessageTemplate> = {
     body: "Hi {name}, your {plan} card from {organisation} is attached as a PDF. Print it on card stock or keep it on your phone.\n\nAnyone can scan the QR code on the front to check that your membership is current. Renewing keeps the same card.",
     short: "{organisation}: {name}, your {plan} card ({cardNumber}) is ready. Open your account to see it.",
   },
+  "certificate-issued": {
+    subject: "Your certificate from {organisation}",
+    heading: "Your certificate",
+    body: "Hi {name}, {organisation} has given you a certificate: {certificate}. It is attached as a PDF.\n\nAnyone can scan the QR code on it to check that it is genuine.",
+    short: "{organisation}: {name}, your certificate {certificate} ({certificateNumber}) is ready. Open your account to see it.",
+  },
   "refund-decided": {
     subject: "Refund from {organisation}",
     heading: "Your refund",

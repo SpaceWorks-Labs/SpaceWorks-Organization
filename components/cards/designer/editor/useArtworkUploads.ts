@@ -6,7 +6,7 @@ import { uploadCardArtwork, uploadCardWatermark } from "@/app/actions/card-desig
 type Result = { ok: true; data?: { url: string | null } } | { ok: false; error: string };
 
 /** Uploads for the designer: card artwork (layers, background) and the watermark image. */
-export function useArtworkUploads({ organisationSlug, planId, roleId, onError }: { organisationSlug: string; planId: string | null; roleId: string | null; onError: (message: string | null) => void }) {
+export function useArtworkUploads({ organisationSlug, planId, roleId, unitId, onError }: { organisationSlug: string; planId: string | null; roleId: string | null; unitId: string | null; onError: (message: string | null) => void }) {
   const [uploading, setUploading] = useState(false);
 
   /** The new URL, null when removed, undefined when it failed (the error is shown). */
@@ -29,6 +29,7 @@ export function useArtworkUploads({ organisationSlug, planId, roleId, onError }:
     data.set("organisationSlug", organisationSlug);
     if (planId) data.set("planId", planId);
     if (roleId) data.set("roleId", roleId);
+    if (unitId) data.set("unitId", unitId);
     if (file) data.set("file", file);
     else data.set("remove", "1");
     return data;

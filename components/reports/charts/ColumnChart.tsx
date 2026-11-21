@@ -36,7 +36,7 @@ function barPath(x: number, y: number, w: number, h: number) {
 export function ColumnChart({ labels, series, ariaLabel, format = "number", height = 170 }: ColumnChartProps) {
   const { ref, width, svgWidth } = useWidth<HTMLDivElement>();
   const max = Math.max(1, ...series.flatMap((entry) => entry.values));
-  const ticks = niceTicks(max, 4);
+  const ticks = niceTicks(max, 4, { integer: format === "number" });
   const top = ticks.at(-1)!;
   const left = 36;
   const plotWidth = Math.max(40, width - left - 8);

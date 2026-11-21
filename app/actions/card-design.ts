@@ -36,32 +36,35 @@ async function access(slug: unknown, capability: Capability = "cards.design") {
   return result;
 }
 
-type Scope = { plan: { id: string; name: string } | null; role: { id: string; name: string } | null };
+type Scope = { plan: { id: string; name: string } | null; role: { id: string; name: string } | null; unit: { id: string; name: string } | null };
 
-/** Which design: the organisation default (neither id), one plan's or one member role's. */
-async function scopeFor(organisationId: string, planId: string | null, roleId: string | null): Promise<{ ok: true; scope: Scope } | { ok: false; error: string }> {
-  if (planId && roleId) return { ok: false, error: "Invalid request." };
+/** Which design: the organisation default (no id), one plan's, one member role's or one area's. At most one id. */
+async function scopeFor(organisationId: string, planId: string | null, roleId: string | null, unitId: string | null = null): Promise<{ ok: true; scope: Scope } | { ok: false; error: string }> {
+  if ([planId, roleId, unitId].filter(Boolean).length > 1) return { ok: false, error: "Invalid request." };
   const plan = planId ? await prisma.membershipPlan.findFirst({ where: { id: planId, organisationId }, select: { id: true, name: true } }) : null;
   if (planId && !plan) return { ok: false, error: "That plan no longer exists." };
   const role = roleId ? await prisma.memberRole.findFirst({ where: { id: roleId, organisationId, archivedAt: null }, select: { id: true, name: true } }) : null;
   if (roleId && !role) return { ok: false, error: "That role no longer exists." };
-  return { ok: true, scope: { plan, role } };
+  const unit = unitId ? await prisma.orgUnit.findFirst({ where: { id: unitId, organisationId, archivedAt: null }, select: { id: true, name: true } }) : null;
+  if (unitId && !unit) return { ok: false, error: "That area no longer exists." };
+  return { ok: true, scope: { plan, role, unit } };
 }
 
-const rowWhere = (organisationId: string, scope: Scope) => ({ organisationId, planId: scope.plan?.id ?? null, roleId: scope.role?.id ?? null });
+const rowWhere = (organisationId: string, scope: Scope) => ({ organisationId, planId: scope.plan?.id ?? null, roleId: scope.role?.id ?? null, unitId: scope.unit?.id ?? null });
 const contextFor = (organisation: { name: string }, scope: Scope) => ({ organisationName: organisation.name, planName: scope.plan?.name ?? "" });
 
 /**
  * The row a design is stored in. A new one starts as a draft copied from the organisation's live
- * design, and stays off members' cards until it is approved. A role design numbers its own cards, so
- * it starts with a prefix made from the role's name. Two saves racing to create it hit the unique
+ * design, and stays off members' cards until it is approved. A role or area design numbers its own cards, so
+ * it starts with a prefix made from its name. Two saves racing to create it hit the unique
  * index; the loser reads the winner's row.
  */
 async function designRow(organisation: { id: string; name: string }, scope: Scope, userId: string) {
   const existing = await prisma.cardDesign.findFirst({ where: rowWhere(organisation.id, scope) });
   if (existing) return existing;
-  const fallback = scope.plan || scope.role ? await prisma.cardDesign.findFirst({ where: { organisationId: organisation.id, planId: null, roleId: null, design: { not: Prisma.DbNull } } }) : null;
-  const numberPrefix = scope.role ? deriveCardPrefix(scope.role.name) : fallback?.numberPrefix ?? deriveCardPrefix(organisation.name);
+  const fallback = scope.plan || scope.role || scope.unit ? await prisma.cardDesign.findFirst({ where: { organisationId: organisation.id, planId: null, roleId: null, unitId: null, design: { not: Prisma.DbNull } } }) : null;
+  const own = scope.role ?? scope.unit;
+  const numberPrefix = own ? deriveCardPrefix(own.name) : fallback?.numberPrefix ?? deriveCardPrefix(organisation.name);
   const draft: CardDraft = {
     design: normalizeCardDesign(fallback?.design ?? defaultCardDesign(contextFor(organisation, scope)), contextFor(organisation, scope)),
     numberPrefix,
@@ -93,6 +96,7 @@ async function saveDraft(organisation: { id: string; name: string }, scope: Scop
 const scopeIds = {
   planId: z.string().trim().min(1).max(64).nullable(),
   roleId: z.string().trim().min(1).max(64).nullable().optional(),
+  unitId: z.string().trim().min(1).max(64).nullable().optional(),
 };
 
 const saveSchema = z.object({
@@ -103,7 +107,7 @@ const saveSchema = z.object({
   numberFormat: z.string().max(80).optional(),
 });
 
-/** Save the draft of the organisation default, one plan's or one role's design. Autosaved by the designer. */
+/** Save the draft of the organisation default, one plan's, one role's or one area's design. Autosaved by the designer. */
 export async function saveCardDesign(input: unknown): Promise<ActionResult<{ updatedAt: string }>> {
   const parsed = saveSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid request." };
@@ -113,15 +117,15 @@ export async function saveCardDesign(input: unknown): Promise<ActionResult<{ upd
   if (formatError) return { ok: false, error: formatError };
   const ctx = await access(parsed.data.organisationSlug);
   if (!ctx.ok) return ctx;
-  const found = await scopeFor(ctx.organisation.id, parsed.data.planId, parsed.data.roleId ?? null);
+  const found = await scopeFor(ctx.organisation.id, parsed.data.planId, parsed.data.roleId ?? null, parsed.data.unitId ?? null);
   if (!found.ok) return found;
   const { scope } = found;
-  if (scope.role && parsed.data.numberPrefix) {
-    const own = await prisma.cardDesign.findFirst({ where: { organisationId: ctx.organisation.id, planId: null, roleId: null }, select: { numberPrefix: true } });
-    if (parsed.data.numberPrefix === (own?.numberPrefix ?? deriveCardPrefix(ctx.organisation.name))) return { ok: false, error: "Give this role a prefix other than the organisation's, so its card numbers never repeat one already printed." };
+  if ((scope.role || scope.unit) && parsed.data.numberPrefix) {
+    const own = await prisma.cardDesign.findFirst({ where: { organisationId: ctx.organisation.id, planId: null, roleId: null, unitId: null }, select: { numberPrefix: true } });
+    if (parsed.data.numberPrefix === (own?.numberPrefix ?? deriveCardPrefix(ctx.organisation.name))) return { ok: false, error: `Give this ${scope.role ? "role" : "area"} a prefix other than the organisation's, so its card numbers never repeat one already printed.` };
   }
   const design = normalizeCardDesign(parsed.data.design, contextFor(ctx.organisation, scope));
-  // Numbering belongs to the organisation default and to role designs; plans number nothing.
+  // Numbering belongs to the organisation default, role designs and area designs; plans number nothing.
   const saved = await saveDraft(ctx.organisation, scope, ctx.userId, (draft) => ({
     ...draft,
     design,
@@ -141,7 +145,7 @@ export async function approveCardDesign(input: unknown): Promise<ActionResult> {
   if (!parsed.success) return { ok: false, error: "Invalid request." };
   const ctx = await access(parsed.data.organisationSlug, "cards.approve");
   if (!ctx.ok) return ctx;
-  const found = await scopeFor(ctx.organisation.id, parsed.data.planId, parsed.data.roleId ?? null);
+  const found = await scopeFor(ctx.organisation.id, parsed.data.planId, parsed.data.roleId ?? null, parsed.data.unitId ?? null);
   if (!found.ok) return found;
   const row = await prisma.cardDesign.findFirst({ where: rowWhere(ctx.organisation.id, found.scope), select: { id: true } });
   const approved = row ? await prisma.$transaction((tx) => approveCardDraft(tx, { organisationId: ctx.organisation.id, rowId: row.id, actorUserId: ctx.userId, context: contextFor(ctx.organisation, found.scope) })) : false;
@@ -158,7 +162,7 @@ export async function discardCardDraft(input: unknown): Promise<ActionResult> {
   if (!parsed.success) return { ok: false, error: "Invalid request." };
   const ctx = await access(parsed.data.organisationSlug);
   if (!ctx.ok) return ctx;
-  const found = await scopeFor(ctx.organisation.id, parsed.data.planId, parsed.data.roleId ?? null);
+  const found = await scopeFor(ctx.organisation.id, parsed.data.planId, parsed.data.roleId ?? null, parsed.data.unitId ?? null);
   if (!found.ok) return found;
   const where = rowWhere(ctx.organisation.id, found.scope);
   await prisma.cardDesign.deleteMany({ where: { ...where, design: { equals: Prisma.DbNull } } });
@@ -168,17 +172,18 @@ export async function discardCardDraft(input: unknown): Promise<ActionResult> {
   return { ok: true };
 }
 
-const revertSchema = scopeSchema.refine((input) => Boolean(input.planId) !== Boolean(input.roleId));
+const revertSchema = scopeSchema.refine((input) => [input.planId, input.roleId, input.unitId].filter(Boolean).length === 1);
 
-/** The owner drops a plan's or a role's own design, so those cards use the next design down again. */
+/** The owner drops a plan's, a role's or an area's own design, so those cards use the next design down again. */
 export async function revertToOrganisationCardDesign(input: unknown): Promise<ActionResult> {
   const parsed = revertSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Invalid request." };
   const ctx = await access(parsed.data.organisationSlug, "cards.approve");
   if (!ctx.ok) return ctx;
-  const where = parsed.data.planId ? { planId: parsed.data.planId } : { roleId: parsed.data.roleId! };
+  const where = parsed.data.planId ? { planId: parsed.data.planId } : parsed.data.roleId ? { roleId: parsed.data.roleId } : { unitId: parsed.data.unitId! };
   const { count } = await prisma.cardDesign.deleteMany({ where: { organisationId: ctx.organisation.id, ...where } });
-  if (count) await recordAuditEvent({ action: "CARD_DESIGN_RESET", actorUserId: ctx.userId, organisationId: ctx.organisation.id, targetType: parsed.data.planId ? "MembershipPlan" : "MemberRole", targetId: parsed.data.planId ?? parsed.data.roleId! });
+  const target = parsed.data.planId ? ["MembershipPlan", parsed.data.planId] : parsed.data.roleId ? ["MemberRole", parsed.data.roleId] : ["OrgUnit", parsed.data.unitId!];
+  if (count) await recordAuditEvent({ action: "CARD_DESIGN_RESET", actorUserId: ctx.userId, organisationId: ctx.organisation.id, targetType: target[0]!, targetId: target[1]! });
   revalidatePath(`/dashboard/${ctx.organisation.slug}/settings/cards`);
   return { ok: true };
 }
@@ -202,7 +207,7 @@ export async function uploadCardWatermark(formData: FormData): Promise<ActionRes
   const ctx = await access(String(formData.get("organisationSlug") ?? ""));
   if (!ctx.ok) return ctx;
   if (await isActionRateLimited("upload", ctx.userId)) return { ok: false, error: "Too many uploads. Try again later." };
-  const found = await scopeFor(ctx.organisation.id, String(formData.get("planId") ?? "") || null, String(formData.get("roleId") ?? "") || null);
+  const found = await scopeFor(ctx.organisation.id, String(formData.get("planId") ?? "") || null, String(formData.get("roleId") ?? "") || null, String(formData.get("unitId") ?? "") || null);
   if (!found.ok) return found;
   let url: string | null = null;
   if (formData.get("remove") !== "1") {

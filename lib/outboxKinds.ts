@@ -15,7 +15,7 @@ import { asChatPayload, deliverChatNotice } from "@/lib/chat/notify";
 import { asLoginAlertPayload, asLoginCodePayload, deliverLoginAlert, deliverLoginCode } from "@/lib/email/loginSecurity";
 import { asSmsCodePayload, deliverSmsCode } from "@/lib/sms/outbox";
 import { asOwnershipPayload, deliverOwnershipNotice } from "@/lib/team/ownershipEmail";
-import { memberMessage } from "@/lib/notify/outbox";
+import { certificateEmail, memberMessage } from "@/lib/notify/outbox";
 import { asLegacyPhotoPurgePayload, asPhotoPurgePayload, deleteFilesWithHistory, purgeErasedMemberPhotos } from "@/lib/storage/memberPhotos";
 /** What a handler reports after a delivery attempt. Throw to retry; throw PermanentOutboxError to give up. */
 export type DeliveryOutcome = "sent" | "dropped";
@@ -283,6 +283,7 @@ export const OUTBOX_KINDS = {
   "payment-notice": paymentNotice,
   "report-digest": reportDigest,
   "member-card": memberCard,
+  "certificate-email": certificateEmail,
   "verification-alert": verificationAlert,
   "erasure-notice": erasureNotice,
   "refund-notice": refundNotice,

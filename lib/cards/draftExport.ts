@@ -19,13 +19,13 @@ import type { CardBranding, CardHolder } from "./types";
  * a preview holder (lib/cards/previewHolder.ts).
  */
 
-type Scope = { plan: { id: string; name: string } | null; role: { id: string; name: string } | null; where: { organisationId: string; planId: string | null; roleId: string | null } };
+type Scope = { plan: { id: string; name: string } | null; role: { id: string; name: string } | null; unit?: { id: string; name: string; path: string } | null; where: { organisationId: string; planId: string | null; roleId: string | null; unitId: string | null } };
 
 export async function loadDraftForExport(ctx: CardOrgContext, scope: Scope) {
   const context = { organisationName: ctx.organisation.name, planName: scope.plan?.name ?? "" };
   const row = await prisma.cardDesign.findFirst({ where: scope.where, select: { design: true, draft: true, numberPrefix: true, numberFormat: true, watermarkUrl: true } });
   const orgRow = organisationDesignRow(ctx);
-  const live = scope.plan ? designFor(ctx, scope.plan) : scope.role ? designFor(ctx, { id: "", name: "" }, scope.role.id) : null;
+  const live = scope.plan ? designFor(ctx, scope.plan) : scope.role ? designFor(ctx, { id: "", name: "" }, scope.role.id) : scope.unit ? designFor(ctx, { id: "", name: "" }, null, scope.unit) : null;
   const draft = row ? readDraft(row, context) : null;
   const design: CardDesign = withOwnArtwork(draft?.design ?? live?.design ?? normalizeCardDesign(orgRow?.design, context), ctx.organisation.id);
   const branding: CardBranding = brandingFor(ctx, draft ? draft.watermarkUrl : live?.branding.watermarkUrl ?? orgRow?.watermarkUrl ?? null);
@@ -34,8 +34,8 @@ export async function loadDraftForExport(ctx: CardOrgContext, scope: Scope) {
     ? null
     : draft
       ? { prefix: draft.numberPrefix, format: draft.numberFormat }
-      : scope.role
-        ? { prefix: deriveCardPrefix(scope.role.name), format: orgRow?.numberFormat ?? DEFAULT_NUMBER_FORMAT }
+      : scope.role || scope.unit
+        ? { prefix: deriveCardPrefix((scope.role ?? scope.unit)!.name), format: orgRow?.numberFormat ?? DEFAULT_NUMBER_FORMAT }
         : { prefix: orgRow?.numberPrefix ?? deriveCardPrefix(ctx.organisation.name), format: orgRow?.numberFormat ?? DEFAULT_NUMBER_FORMAT };
   return { design, branding, numbering };
 }

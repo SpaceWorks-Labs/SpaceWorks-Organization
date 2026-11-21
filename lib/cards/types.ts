@@ -22,7 +22,7 @@ export type CardHolder = {
   validUntil: string | null;
   /** The member's unit and its ancestors, top level first (lib/cards/units.ts). Absent or empty: no unit. */
   units?: CardUnit[];
-  /** The organisation's public contact details, for `{website}`, `{email}` and `{phone}` on the back. */
+  /** The contact details of the member's area (each from the nearest unit that sets it, else the organisation), for `{website}`, `{email}` and `{phone}` on the back. */
   contact?: CardContact;
   /** The organisation's name, for the `{organisation}` placeholder. */
   organisationName?: string | null;

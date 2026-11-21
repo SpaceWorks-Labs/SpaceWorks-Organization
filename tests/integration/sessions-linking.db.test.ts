@@ -85,7 +85,8 @@ describe.sequential("server-side sessions", () => {
     await checkUserSession(sid, a.id, Date.now() - 6 * 60_000);
     expect((await prisma.userSession.findUniqueOrThrow({ where: { id: sid } })).lastSeenAt).toEqual(old);
     await checkUserSession(sid, a.id);
-    expect((await prisma.userSession.findUniqueOrThrow({ where: { id: sid } })).lastSeenAt.getTime()).toBeGreaterThan(old.getTime() + 60_000);
+    // The touch is deferred (after the response, or fire-and-forget outside a request), so wait for it to land.
+    await expect.poll(async () => (await prisma.userSession.findUniqueOrThrow({ where: { id: sid } })).lastSeenAt.getTime(), { timeout: 5_000 }).toBeGreaterThan(old.getTime() + 60_000);
   });
 
   it("revokes one device without touching the others, and audits it", async () => {

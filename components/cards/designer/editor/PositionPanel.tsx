@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/field";
 import { selectionBox, type BoxField } from "@/lib/cards/design/editor/position";
 import type { CardLayer } from "@/lib/cards/design/layerTypes";
 import { POSITION_CONTROLS } from "./arrangeControls";
+import { reword, useDesignerNoun } from "../wording";
 import type { EditorActions } from "./useEditorActions";
 
 const LABEL = Object.fromEntries(POSITION_CONTROLS.map((control) => [control.id, control.label])) as Record<(typeof POSITION_CONTROLS)[number]["id"], string>;
@@ -44,6 +45,7 @@ function NumberBox({ field, value, step, disabled, onCommit }: { field: BoxField
  * shows its own box; several show the box around them all (resizing stretches them together).
  */
 export function PositionPanel({ layers, selected, actions }: { layers: CardLayer[]; selected: CardLayer[]; actions: EditorActions }) {
+  const noun = useDesignerNoun();
   const [lockRatio, setLockRatio] = useState(false);
   const box = selectionBox(layers, selected.map((layer) => layer.id));
   if (!box) return null;
@@ -66,7 +68,7 @@ export function PositionPanel({ layers, selected, actions }: { layers: CardLayer
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="secondary" disabled={locked} onClick={() => actions.centre("x")}>{LABEL["centre-x"]}</Button>
         <Button size="sm" variant="secondary" disabled={locked} onClick={() => actions.centre("y")}>{LABEL["centre-y"]}</Button>
-        <Button size="sm" variant="secondary" disabled={locked} onClick={actions.fill}>{LABEL.fill}</Button>
+        <Button size="sm" variant="secondary" disabled={locked} onClick={actions.fill}>{reword(LABEL.fill, noun)}</Button>
       </div>
     </section>
   );

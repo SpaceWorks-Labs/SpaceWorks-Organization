@@ -89,17 +89,18 @@ sends anything. PostgreSQL is the source of truth; Redis only ever carries row i
 
 ### Wording of member emails
 
-Settings → Email → **Wording of member emails** lets an organisation write its member messages in its own words (all seventeen kinds are listed under "Member messages on every channel" below; the first two are):
+Settings → Email → **Wording of member emails** lets an organisation write its member messages in its own words (all eighteen kinds are listed under "Member messages on every channel" below; the first two are):
 
 | Kind | Email |
 |---|---|
 | `card-issued` | the membership card (PDF attached): sent when a card is first issued on activation, and by **Email card** |
+| `certificate-issued` | a certificate (PDF attached): sent by **Email to member** on a certificate, and by the **Email each member their certificate** tick when issuing |
 | `membership-activated` | the notice that a membership has started |
 
 Each has a subject, a heading and a body (`OrgEmailTemplate`, one row per organisation and kind; subject and
 heading up to 150 characters, body up to 5,000). The body is plain text: a blank line starts a new paragraph, and
 every paragraph is escaped by `sendBrandedEmail`, so nothing typed is ever sent as HTML. Placeholders are `{name}`
-(the member's full name), `{organisation}`, `{plan}`, `{unit}`, `{cardNumber}` and `{validUntil}`; one with no value
+(the member's full name), `{organisation}`, `{plan}`, `{unit}`, `{cardNumber}`, `{certificate}` (the certificate's title), `{certificateNumber}` and `{validUntil}`; one with no value
 (a member without a unit) is left empty, and anything else in curly brackets is sent as typed.
 
 The editor shows a live preview with sample details. **Send me a test** sends the wording in the editor to the
@@ -117,6 +118,17 @@ email is queued in the same transaction, if the member has an email address and 
 holds only ids; the PDF is drawn when the email is sent and never stored. Renewals and reinstatements that keep the
 card send nothing, so one activation sends at most one card email. Queuing it starts the 10-minute cooldown on
 **Email card**.
+
+### Certificate email
+
+Staff who hold `certificates.issue` email a certificate from its page (**Email to member**), or tick **Email each member their certificate** when they issue a batch (`emailIssuedCertificate`, `issueCertificates`). Either queues a `certificate-email` outbox row holding only ids, and the same member message kind, `certificate-issued`, carries it.
+
+- The PDF is drawn when the email is sent and never stored. A certificate revoked meanwhile is dropped and never sent.
+- The email carries the PDF, a **See your certificates** button to `/account` when the organisation has member accounts on, and the certificate's public check link.
+- Without wording of its own the standard text reads "Your certificate from" followed by the organisation's name; an organisation's own wording for `certificate-issued` (Settings → Email → **Wording of member emails**) replaces it. Its placeholders are the usual ones plus `{certificate}` and `{certificateNumber}`.
+- Other channels get the short text only, with no PDF, on the first channel the member has linked and agreed to (see "Member messages on every channel").
+- A certificate can be emailed again after a 10-minute cooldown. Each send is audited as `CERTIFICATE_EMAILED`, with no address or text.
+- Code: `lib/email/certificate.ts`, `lib/notify/outbox.ts`.
 
 ### Sheet onboarding and unit verification
 
@@ -207,9 +219,9 @@ where each event happens.
 
 ## Member messages on every channel
 
-Every member-facing message is one of seventeen **kinds** (`lib/messages/kinds.ts`): application received, approved and
+Every member-facing message is one of eighteen **kinds** (`lib/messages/kinds.ts`): application received, approved and
 declined; payment due and received; membership started, renewed, revoked and left; renewal due, ends today, grace
-started, grace ending and lapsed; payment being checked; card issued; refund decided. Each goes to a member **once**, on the first
+started, grace ending and lapsed; payment being checked; card issued; certificate issued; refund decided. Each goes to a member **once**, on the first
 channel the organisation's routing lists that the member can be reached on, with the later ones only as a fallback.
 
 | Channel | Connection | Member links by |
@@ -272,7 +284,7 @@ tells chat destinations how many messages went out.
 
 ### Custom wording for every kind
 
-Settings → Email → **Wording of member emails** lists all seventeen kinds. Each has a subject, a heading and a body for
+Settings → Email → **Wording of member emails** lists all eighteen kinds. Each has a subject, a heading and a body for
 email, and a **short text** (up to 1,000 characters) for text messages and chat apps, with a segment counter. Placeholders:
 `{name}`, `{organisation}`, `{plan}`, `{unit}`, `{cardNumber}`, `{validUntil}`, `{amount}`, `{dueDate}`, `{payLink}`,
 `{graceUntil}` and `{paymentInstructions}`. Plain text, escaped, never HTML; empty short text uses the standard one. The

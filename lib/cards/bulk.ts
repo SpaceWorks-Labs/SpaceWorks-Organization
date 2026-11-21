@@ -3,7 +3,7 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { safeFileName, slugForFile } from "@/lib/downloads";
-import { CARD_INCLUDE, cardRoleId, designFor, holderFor, loadCardUnits, type CardOrgContext } from "./data";
+import { CARD_INCLUDE, cardRoleId, cardUnit, designFor, holderFor, loadCardUnits, type CardOrgContext } from "./data";
 import type { CardExportFormat } from "./exportFilter";
 import { BULK_PDF_LIMIT, BULK_ZIP_LIMIT, memberCardPdfEntries, renderMemberCardsPdf, type CardInput } from "./render";
 import type { CardHolder } from "./types";
@@ -21,7 +21,7 @@ export function cardExportLimit(format: CardExportFormat) {
   return format === "zip" ? BULK_ZIP_LIMIT : BULK_PDF_LIMIT;
 }
 
-/** The cards matching `where`, page by page, each with its design (shared by plan and role) and holder. */
+/** The cards matching `where`, page by page, each with its design (shared by plan, role and unit) and holder. */
 async function* cardsMatching(ctx: CardOrgContext, where: Prisma.MemberCardWhereInput) {
   const designs = new Map<string, CardInput>();
   let cursor: string | undefined;
@@ -29,10 +29,10 @@ async function* cardsMatching(ctx: CardOrgContext, where: Prisma.MemberCardWhere
     const cards = await prisma.memberCard.findMany({ where, include: CARD_INCLUDE, orderBy: { id: "asc" }, take: PAGE, ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}) });
     await loadCardUnits(ctx, cards);
     for (const card of cards) {
-      const key = `${card.planId}:${cardRoleId(card) ?? ""}`;
+      const key = `${card.planId}:${cardRoleId(card) ?? ""}:${cardUnit(card)?.path ?? ""}`;
       let input = designs.get(key);
       if (!input) {
-        const { design, branding } = designFor(ctx, card.plan, cardRoleId(card));
+        const { design, branding } = designFor(ctx, card.plan, cardRoleId(card), cardUnit(card));
         input = { design, branding };
         designs.set(key, input);
       }

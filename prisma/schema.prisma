@@ -320,8 +320,11 @@ model Organisation {
   cardTemplates CardTemplate[]
   cardBrandKit  CardBrandKit?
   memberCards   MemberCard[]
+  certificateDesigns CertificateDesign[]
+  certificates  Certificate[]
   cardExports   CardExportJob[]
   page          OrganisationPage?
+  pageVersions  OrganisationPageVersion[]
   erasureRequests ErasureRequest[]
   dailyStats    OrgDailyStats[]
   ledgerEntries LedgerEntry[]
@@ -635,6 +638,11 @@ model OrgUnit {
   /// How members of this unit pay offline (whom to pay, when, the UPI id). Empty: the nearest unit above's, then the
   /// organisation's offline instructions.
   paymentInstructions String @default("")
+  /// The area's own contact details, printed on its members' card backs and shown on its area page. Each one left
+  /// empty falls back to the nearest unit above, then the organisation (lib/units/contact.ts).
+  contactEmail   String?
+  contactPhone   String?
+  website        String?
   /// 0 for top-level units; indexes Organisation.unitLevels.
   level          Int       @default(0)
   path           String
@@ -651,6 +659,7 @@ model OrgUnit {
   teamMembers  TeamMember[]
   teamInvites  TeamInvite[]
   dailyStats   OrgDailyStats[]
+  cardDesigns  CardDesign[]
 
   @@unique([organisationId, id])
   @@unique([organisationId, slug])
@@ -805,6 +814,7 @@ model Member {
   payments     Payment[]
   refundRequests RefundRequest[]
   cards        MemberCard[]
+  certificates Certificate[]
   erasureRequests ErasureRequest[]
   groupingValues MemberGroupingValue[]
 
@@ -1243,6 +1253,9 @@ model CardDesign {
   organisationId String
   planId         String?
   roleId         String?
+  /// An area design: members of this unit and every unit below it, unless a nearer unit has its own.
+  /// At most one of planId, roleId and unitId is set (CHECK in migration 0029).
+  unitId         String?
   /// The approved front and back (lib/cards/design/presets.ts normalises it on every read); null until
   /// the first approval, and the row is ignored until then.
   design         Json?
@@ -1252,10 +1265,10 @@ model CardDesign {
   draftUpdatedAt   DateTime?
   approvedById   String?
   approvedAt     DateTime?
-  /// Prefix of printed card numbers, e.g. "SWO" in SWO-0042. Read from the organisation default and
-  /// role designs only (lib/cards/numbering.ts).
+  /// Prefix of printed card numbers, e.g. "SWO" in SWO-0042. Read from the organisation default, role and
+  /// area designs only (lib/cards/numbering.ts).
   numberPrefix   String
-  /// Card number pattern, e.g. "{PREFIX}-{SEQ:4}". Read from the organisation default and role designs.
+  /// Card number pattern, e.g. "{PREFIX}-{SEQ:4}". Read from the organisation default, role and area designs.
   numberFormat   String   @default("{PREFIX}-{SEQ:4}")
   /// Watermark image (a managed upload) for designs that use one.
   watermarkUrl   String?
@@ -1266,11 +1279,13 @@ model CardDesign {
   organisation Organisation    @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   plan         MembershipPlan? @relation(fields: [organisationId, planId], references: [organisationId, id], onDelete: Cascade)
   role         MemberRole?     @relation(fields: [organisationId, roleId], references: [organisationId, id], onDelete: Cascade)
+  unit         OrgUnit?        @relation(fields: [organisationId, unitId], references: [organisationId, id], onDelete: Cascade)
   versions     CardDesignVersion[]
 
   @@unique([organisationId, id])
   @@unique([organisationId, planId])
   @@unique([organisationId, roleId])
+  @@unique([organisationId, unitId])
 }
 
 /// A saved state of a card design (lib/cards/versions.ts): DRAFT snapshots are coalesced to one per 10 minutes,
@@ -1337,6 +1352,70 @@ model MemberCard {
   @@index([organisationId, cardNumber])
 }
 
+/// A certificate type with its own design (lib/certificates/*): appreciation, completion, office bearer, anything the
+/// organisation names. `design` is one card side in the card layer model at page size, normalised on every read;
+/// null until the owner's first approval. `draft` waits for approval, like a card design.
+model CertificateDesign {
+  id             String    @id @default(cuid())
+  organisationId String
+  name           String
+  /// What the certificate is called when none is typed at issue: "Certificate of appreciation".
+  typeLabel      String
+  /// A4 or LETTER; the live design's page. The draft carries its own.
+  pageSize       String    @default("A4")
+  /// LANDSCAPE or PORTRAIT.
+  orientation    String    @default("LANDSCAPE")
+  design         Json?
+  /// { design, numberPrefix, numberFormat, pageSize, orientation, typeLabel }.
+  draft          Json?
+  draftUpdatedById String?
+  draftUpdatedAt   DateTime?
+  approvedById   String?
+  approvedAt     DateTime?
+  numberPrefix   String
+  numberFormat   String    @default("{PREFIX}-{SEQ:4}")
+  archivedAt     DateTime?
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organisation Organisation  @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  certificates Certificate[]
+
+  @@unique([organisationId, id])
+  @@index([organisationId, archivedAt])
+}
+
+/// One certificate given to a member. The verify token sits in the QR and is unguessable. Certificates are drawn on
+/// demand from the design's live version and never stored; revoking keeps the row and shows it as revoked.
+model Certificate {
+  id                String    @id @default(cuid())
+  organisationId    String
+  designId          String
+  memberId          String
+  certificateNumber String
+  /// 32 random bytes, base64url. Treat as a bearer value: never log it.
+  verifyToken       String    @unique
+  title             String
+  reason            String?
+  issuedAt          DateTime  @default(now())
+  issuedById        String?
+  revokedAt         DateTime?
+  revokedById       String?
+  revokedReason     String?
+  emailedAt         DateTime?
+
+  organisation Organisation      @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  design       CertificateDesign @relation(fields: [organisationId, designId], references: [organisationId, id], onDelete: Restrict)
+  member       Member            @relation(fields: [organisationId, memberId], references: [organisationId, id], onDelete: Cascade)
+
+  @@unique([organisationId, id])
+  @@unique([organisationId, certificateNumber])
+  @@index([organisationId, designId, issuedAt])
+  @@index([organisationId, memberId])
+}
+
 enum CardExportStatus {
   PENDING
   PROCESSING
@@ -1387,10 +1466,29 @@ model OrganisationPage {
   sections       Json      @default("[]")
   publishedAt    DateTime?
   draft          Json?
+  /// Who published what is live.
+  publishedById  String?
+  /// When and by whom the draft was last saved (autosave).
+  draftSavedAt   DateTime?
+  draftSavedById String?
   updatedById    String?
   updatedAt      DateTime  @updatedAt
 
   organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+}
+
+/// A published version of the public page, newest 20 kept per organisation (lib/publicPage/server.ts). Restoring one copies it into the draft.
+model OrganisationPageVersion {
+  id             String   @id @default(cuid())
+  organisationId String
+  /// The whole page document as published (lib/publicPage/sections.ts).
+  document       Json
+  publishedAt    DateTime
+  publishedById  String?
+
+  organisation Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@index([organisationId, publishedAt(sort: Desc)])
 }
 
 enum ErasureStatus {

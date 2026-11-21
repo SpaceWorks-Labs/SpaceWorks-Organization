@@ -3,6 +3,7 @@
 import { Keyboard, Maximize, Minus as MinusIcon, Plus, ZoomIn, ZoomOut } from "lucide-react";
 import { Button, IconButton } from "@/components/ui/button";
 import type { Overlays } from "./CanvasOverlay";
+import { reword, useDesignerNoun } from "../wording";
 import type { GuidesApi } from "./useGuides";
 import type { ZoomApi } from "./useZoom";
 
@@ -15,12 +16,13 @@ const TOGGLES: Array<{ key: keyof Overlays; label: string }> = [
 
 /** Zoom, the canvas overlays (rulers, grid, safe zone, bleed), guides and the shortcuts list. */
 export function ViewControls({ zoom, overlays, onOverlays, guides, onHelp }: { zoom: ZoomApi; overlays: Overlays; onOverlays: (next: Overlays) => void; guides: GuidesApi; onHelp: () => void }) {
+  const noun = useDesignerNoun();
   return (
     <div role="toolbar" aria-label="View" className="flex flex-wrap items-center gap-1.5 border-b border-line bg-canvas px-3 py-1.5">
       <IconButton size="sm" label="Zoom out (Ctrl+−)" disabled={zoom.percent <= 50} onClick={zoom.zoomOut}><ZoomOut /></IconButton>
       <span className="min-w-12 text-center text-caption tabular-nums text-ink" aria-live="polite">{zoom.percent}%</span>
       <IconButton size="sm" label="Zoom in (Ctrl++)" disabled={zoom.percent >= 400} onClick={zoom.zoomIn}><ZoomIn /></IconButton>
-      <IconButton size="sm" label="Fit the card (Ctrl+0)" aria-pressed={zoom.fitted} onClick={zoom.fit}><Maximize /></IconButton>
+      <IconButton size="sm" label={reword("Fit the card (Ctrl+0)", noun)} aria-pressed={zoom.fitted} onClick={zoom.fit}><Maximize /></IconButton>
       <span aria-hidden className="mx-1 h-6 w-px bg-line" />
       {TOGGLES.map((toggle) => (
         <Button key={toggle.key} size="sm" variant={overlays[toggle.key] ? "primary" : "quiet"} aria-pressed={overlays[toggle.key]} onClick={() => onOverlays({ ...overlays, [toggle.key]: !overlays[toggle.key] })}>

@@ -6,6 +6,7 @@ import { ColorPicker } from "@/components/ui/color-picker";
 import { cn } from "@/lib/cn";
 import { BRAND } from "@/lib/cards/palette";
 import { useEyedropper } from "./inspector/useEyedropper";
+import { reword, useDesignerNoun } from "./wording";
 
 /** Dark check on light swatches, light check on dark ones (relative luminance, sRGB approximation). */
 function checkTone(hex: string) {
@@ -57,6 +58,7 @@ export function ColourField({ label, value, onChange, orgAccent, allowNone = fal
   const brand = upper(brandColours);
   const used = upper(documentColours).filter((hex) => !brand.includes(hex)).slice(0, DOCUMENT_MAX);
   const quick = [...new Set([orgAccent.toUpperCase(), ...QUICK])].filter((hex) => !brand.includes(hex) && !used.includes(hex));
+  const noun = useDesignerNoun();
   const dropper = useEyedropper((hex) => onChange(hex));
   const caption = (text: string) => <p className="text-caption text-ink-muted">{text}</p>;
   return (
@@ -94,7 +96,7 @@ export function ColourField({ label, value, onChange, orgAccent, allowNone = fal
           <Pipette aria-hidden className="size-4" />
         </button>
       </div>
-      <p aria-live="polite" className="text-caption text-ink-muted">{dropper.picking ? "Click a colour on the card to pick it. Esc cancels." : ""}</p>
+      <p aria-live="polite" className="text-caption text-ink-muted">{dropper.picking ? reword("Click a colour on the card to pick it. Esc cancels.", noun) : ""}</p>
     </div>
   );
 }

@@ -25,7 +25,7 @@ export const STANDARD_TEMPLATES: Record<EmailTemplateKind, MessageTemplate> = ST
 /** Sample values for the editor's preview and "Send me a test". */
 export function sampleValues(organisation: string): Record<Placeholder, string> {
   return {
-    name: "Asha Menon", organisation, plan: "Annual membership", unit: "North 1", cardNumber: "EXN-0042", validUntil: "31 Mar 2027",
+    name: "Asha Menon", organisation, plan: "Annual membership", unit: "North 1", cardNumber: "EXN-0042", certificate: "Certificate of appreciation", certificateNumber: "CA-0007", validUntil: "31 Mar 2027",
     amount: "₹1,180.00", dueDate: "7 Apr 2027", payLink: "https://example.org/pay/sample", graceUntil: "30 Apr 2027",
     paymentInstructions: "Pay by UPI to example@bank and quote your name.",
   };

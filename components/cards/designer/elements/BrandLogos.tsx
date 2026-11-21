@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { copyLogoToCardArtwork } from "@/app/actions/card-artwork";
 import { Callout } from "@/components/ui/display";
+import { reword, useDesignerNoun } from "../wording";
 
 /** Width over height of a picture at `url`, or 1 when it can't be read. */
 function urlAspect(url: string) {
@@ -19,6 +20,7 @@ function urlAspect(url: string) {
  * only draw that) and places it on the card, keeping its proportions.
  */
 export function BrandLogos({ organisationSlug, logos, disabled, onPlace }: { organisationSlug: string; logos: string[]; disabled: boolean; onPlace: (url: string, aspect: number) => void }) {
+  const noun = useDesignerNoun();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   if (logos.length === 0) return null;
@@ -42,7 +44,7 @@ export function BrandLogos({ organisationSlug, logos, disabled, onPlace }: { org
         {logos.map((logo, index) => (
           <button key={logo} type="button" disabled={disabled || busy !== null} aria-busy={busy === logo} onClick={() => void place(logo)} className="grid size-16 place-items-center rounded-lg border border-line bg-panel p-1.5 hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[rgb(var(--sw-ui-focus))] disabled:cursor-not-allowed disabled:opacity-50">
             {/* eslint-disable-next-line @next/next/no-img-element -- the organisation's own logo upload */}
-            <img src={logo} alt={`Add logo ${index + 1} to the card`} className="max-h-full max-w-full object-contain" />
+            <img src={logo} alt={reword(`Add logo ${index + 1} to the card`, noun)} className="max-h-full max-w-full object-contain" />
           </button>
         ))}
       </div>

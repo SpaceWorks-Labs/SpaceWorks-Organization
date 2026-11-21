@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { loadSitemapOrganisations } from "@/lib/views/app__sitemap";
+import { loadSitemapAreas, loadSitemapOrganisations } from "@/lib/views/app__sitemap";
 import { DOC_SLUGS } from "@/lib/docs/pages";
 
 // Reads listed organisations at request time, so the build never needs a database.
@@ -10,6 +10,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
   const paths = ["/", "/features", "/docs", ...DOC_SLUGS.map((slug) => `/docs/${slug}`), "/organisations", "/about", "/privacy", "/terms"];
   const fixed = paths.map((path) => ({ url: `${baseUrl}${path}`, lastModified: now }));
-  const organisations = await loadSitemapOrganisations();
-  return [...fixed, ...organisations.map((org) => ({ url: `${baseUrl}/o/${org.slug}`, lastModified: org.updatedAt }))];
+  const [organisations, areas] = await Promise.all([loadSitemapOrganisations(), loadSitemapAreas()]);
+  return [...fixed, ...organisations.map((org) => ({ url: `${baseUrl}/o/${org.slug}`, lastModified: org.updatedAt })), ...areas.map((area) => ({ url: `${baseUrl}/o/${area.slug}/a/${area.code}`, lastModified: area.updatedAt }))];
 }

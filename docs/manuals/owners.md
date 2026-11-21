@@ -12,11 +12,12 @@ Like all staff, an owner must turn on an authenticator app under **Account, Secu
 
 ## Owner only
 
-These three permissions (marked ★ in the role editor) belong to the Owner alone. No other role can hold them.
+These four permissions (marked ★ in the role editor) belong to the Owner alone. No other role can hold them.
 
 | Permission | What it means | Where |
 | --- | --- | --- |
 | `cards.approve` | Approve a card design draft so it goes live on members' cards | Settings, Cards |
+| `certificates.approve` | Approve a certificate design draft so certificates can be issued from it | Certificates |
 | `org.delete` | Delete the organisation; also connect the organisation's own messaging channels and set its outside web analytics | Settings, Profile; Settings, Messaging; Settings, Web analytics |
 | `ownership.transfer` | Offer the organisation to another person, who accepts on `/dashboard/<slug>/ownership` | Team |
 
@@ -38,6 +39,7 @@ The Owner holds all of these. Other roles hold the ones the Owner gives them.
 | `reports.finance` | Finance reports | Reports: Money, Cash in hand, Tax and receipts |
 | `members.manage` | Add, edit, approve and renew members | Add a member, Import members, member page, grouping values, smart groups, reminders |
 | `cards.manage` | Issue, reissue and revoke member cards | Member page, bulk card downloads |
+| `certificates.issue` | Issue, email, download and revoke certificates | Certificates, member page |
 | `audit.view` | Read the activity log | Activity, Reports: Team activity |
 | `erasure.decide` | Decide requests to erase personal data | Member page |
 | `team.manage` | Invite staff and change their roles | Team |
@@ -45,12 +47,14 @@ The Owner holds all of these. Other roles hold the ones the Owner gives them.
 | `payments.settings` ◆ | Change payment gateways and tax settings | Settings, Payments and tax |
 | `org.settings` ◆ | Change the profile, public page, email and notifications | Settings: Profile, Money and year, Email, Notifications, Messaging, Public page |
 | `structure.manage` ◆ | Change units, levels and member roles | Settings, Units and roles |
-| `cards.design` ◆ | Draft card designs | Settings, Cards |
+| `cards.design` ◆ | Draft card designs, including an area's own | Settings, Cards |
+| `certificates.design` ◆ | Draft certificate designs | Certificates |
 | `accounts.manage` ◆ | Record other receipts and expenses | Accounts |
 | `reports.gstr1` ● | GSTR-1 export | Reports, Tax and receipts |
 | `roles.manage` ◆ | Create and edit staff roles | Settings, Staff roles |
 | `groupings.manage` ● | Create and change groupings and their values | Settings, Groupings |
 | `cards.approve` ★ | Approve card designs | Settings, Cards |
+| `certificates.approve` ★ | Approve certificate designs | Certificates |
 | `org.delete` ★ | Delete the organisation | Settings, Profile |
 | `ownership.transfer` ★ | Transfer ownership | Team |
 
@@ -80,4 +84,4 @@ Before approval, only the application page opens. While suspended or archived, t
 ## Related
 
 - [Quickstart for organisation owners](../guides/start/quickstart-owner.md)
-- [Staff and roles](../features/staff-and-roles.md), [Organisations](../features/organisations.md), [Member cards](../features/member-cards.md)
+- [Staff and roles](../features/staff-and-roles.md), [Organisations](../features/organisations.md), [Member cards](../features/member-cards.md), [Certificates](../features/certificates.md)

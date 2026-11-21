@@ -11,7 +11,7 @@ import type { CardDesign, CardSide } from "@/lib/cards/design/presets";
 import { ScaledCard } from "../../ScaledCard";
 import { formatWhen, keepKeysInside, PREVIEW_BRANDING, PREVIEW_HOLDER } from "./shared";
 
-type Target = { organisationSlug: string; planId: string | null; roleId: string | null };
+type Target = { organisationSlug: string; planId: string | null; roleId: string | null; unitId: string | null };
 
 /**
  * Saved drafts and approved versions of this design, newest first, with a preview of the chosen one.
@@ -22,12 +22,12 @@ export function VersionHistoryDialog({ open, onOpenChange, target, side, onResto
   const [versions, setVersions] = useState<CardVersionEntry[] | null>(null);
   const [chosen, setChosen] = useState<{ id: string; design: CardDesign | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { organisationSlug, planId, roleId } = target;
+  const { organisationSlug, planId, roleId, unitId } = target;
 
   useEffect(() => {
     if (!open) return;
     let live = true;
-    void listCardDesignVersions({ organisationSlug, planId, roleId }).then((result) => {
+    void listCardDesignVersions({ organisationSlug, planId, roleId, unitId }).then((result) => {
       if (!live) return;
       if (result.ok) setVersions(result.data?.versions ?? []);
       else setError(result.error);
@@ -35,12 +35,12 @@ export function VersionHistoryDialog({ open, onOpenChange, target, side, onResto
     return () => {
       live = false;
     };
-  }, [open, organisationSlug, planId, roleId]);
+  }, [open, organisationSlug, planId, roleId, unitId]);
 
   const choose = async (id: string) => {
     setChosen({ id, design: null });
     setError(null);
-    const result = await getCardDesignVersion({ organisationSlug, planId, roleId, versionId: id });
+    const result = await getCardDesignVersion({ organisationSlug, planId, roleId, unitId, versionId: id });
     if (result.ok && result.data) setChosen((current) => (current?.id === id ? { id, design: result.data!.design } : current));
     else if (!result.ok) setError(result.error);
   };

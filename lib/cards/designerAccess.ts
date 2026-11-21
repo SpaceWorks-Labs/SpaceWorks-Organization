@@ -36,12 +36,17 @@ export async function cardDesignerReadAccess(slug: unknown, capabilities: readon
   return { ok: true, organisation: { id: org.id, slug: org.slug, name: org.name }, membership, userId };
 }
 
-/** Which design: the organisation default (neither id), one plan's or one live member role's. Null when either is gone. */
-export async function findDesignScope(organisationId: string, planId: string | null, roleId: string | null) {
-  if (planId && roleId) return null;
+/**
+ * Which design: the organisation default (no id), one plan's, one live member role's or one area's (a unit of this
+ * organisation that is not archived). At most one id; null when it is combined with another or the record is gone.
+ */
+export async function findDesignScope(organisationId: string, planId: string | null, roleId: string | null, unitId: string | null = null) {
+  if ([planId, roleId, unitId].filter(Boolean).length > 1) return null;
   const plan = planId ? await prisma.membershipPlan.findFirst({ where: { id: planId, organisationId }, select: { id: true, name: true } }) : null;
   if (planId && !plan) return null;
   const role = roleId ? await prisma.memberRole.findFirst({ where: { id: roleId, organisationId, archivedAt: null }, select: { id: true, name: true } }) : null;
   if (roleId && !role) return null;
-  return { plan, role, where: { organisationId, planId: plan?.id ?? null, roleId: role?.id ?? null } };
+  const unit = unitId ? await prisma.orgUnit.findFirst({ where: { id: unitId, organisationId, archivedAt: null }, select: { id: true, name: true, code: true, path: true } }) : null;
+  if (unitId && !unit) return null;
+  return { plan, role, unit, where: { organisationId, planId: plan?.id ?? null, roleId: role?.id ?? null, unitId: unit?.id ?? null } };
 }

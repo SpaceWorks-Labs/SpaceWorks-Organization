@@ -1,47 +1,17 @@
 import { PUBLIC_PAGE_TTL_SECONDS, cached, orgCacheKey } from "@/lib/cache";
-import { prisma } from "@/lib/db";
 import { loadPublicOrganisation } from "@/lib/publicOrganisation";
-import { loadPublicCounts } from "@/lib/publicPage/counts";
-import { countsWanted } from "@/lib/publicPage/live";
-import { sampleCardFor } from "@/lib/publicPage/sampleCard";
-import { loadStoredPage } from "@/lib/publicPage/server";
+import { loadPublicContent } from "@/lib/publicPage/content";
 
 /**
  * The public page: the organisation's story and the plans people can join. With a published custom page
  * its sections render; otherwise the plain page shows. The organisation (status, branding) is read live; its
- * plans, published page, units, live counts (aggregates only, small counts removed) and sample card are cached for a
- * few minutes and dropped when plans or the page change.
+ * plans, published page, units, live counts and numbers (aggregates only, small counts removed), areas directory and
+ * sample card are cached for a few minutes and dropped when plans, members or the page change. Only the published
+ * document is ever read here; drafts never reach a visitor.
  */
 export async function loadPublicOrgPage({ params }: { params: Promise<{ orgSlug: string }> }) {
   const { orgSlug } = await params;
   const org = await loadPublicOrganisation(orgSlug);
-  const { plans, page, units, counts, sampleCard } = await cached(orgCacheKey(org.id, "public-page"), PUBLIC_PAGE_TTL_SECONDS, () => publicContent(org));
-  return { org, plans, takingMembers: org.status === "ACTIVE", page, units, counts: counts ?? null, sampleCard: sampleCard ?? null };
-}
-
-/** What every visitor sees on the page, the same for all of them. */
-async function publicContent(org: { id: string; slug: string }) {
-  const organisationId = org.id;
-  const [plans, stored] = await Promise.all([
-    prisma.membershipPlan.findMany({
-      where: { organisationId, archivedAt: null },
-      orderBy: { sortOrder: "asc" },
-      select: {
-        id: true, name: true, slug: true, description: true, currency: true, durationType: true, durationMonths: true, fixedEndDate: true,
-        priceNewMinor: true, priceRenewalMinor: true, joiningFeeMinor: true, joinMode: true, allUnits: true,
-        units: { select: { unit: { select: { name: true } } } },
-      },
-    }),
-    loadStoredPage(organisationId),
-  ]);
-  const page = stored.published;
-  const units = page?.sections.some((section) => section.type === "units" && section.visible)
-    ? await prisma.orgUnit.findMany({ where: { organisationId, archivedAt: null }, orderBy: [{ level: "asc" }, { sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, level: true, parentId: true }, take: 500 })
-    : [];
-  const visible = (type: string) => Boolean(page?.sections.some((section) => section.type === type && section.visible));
-  const [counts, sampleCard] = await Promise.all([
-    page ? loadPublicCounts(organisationId, countsWanted(page)) : null,
-    visible("card") ? sampleCardFor(org) : null,
-  ]);
-  return { plans, page, units, counts, sampleCard };
+  const { plans, page, units, counts, sampleCard, liveStats, areas } = await cached(orgCacheKey(org.id, "public-page"), PUBLIC_PAGE_TTL_SECONDS, () => loadPublicContent(org, null));
+  return { org, plans, takingMembers: org.status === "ACTIVE", page, units, counts: counts ?? null, sampleCard: sampleCard ?? null, liveStats: liveStats ?? null, areas: areas ?? [], area: null };
 }

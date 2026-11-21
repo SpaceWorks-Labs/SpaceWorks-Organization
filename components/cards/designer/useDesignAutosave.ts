@@ -14,7 +14,7 @@ const SAVE_DELAY_MS = 900;
  * after the last change, one save at a time. `current()` is what will be saved next; `set` changes it
  * and schedules the save.
  */
-export function useDesignAutosave(initial: { design: CardDesign; numbering: Numbering }, target: { organisationSlug: string; planId: string | null; roleId: string | null; numbers: boolean }) {
+export function useDesignAutosave(initial: { design: CardDesign; numbering: Numbering }, target: { organisationSlug: string; planId: string | null; roleId: string | null; unitId: string | null; numbers: boolean }) {
   const [status, setStatus] = useState<SaveStatus>("saved");
   const [error, setError] = useState<string | null>(null);
   const latest = useRef(initial);
@@ -33,7 +33,7 @@ export function useDesignAutosave(initial: { design: CardDesign; numbering: Numb
     try {
       const { design, numbering } = latest.current;
       const result = await saveCardDesign({
-        organisationSlug: target.organisationSlug, planId: target.planId, roleId: target.roleId, design: design as unknown as Record<string, unknown>,
+        organisationSlug: target.organisationSlug, planId: target.planId, roleId: target.roleId, unitId: target.unitId, design: design as unknown as Record<string, unknown>,
         ...(target.numbers && /^[A-Z0-9]{2,6}$/.test(numbering.prefix) ? { numberPrefix: numbering.prefix } : {}),
         ...(target.numbers && !numberFormatError(numbering.format) ? { numberFormat: numbering.format } : {}),
       });

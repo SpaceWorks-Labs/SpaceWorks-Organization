@@ -1,7 +1,7 @@
 import { cn } from "@/lib/cn";
 
 /** Screenshots in public/screens, captured in both themes by scripts/capture-screens.mjs (1440 × 900 unless noted). */
-export type ScreenName = "members" | "payments" | "reports-and-analytics" | "member-cards" | "public-page" | "plans-and-join-forms";
+export type ScreenName = "members" | "payments" | "reports-and-analytics" | "member-cards" | "public-page" | "plans-and-join-forms" | "certificates";
 
 /**
  * One screenshot that follows the page theme: the light capture in light, the dark capture in dark. The theme is

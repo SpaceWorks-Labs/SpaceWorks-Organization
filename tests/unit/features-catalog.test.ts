@@ -6,11 +6,11 @@ import { CAPABILITY_LIST } from "@/lib/permissionRoles";
 
 const EXPECTED = [
   "organisations", "units", "groupings", "staff-and-roles", "sign-in", "plans-and-join-forms", "renewals", "payments", "receipts-and-refunds",
-  "member-cards", "member-portal", "public-page", "reports-and-analytics", "notifications", "web-analytics", "self-hosting",
+  "member-cards", "certificates", "member-portal", "public-page", "reports-and-analytics", "notifications", "web-analytics", "self-hosting",
 ];
 
 describe("feature catalogue", () => {
-  it("lists exactly the sixteen areas, in docs order, each once", () => {
+  it("lists exactly the seventeen areas, in docs order, each once", () => {
     expect([...DOCS_SLUGS]).toEqual(EXPECTED);
     expect(FEATURE_AREAS.map((area) => area.id)).toEqual(EXPECTED);
     expect(new Set(FEATURE_AREAS.map((area) => area.id)).size).toBe(FEATURE_AREAS.length);

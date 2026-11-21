@@ -96,6 +96,15 @@ public issue.
   see exactly the public check, so a scan never shows that someone is a member elsewhere. Staff without an
   authenticator are asked to set one up instead.
 
+### Certificates (`/verify/certificate`)
+
+- **Verify tokens.** Each certificate has a `verifyToken` of 32 random bytes, base64url, unique in the database, that is the only thing the QR code and the check link carry. A certificate keeps its token for its whole life; there is no way to guess one from a number or a name. An unknown or malformed token shows the same "Certificate not recognised" page.
+- **Public check.** Anyone with the link sees the verdict (valid or revoked), the title, the organisation, the certificate number and the issue date. The member's name is shown only while the certificate is valid, and is left out once it is revoked. The page never shows the reason, a revoke reason, an email address, a phone number, a plan, a unit, a member number or the certificate's image. A suspended organisation's certificates show "Can't check". The page is `noindex`, `no-referrer` and not cached, and `proxy.ts` rate limits `/verify/*` per address together with the card checks.
+- **Staff scans.** Signed-in staff of the certificate's organisation who can read members (`members.view`), have an authenticator and have the member inside their unit and grouping reach see a short panel with the certificate's details, its state, downloads and links to the certificate and the member. Each scan writes `CERTIFICATE_SCANNED` (throttled to once every 10 minutes); a super admin's also writes `SUPER_ADMIN_ORG_ENTERED`. Staff of another organisation, or limited to another unit, see exactly the public check, so a scan never shows that someone is a member elsewhere. Staff without an authenticator are asked to set one up instead.
+- **Downloads.** `/api/certificates/<id>` gives a PDF or PNG only to staff holding `certificates.issue` (or `members.contact`) with an authenticator and the member in reach, or to the member whose verified email matches, while the organisation has member accounts on. A revoked certificate downloads only for staff. Everyone else gets 404. Bulk downloads need `certificates.issue` and share the card render slot.
+- **Issuing and revoking** are audited (`CERTIFICATE_ISSUED`, `CERTIFICATE_REVOKED`, `CERTIFICATE_EMAILED`, `CERTIFICATE_DOWNLOADED`, `CERTIFICATE_EXPORT_DOWNLOADED`) with counts and ids, never a name, an address or the reason text. Staff limited to a unit or grouping issue only inside their reach. A design's own approval is the Owner's alone (`certificates.approve`), and issued certificates are always drawn from the approved design.
+- **Design artwork** may be only the organisation's own `member-id-artwork` uploads, and a text value filled into a layer is printed as text: a reason typed as a placeholder is never expanded.
+
 ### Sign-in
 
 - **Staff need an authenticator.** Anyone on an organisation's team (whatever their role) must

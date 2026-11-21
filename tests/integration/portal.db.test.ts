@@ -159,7 +159,7 @@ describe.sequential("member portal", () => {
     const slug = orgs.spaceworks.slug;
     const about = { ...newSection("about", "aboutsec01"), markdown: "## Who we are\nMakers of **Kochi**." };
     const document = { tagline: "Makers of Kochi", coverAssetKey: null, accentColor: "#FF7447", sections: [about, newSection("plans", "planssec01")] };
-    expect(await savePublicPageDraft({ organisationSlug: slug, document })).toEqual({ ok: true });
+    expect(await savePublicPageDraft({ organisationSlug: slug, document })).toMatchObject({ ok: true });
     expect((await loadPublicOrgPage({ params: Promise.resolve({ orgSlug: slug }) })).page).toBeNull();
 
     expect(await publishPublicPage({ organisationSlug: slug, document })).toEqual({ ok: true });
@@ -168,7 +168,7 @@ describe.sequential("member portal", () => {
     expect(live.page?.sections.map((section) => section.type)).toEqual(["about", "plans"]);
     expect(live.plans).toHaveLength(1);
 
-    expect(await savePublicPageDraft({ organisationSlug: slug, document: { ...document, tagline: "Draft only" } })).toEqual({ ok: true });
+    expect(await savePublicPageDraft({ organisationSlug: slug, document: { ...document, tagline: "Draft only" } })).toMatchObject({ ok: true });
     expect((await loadPublicOrgPage({ params: Promise.resolve({ orgSlug: slug }) })).page?.tagline).toBe("Makers of Kochi");
 
     const foreign = { ...newSection("gallery", "gallery001"), images: [{ key: `organisations/${orgs.tinkerspace.id}/page-images/3f2b8c1e-1d2a-4c3b-9a8b-7c6d5e4f3a2b.webp`, alt: "" }] };

@@ -36,7 +36,7 @@ Sign in at `/login` with email and password. If password sign-in is switched off
 | An organisation | `/super-admin/orgs/<id>` | Decisions, application details, review history, team, invites, directory listing and limits |
 | Organisation analytics | `/super-admin/orgs/<id>/analytics` | Totals for the last 12 months; viewing it is audited |
 | Reports | `/super-admin/reports` | Organisations, members across them, usage, payments and instance health, as counts |
-| Analytics | `/super-admin/analytics` | Every organisation compared, and platform trends, as totals |
+| Analytics | `/super-admin/analytics` | Six tabs, as totals: Overview, Growth, Money, Organisations, Operations and Web |
 | Users | `/super-admin/users` | Every account, with verification, two-step sign-in, teams and sessions |
 | Email | `/super-admin/email` | Email volume from the outbox; recipients and contents are never shown |
 | Messaging | `/super-admin/messaging` | The platform's own channels for member reminders and notices |
@@ -77,6 +77,17 @@ A super admin with a verified email and an authenticator can open any organisati
 ## Analytics stay aggregate
 
 Platform reports and analytics show totals and counts only, never a member's name or contact details. To see member records you must enter the organisation as above, which is audited.
+
+## Platform analytics tabs
+
+**Analytics** has a tab for each question. **Growth**, **Money** and **Organisations** share a range of 30 days, 90 days, 12 months or the financial year (April to March), compared with the same length just before it; **Operations** takes 7, 30 or 90 days.
+
+- **Growth:** organisations and members, joined, renewed, lapsed and reinstated, and the renewal and churn rates, each against the previous period.
+- **Money:** collected, refunds, net, online against in hand, and what is outstanding now, one section for each currency and never added across them.
+- **Organisations:** a sortable ranking with growth, renewal rate, net revenue and last activity; a row opens that organisation's analytics.
+- **Operations:** whether the outbox, email, messages, SMS codes, sign-ins, background jobs and storage are healthy, by day.
+
+See [Reports and analytics](../features/reports-and-analytics.md#platform-analytics-tabs).
 
 ## Platform settings
 

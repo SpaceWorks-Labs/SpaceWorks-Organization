@@ -10,7 +10,7 @@ Each member gets an ID card with a QR code they can show on a phone or print, dr
   old one, so an old QR shows "Card replaced".
 - **Drawn on demand, never stored.** Cards are drawn from the live design each time: in the member's wallet, on the
   check page, in downloads, emails and bulk downloads. The PDF and the PNG always match.
-- **Card numbers** follow a pattern with a running sequence, set for the organisation and for each member role.
+- **Card numbers** follow a pattern with a running sequence, set for the organisation, for each member role and for each area that has its own design.
 - **Bulk downloads** give A4 print sheets, one card per page, or a ZIP of PDFs.
 - **Members** see their live cards on their account page (`/account`) and download them as PDF or PNG, when the
   organisation has member accounts switched on.
@@ -45,9 +45,32 @@ Each member gets an ID card with a QR code they can show on a phone or print, dr
   and an optional icon), or crop and zoom an uploaded one.
 - Fonts are Gilroy plus a library of open-licence fonts. Card text is shaped for extended Latin, the rupee sign,
   Malayalam and Devanagari, and printed as outlines. Undo and redo work with Ctrl+Z and Ctrl+Shift+Z.
-- **Designs by scope:** the organisation's default, a plan's own design, or a member role's own design. A card uses its
-  member's main role design if it has one, then its plan's, then the organisation default. **Role cards** lists each
-  member role with its status and how many live cards use it.
+- **Designs by scope:** the organisation's default, a plan's own design, a member role's own design, or an area's own
+  design. A card uses, in this order:
+  1. its member's main role design, if it has one;
+  2. the design of the member's own area, or else of the nearest area above it that has one;
+  3. its plan's design;
+  4. the organisation default;
+  5. the built-in design.
+
+  **Role cards** lists each member role with its status and how many live cards use it. **Area cards** (the area
+  picker beside it) lists the areas inside your reach in tree order, with their level and code, and shows which have
+  their own design, a draft or a change waiting for approval.
+
+### Designs for an area
+
+An area is any unit, at any level (see [units](units.md)). An area's own design suits a chapter or a branch that
+prints its own look, prefix and contact details.
+
+1. Open **Settings → Cards** and choose **Choose an area** beside the other scopes. Search by name, code or level.
+2. A new area design starts from the organisation's live design, with a prefix made from the area's name. Edit it like any other design.
+3. The prefix must differ from the organisation's, so card numbers never repeat one already printed.
+4. Save as a draft. The Owner approves it as usual; until then members in the area keep the card they have.
+5. The Owner can send an area back with **Use organisation design** (or the same button named after the area above it), which removes its own design. Its members' cards then use the next one in the order above.
+
+Members in the area, and in the areas under it that have no design of their own, use it. An archived area's design
+stays live, so its members keep their card. Brand kit and templates stay organisation-wide. Preview with a member
+shows the area's contact details; the **Download** preview with sample details still uses the organisation's.
 
 ### Draft and approval
 
@@ -70,10 +93,24 @@ The pattern uses literal text (capital letters, digits, spaces and `. / _ -`) an
 | `{UNIT}` | The code of the member's own unit |
 | `{U1}` to `{U4}` | The code of the member's unit at that level; `NA` when there is none |
 
-The default pattern is `{PREFIX}-{SEQ:4}`. A number belongs to a membership: renewals, reinstatements and reissues
+The default pattern is `{PREFIX}-{SEQ:4}`.
+
+A new card is numbered from one design only: the member's main role design, else the nearest area design, else the
+organisation's. Each of them keeps its own running sequence, so an area's cards count up from the area's own start.
+Adding area numbering never changes a number already issued: cards keep their numbers when an area gets a design,
+when a member moves to another area, and when a unit's code changes.
+
+A number belongs to a membership: renewals, reinstatements and reissues
 keep it, and a change of main role reissues the card with the same number. Only a new registration after a membership
 ended takes a new number. Unit codes are read when the number is made, so moving a member or a unit never renumbers a
 card.
+
+### Contact details on the card back
+
+Built-in card backs print the contact details of the member's area: its email, phone and website. Each detail is taken
+from the member's own area, else the nearest area above it that sets it, else the organisation. Set an area's details
+on its page (see [units](units.md)). The `{website}`, `{email}`, `{phone}` and `{contact}` fields in the designer print the
+same values, so a back you design yourself can use them too.
 
 ### Issue, reissue and revoke
 
@@ -112,7 +149,7 @@ to the audit log.
 | Task | Permission |
 | --- | --- |
 | Open the designer | `cards.design` ◆ |
-| Edit designs and save drafts | `cards.design` ◆, held for the whole organisation |
+| Edit designs, including area designs, and save drafts | `cards.design` ◆, held for the whole organisation |
 | Approve a design, or go back to the organisation's design | `cards.approve` ★ |
 | Issue, reissue, revoke and email cards, and bulk downloads | `cards.manage` |
 | See a scanned member's record | `members.view`, with an authenticator |
@@ -149,7 +186,8 @@ There is no public REST API yet. The card download, bulk export, verify and samp
 ## Related
 
 - [Renewals](renewals.md), which keep the card and number
-- [Units](units.md) for the unit codes in card numbers
+- [Units](units.md) for the unit codes in card numbers and an area's contact details
+- [Certificates](certificates.md), which reuse this designer's layers
 - [Member portal](member-portal.md)
 - [Security](../SECURITY.md) for how card scans are checked
 - [Manager manual](../manuals/managers.md)

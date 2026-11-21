@@ -6,6 +6,7 @@ import { OrgPageHeader } from "@/components/dashboard/org/OrgPageHeader";
 import { SettingsTabs } from "@/components/settings/SettingsTabs";
 import { MoveUnitForm } from "@/components/settings/MoveUnitForm";
 import { UnitPaymentInstructionsForm } from "@/components/settings/UnitPaymentInstructionsForm";
+import { UnitContactForm } from "@/components/settings/UnitContactForm";
 import { CopyField } from "@/components/settings/payments/CopyField";
 import { Callout, Card, CardHeader, Chip, EmptyState } from "@/components/ui/display";
 
@@ -65,6 +66,11 @@ export default async function OrgUnitPage({ params }: { params: Promise<{ orgSlu
         <Card as="section" className="h-fit rounded-xl">
           <CardHeader title="Payments" description="What members of this unit and the units under it see when they pay offline." />
           <UnitPaymentInstructionsForm slug={org.slug} unitId={unit.id} initial={view.payment.instructions} inherited={view.payment.inherited} canEdit={view.canEdit} />
+        </Card>
+
+        <Card as="section" className="h-fit rounded-xl">
+          <CardHeader title="Contact details" description="Printed on the back of cards for members here and in the units under it without their own." />
+          <UnitContactForm slug={org.slug} unitId={unit.id} initial={view.contact} inherited={view.contact.inherited} canEdit={view.canEdit} />
         </Card>
 
         {view.childLevelName ? (

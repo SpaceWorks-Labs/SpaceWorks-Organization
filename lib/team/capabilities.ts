@@ -51,6 +51,13 @@ export const CAPABILITY_GROUPS: readonly CapabilityGroup[] = [
     ],
   },
   {
+    title: "Certificates",
+    items: [
+      { capability: "certificates.issue", label: "Issue, email and revoke certificates" },
+      { capability: "certificates.design", label: "Draft certificate designs" },
+    ],
+  },
+  {
     title: "Organisation",
     items: [
       { capability: "plans.manage", label: "Create and change membership plans" },
