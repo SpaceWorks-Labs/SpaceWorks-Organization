@@ -6,6 +6,7 @@ import { memberWhere, type TeamScope } from "@/lib/membership/scope";
 import { formatValidUntil } from "./core";
 import { memberPhotoUrl } from "./imageUrl";
 import { PREVIEW_SEARCH_LIMIT, previewHolder, previewPlanId } from "./previewHolder";
+import { contactFor, unitChainNearestFirst } from "@/lib/units/contact";
 import { printableWebsite, type CardHolder } from "./types";
 import { pathIds, unitChain, type CardUnitRow } from "./units";
 
@@ -14,7 +15,7 @@ import { pathIds, unitChain, type CardUnitRow } from "./units";
  * (memberWhere) and never erased ones. See lib/cards/previewHolder.ts for what a preview may show.
  */
 
-const UNIT_SELECT = { id: true, name: true, code: true, level: true, path: true } as const;
+const UNIT_SELECT = { id: true, name: true, code: true, level: true, path: true, contactEmail: true, contactPhone: true, website: true } as const;
 
 /** Members whose name contains `query`, by name, at most 20: id, name and unit name only. */
 export async function searchPreviewMembers(scope: TeamScope, query: string) {
@@ -53,6 +54,7 @@ export async function loadPreviewHolder(org: PreviewOrg, scope: TeamScope, membe
   ]);
   const current = planId ? deriveStatus(member.terms.filter((term) => term.planId === planId), now).current : null;
   const known = new Map<string, CardUnitRow>(ancestors.map((row) => [row.id, row]));
+  const area = contactFor(unitChainNearestFirst(member.unit, [...known.values(), ...(member.unit ? [member.unit] : [])]), { contactEmail: org.contactEmail, contactPhone: org.contactPhone, website: org.website });
   return previewHolder({
     name: member.name,
     roleName: member.roles[0]?.role.name ?? null,
@@ -61,7 +63,7 @@ export async function loadPreviewHolder(org: PreviewOrg, scope: TeamScope, membe
     validUntil: current?.startsAt ? formatValidUntil(current.endsAt, org.timezone) : null,
     units: unitChain(member.unit, known, org.unitLevels),
     photoUrl: memberPhotoUrl(member),
-    contact: { website: printableWebsite(org.website), email: org.contactEmail, phone: org.contactPhone },
+    contact: { website: printableWebsite(area.website), email: area.email, phone: area.phone },
     fields,
   });
 }

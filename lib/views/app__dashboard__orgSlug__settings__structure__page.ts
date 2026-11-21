@@ -12,7 +12,7 @@ export async function loadOrgStructureView({ params }: { params: Promise<{ orgSl
   const scope = await teamScope(organisation.id, membership);
   const [org, allUnits, roles, unitCounts, roleCounts] = await Promise.all([
     prisma.organisation.findUniqueOrThrow({ where: { id: organisation.id }, select: { name: true, slug: true, logoUrl: true, unitLevels: true } }),
-    prisma.orgUnit.findMany({ where: { organisationId: organisation.id }, orderBy: [{ path: "asc" }], select: { id: true, name: true, slug: true, code: true, level: true, path: true, parentId: true, archivedAt: true } }),
+    prisma.orgUnit.findMany({ where: { organisationId: organisation.id }, orderBy: [{ path: "asc" }], select: { id: true, name: true, slug: true, code: true, level: true, path: true, parentId: true, archivedAt: true, contactEmail: true, contactPhone: true, website: true } }),
     prisma.memberRole.findMany({ where: { organisationId: organisation.id }, orderBy: [{ archivedAt: "asc" }, { sortOrder: "asc" }], select: { id: true, name: true, description: true, color: true, unitId: true, archivedAt: true } }),
     prisma.member.groupBy({ by: ["unitId"], where: { organisationId: organisation.id, unitId: { not: null } }, _count: { _all: true } }),
     prisma.memberRoleAssignment.groupBy({ by: ["roleId"], where: { organisationId: organisation.id, member: { is: memberWhere(scope) } }, _count: { _all: true } }),
@@ -37,7 +37,7 @@ export async function loadOrgStructureView({ params }: { params: Promise<{ orgSl
   const ordered: Array<Omit<(typeof units)[number], "path"> & { members: number; subtreeMembers: number }> = [];
   const visit = (parentId: string | null) => {
     for (const unit of [...(children.get(parentId) ?? [])].sort((a, b) => a.name.localeCompare(b.name))) {
-      ordered.push({ id: unit.id, name: unit.name, slug: unit.slug, code: unit.code, level: unit.level, parentId: unit.parentId, archivedAt: unit.archivedAt, members: membersByUnit.get(unit.id) ?? 0, subtreeMembers: subtreeMembers.get(unit.id) ?? 0 });
+      ordered.push({ id: unit.id, name: unit.name, slug: unit.slug, code: unit.code, level: unit.level, parentId: unit.parentId, archivedAt: unit.archivedAt, contactEmail: unit.contactEmail, contactPhone: unit.contactPhone, website: unit.website, members: membersByUnit.get(unit.id) ?? 0, subtreeMembers: subtreeMembers.get(unit.id) ?? 0 });
       visit(unit.id);
     }
   };

@@ -6,17 +6,32 @@ import { ActionRow, LEDE, type ActionContext } from "./shared";
 /** The organisation fields the top of a page shows. */
 export type TopOrg = { name: string; kind: string; logoUrl: string | null };
 
+/** On an area page (/o/<slug>/a/<code>): the area folds into the page's one h1 and its level shows as a chip. */
+export type TopArea = { name: string; levelLabel: string } | null;
+
 /*
  * The top of a custom page. It holds the tenant logo, so the whole block stays still: no data-reveal, no route
  * movement (tenant logos never animate, CR-MOTION-01). The tagline is the layout's one Unbounded phrase.
  */
 
-function Identity({ org, centred }: { org: TopOrg; centred?: boolean }) {
+function Identity({ org, area, centred }: { org: TopOrg; area?: TopArea; centred?: boolean }) {
   return (
     <div className={cn("flex flex-wrap items-center gap-3", centred && "justify-center")}>
       <div data-tenant-logo className="w-fit"><OrgLogo name={org.name} src={org.logoUrl} size="lg" /></div>
       {org.kind ? <Chip tone="outline">{org.kind}</Chip> : null}
+      {area?.levelLabel ? <Chip tone="accent">{area.levelLabel}</Chip> : null}
     </div>
+  );
+}
+
+/** The area's name as the h1's second line; screen readers hear "Organisation, Area". */
+function AreaLine({ area }: { area?: TopArea }) {
+  if (!area) return null;
+  return (
+    <>
+      <span className="sr-only">, </span>
+      <span className="mt-2 block text-display-m text-ink-secondary">{area.name}</span>
+    </>
   );
 }
 
@@ -25,7 +40,7 @@ function Tagline({ text, centred }: { text: string; centred?: boolean }) {
 }
 
 /** The plain top when the page has no leading hero: cover, logo, name and tagline. */
-export function PageHero({ document, org }: { document: Pick<PageDocument, "tagline" | "coverAssetKey">; org: TopOrg }) {
+export function PageHero({ document, org, area }: { document: Pick<PageDocument, "tagline" | "coverAssetKey">; org: TopOrg; area?: TopArea }) {
   return (
     <section aria-labelledby="org-name" className="flex flex-col gap-8">
       {document.coverAssetKey ? (
@@ -35,8 +50,14 @@ export function PageHero({ document, org }: { document: Pick<PageDocument, "tagl
       <div className="flex max-w-[760px] flex-col gap-5">
         <div data-tenant-logo className="w-fit"><OrgLogo name={org.name} src={org.logoUrl} size="xl" /></div>
         <div className="flex flex-col gap-3">
-          {org.kind ? <Chip tone="outline" className="w-fit">{org.kind}</Chip> : null}
-          <h1 id="org-name" className="text-display-xl text-balance text-ink">{org.name}</h1>
+          {org.kind && !area?.levelLabel ? <Chip tone="outline" className="w-fit">{org.kind}</Chip> : null}
+          {area?.levelLabel ? (
+            <div className="flex flex-wrap gap-2">
+              {org.kind ? <Chip tone="outline">{org.kind}</Chip> : null}
+              <Chip tone="accent">{area.levelLabel}</Chip>
+            </div>
+          ) : null}
+          <h1 id="org-name" className="text-display-xl text-balance text-ink">{org.name}<AreaLine area={area} /></h1>
           <Tagline text={document.tagline} />
         </div>
       </div>
@@ -47,7 +68,7 @@ export function PageHero({ document, org }: { document: Pick<PageDocument, "tagl
 const TITLE = "text-display-xl text-balance text-ink";
 
 /** The hero section leading the page: the h1, the tagline, a line about the organisation, buttons and a photo. */
-export function LeadingHero({ section, document, org, context }: { section: SectionOf<"hero">; document: Pick<PageDocument, "tagline" | "coverAssetKey">; org: TopOrg; context: ActionContext }) {
+export function LeadingHero({ section, document, org, context, area }: { section: SectionOf<"hero">; document: Pick<PageDocument, "tagline" | "coverAssetKey">; org: TopOrg; context: ActionContext; area?: TopArea }) {
   const imageKey = section.imageKey ?? document.coverAssetKey;
   const image = imageKey ? { src: pageImageUrl(imageKey), alt: section.imageAlt } : null;
   const headline = section.headline || org.name;
@@ -57,6 +78,7 @@ export function LeadingHero({ section, document, org, context }: { section: Sect
     <h1 id="org-name" className={TITLE}>
       {headline}
       {section.headline && section.headline !== org.name ? <span className="sr-only"> · {org.name}</span> : null}
+      <AreaLine area={area} />
     </h1>
   );
 
@@ -64,7 +86,7 @@ export function LeadingHero({ section, document, org, context }: { section: Sect
     return (
       <section id={`section-${section.id}`} aria-labelledby="org-name" className="flex flex-col items-center gap-10 py-4 text-center @xl:py-10">
         <div className="flex max-w-[860px] flex-col items-center gap-6">
-          <Identity org={org} centred />
+          <Identity org={org} area={area} centred />
           {heading}
           <Tagline text={document.tagline} centred />
           {subtitle}
@@ -86,7 +108,7 @@ export function LeadingHero({ section, document, org, context }: { section: Sect
           <img src={image.src} alt={image.alt} width={1200} height={400} className="aspect-[4/3] w-full rounded-2xl border border-line object-cover @xl:aspect-[3/1]" />
         ) : null}
         <div className="flex max-w-[860px] flex-col gap-6">
-          <Identity org={org} />
+          <Identity org={org} area={area} />
           {heading}
           <Tagline text={document.tagline} />
           {subtitle}
@@ -99,7 +121,7 @@ export function LeadingHero({ section, document, org, context }: { section: Sect
   return (
     <section id={`section-${section.id}`} aria-labelledby="org-name" className={cn("grid items-center gap-10 py-2 @xl:py-6", image && "@4xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] @4xl:gap-14")}>
       <div className="flex max-w-[760px] flex-col gap-6">
-        <Identity org={org} />
+        <Identity org={org} area={area} />
         {heading}
         <Tagline text={document.tagline} />
         {subtitle}

@@ -6,11 +6,13 @@
  * Pure and client-safe.
  */
 
+import type { ContactSource } from "@/lib/units/contact";
+
 /** One unit in a member's chain. `level` 0 is the top. */
 export type CardUnit = { level: number; levelName: string; name: string; code: string };
 
 /** The unit columns a chain is built from. `path` is the ancestor ids and the unit's own, joined by "/". */
-export type CardUnitRow = { id: string; name: string; code: string; level: number; path: string };
+export type CardUnitRow = { id: string; name: string; code: string; level: number; path: string } & ContactSource;
 
 /** Unit chains go at most this deep (Organisation.unitLevels has up to four names). */
 const MAX_UNIT_LEVELS = 4;

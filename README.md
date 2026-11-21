@@ -6,7 +6,7 @@
 <h3 align="center">Your members, in good standing.</h3>
 
 <p align="center">
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.10.2-006E63?style=flat-square&labelColor=142C2A" alt="Version 0.10.2" /></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/version-0.11.0-006E63?style=flat-square&labelColor=142C2A" alt="Version 0.11.0" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/licence-AGPL--3.0--or--later-006E63?style=flat-square&labelColor=142C2A" alt="Licence: AGPL-3.0-or-later" /></a>
   <a href="https://github.com/SpaceWorks-Labs/SpaceWorks-Organization/actions/workflows/tests.yml"><img src="https://img.shields.io/github/actions/workflow/status/SpaceWorks-Labs/SpaceWorks-Organization/tests.yml?style=flat-square&label=tests&labelColor=142C2A&color=DFFF8F" alt="Tests" /></a>
   <a href="https://github.com/SpaceWorks-Labs/SpaceWorks-Organization/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/SpaceWorks-Labs/SpaceWorks-Organization/release.yml?branch=main&style=flat-square&label=release&labelColor=142C2A&color=FFD447" alt="Release" /></a>
@@ -199,7 +199,16 @@ Grouped the way an organisation's year actually goes.
 - One card per member and plan, drawn live from the design: wallet, downloads, emails and bulk print.
 - A **Canva-style editor** where the front and back work the same: shapes, bands, badges, icons, QR, barcodes and
   photo frames, with a brand kit, a logo maker, 30 saved versions, your own templates and owner approval.
+- **Per-area cards:** a unit can have its own design, card number series and contact details (email, phone and
+  website) on the card back, ahead of the plan's and the organisation's.
 - A verify QR on every card: anyone sees Valid, Expired, Revoked or Replaced; staff who scan it see the member.
+
+### Certificates
+
+- Design numbered certificates (A4 or Letter, landscape or portrait) in the card editor's layers, with placeholders
+  for the member's name, title, reason and date, and owner approval before any is issued.
+- Issue to chosen members, a plan or a smart group, email each member the PDF, download PDF or PNG, or take a batch
+  as a ZIP; revoke with a reason. Each has a QR to a public check page, and members see theirs in their account.
 
 ### Member portal
 
@@ -209,13 +218,21 @@ Grouped the way an organisation's year actually goes.
 
 ### Public pages, landing and docs
 
-- A landing page, a features page and in-app docs for the platform, and a page per organisation built in an editor
-  from twenty section types (hero, call to action, live counts, sample card, committee, testimonials, timeline…).
+- A landing page, a features page and in-app docs for the platform, and a page per organisation built in a **live
+  visual editor**: click text on the page to change it, drag blocks into order, preview in light or dark on desktop,
+  tablet or phone, and let drafts autosave until you publish. Each publish is kept in a version history you can
+  restore from.
+- Twenty-eight block types: hero, call to action, plans, live numbers, an areas directory, columns, icon lists,
+  badges, a members' area preview, sample card, committee, testimonials, timeline and more.
+- **Area pages:** every unit gets its own page at `/o/<slug>/a/<CODE>`, drawn from the same published page with
+  that area's plans, numbers and contact details.
 
 ### Reports and analytics
 
 - Membership change, renewal rate, churn, joins and lapses, money by plan, GST summaries and breakdowns by grouping,
   for the platform, each organisation and each unit. PDF snapshots and CSV exports. Super admins see aggregates only.
+- **Platform analytics** for the super admin: Growth, Money (per currency), Organisations (a sortable ranking) and
+  Operations (outbox, email, messages, sign-ins, jobs and storage) tabs, each against the previous period.
 
 ## Integrations
 
@@ -239,7 +256,7 @@ Each area has its own page in the in-app docs and in [`docs/features/`](docs/fea
 [Staff and roles](docs/features/staff-and-roles.md) · [Payments](docs/features/payments.md) ·
 [Receipts and refunds](docs/features/receipts-and-refunds.md) · [Renewals](docs/features/renewals.md) ·
 [Notifications](docs/features/notifications.md) · [Member cards](docs/features/member-cards.md) ·
-[Member portal](docs/features/member-portal.md) · [Public page](docs/features/public-page.md) ·
+[Certificates](docs/features/certificates.md) · [Member portal](docs/features/member-portal.md) · [Public page](docs/features/public-page.md) ·
 [Reports and analytics](docs/features/reports-and-analytics.md) · [Web analytics](docs/features/web-analytics.md) ·
 [Sign-in](docs/features/sign-in.md) · [Self-hosting](docs/features/self-hosting.md).
 How they connect (what a settled payment or an approval updates elsewhere) is in

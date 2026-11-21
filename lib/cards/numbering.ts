@@ -1,5 +1,5 @@
 /*
- * Card number patterns, set per organisation and per member role: literal text plus tokens.
+ * Card number patterns, set per organisation, per member role and per area: literal text plus tokens.
  *   {PREFIX}          the design's prefix ("SWO")
  *   {SEQ} {SEQ:4}     the running number, optionally zero-padded; required, so every registration
  *                     gets a number of its own
@@ -10,8 +10,9 @@
  *   {U1}…{U4}         the code of the member's unit at that level, {U1} being the top level.
  *                     A member with no unit, or none at that level, prints NA. Unit codes take no
  *                     length and never split the running number: {SEQ} stays one series per design.
- * A number is given once per membership: renewals, reinstatements and reissues (a lost card, a new
- * role) keep it, and only a new registration after a membership ended takes a new one. Unit codes
+ * A new number uses the member's primary role design, else the nearest area design (their own unit, then each
+ * unit above), else the organisation default; each of those keeps its own running series. A number is given once per membership: renewals, reinstatements and reissues (a lost card, a new
+ * role) keep it, and so does a member moving to another area, and only a new registration after a membership ended takes a new one. Unit codes
  * are read when the number is made, so moving a member or renaming a code never renumbers a card.
  */
 
@@ -90,9 +91,9 @@ export function formatCardNumberFrom(format: string, parts: NumberParts) {
   }).trim();
 }
 
-/** The OrgCounter row a pattern's running number lives in: per role (or the organisation), per year when used. */
-export function numberCounterName(scope: { roleId: string | null }, year: number | null) {
-  return ["card", ...(scope.roleId ? ["role", scope.roleId] : []), ...(year ? [String(year)] : [])].join(":");
+/** The OrgCounter row a pattern's running number lives in: per role, per area (or the organisation), per year when used. */
+export function numberCounterName(scope: { roleId: string | null; unitId?: string | null }, year: number | null) {
+  return ["card", ...(scope.roleId ? ["role", scope.roleId] : scope.unitId ? ["area", scope.unitId] : []), ...(year ? [String(year)] : [])].join(":");
 }
 
 /** The calendar year of `now` in `timeZone`. */

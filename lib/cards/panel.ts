@@ -2,7 +2,7 @@ import "server-only";
 
 import { prisma } from "@/lib/db";
 import { cardState, verifyPath } from "./core";
-import { CARD_INCLUDE, cardRoleId, designFor, holderFor, loadCardOrgContext, loadCardUnits } from "./data";
+import { CARD_INCLUDE, cardRoleId, cardUnit, designFor, holderFor, loadCardOrgContext, loadCardUnits } from "./data";
 import type { CardDesign } from "./design/presets";
 import type { CardBranding, CardHolder } from "./types";
 import { cardDownloadPath } from "./wallet";
@@ -44,7 +44,7 @@ export async function loadMemberCardPanel(organisationId: string, memberId: stri
   return plans.map((plan) => {
     const forPlan = cards.filter((card) => card.planId === plan.planId);
     const live = forPlan.find((card) => !card.revokedAt);
-    const input = live ? designFor(ctx, live.plan, cardRoleId(live)) : null;
+    const input = live ? designFor(ctx, live.plan, cardRoleId(live), cardUnit(live)) : null;
     return {
       ...plan,
       live: live && input ? {

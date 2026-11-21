@@ -35,6 +35,7 @@ const SHOTS = [
   { name: "payments", path: `/dashboard/${org}/payments`, as: "owner@demo.test" },
   { name: "receipts-and-refunds", path: `/dashboard/${org}/reports/tax`, as: "owner@demo.test" },
   { name: "member-cards", path: `/dashboard/${org}/settings/cards`, as: "owner@demo.test" },
+  { name: "certificates", path: `/dashboard/${org}/certificates`, as: "owner@demo.test" },
   { name: "member-portal", path: "/account", as: "applicant@demo.test" },
   { name: "public-page", path: `/o/${org}`, as: null },
   { name: "reports-and-analytics", path: `/dashboard/${org}/reports`, as: "owner@demo.test" },

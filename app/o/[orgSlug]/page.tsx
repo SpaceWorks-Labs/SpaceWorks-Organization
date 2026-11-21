@@ -7,7 +7,7 @@ import { RevealRoot } from "@/components/motion/RevealRoot";
 import { Chip, OrgLogo } from "@/components/ui/display";
 
 export default async function PublicOrganisationPage({ params }: { params: Promise<{ orgSlug: string }> }) {
-  const { org, plans, takingMembers, page, units, counts, sampleCard } = await loadPublicOrgPage({ params });
+  const { org, plans, takingMembers, page, units, counts, sampleCard, liveStats, areas } = await loadPublicOrgPage({ params });
 
   // The tenant logo never animates: its block stays still and only `data-route-enter` parts move (template.tsx).
   // A published custom page (Settings → Public page) replaces the plain one. Sections lay out by their container
@@ -15,7 +15,7 @@ export default async function PublicOrganisationPage({ params }: { params: Promi
   if (page) {
     return (
       <RevealRoot className="@container mx-auto w-full max-w-[1120px] px-4 py-10 sm:px-6 lg:py-16">
-        <PageSections document={page} org={org} plans={plans} units={units} takingMembers={takingMembers} counts={counts} sampleCard={sampleCard} preview={false} />
+        <PageSections document={page} org={org} plans={plans} units={units} takingMembers={takingMembers} counts={counts} sampleCard={sampleCard} liveStats={liveStats} areas={areas} preview={false} />
       </RevealRoot>
     );
   }

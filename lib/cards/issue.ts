@@ -5,6 +5,7 @@ import { Prisma, type MemberCard } from "@prisma/client";
 import { recordAuditEvent } from "@/lib/audit";
 import { enqueueOutbox } from "@/lib/outbox";
 import { statusAt, TIMED_STATUSES } from "@/lib/membership/lifecycle";
+import { nearestAreaDesign } from "./areaDesigns";
 import { deriveCardPrefix } from "./core";
 import { DEFAULT_NUMBER_FORMAT, formatCardNumberFrom, formatUsesUnits, formatUsesYear, numberCounterName, yearIn, type NumberParts } from "./numbering";
 import { pathIds } from "./units";
@@ -64,8 +65,8 @@ async function unitCodesNow(tx: Tx, organisationId: string, memberId: string): P
 }
 
 /**
- * A new card number: the member's primary role design numbers its own cards, else the organisation
- * default does. Numbering is locked per organisation until the transaction ends, so concurrent issues
+ * A new card number: the member's primary role design numbers its own cards, else the nearest area design
+ * (their own unit, then each unit above) does, else the organisation default. Each keeps its own running series. Numbering is locked per organisation until the transaction ends, so concurrent issues
  * (even under different patterns) queue; a number some card already has (an older pattern, an earlier
  * registration) is skipped.
  */
@@ -76,12 +77,15 @@ async function nextCardNumber(tx: Tx, organisationId: string, memberId: string, 
   // Approved designs only: a draft's numbering waits for the owner's approval.
   const live = { design: { not: Prisma.DbNull } };
   const byRole = primary ? await tx.cardDesign.findFirst({ where: { organisationId, roleId: primary.roleId, ...live }, select }) : null;
-  const scheme = byRole ?? (await tx.cardDesign.findFirst({ where: { organisationId, planId: null, roleId: null, ...live }, select }));
+  const placed = byRole ? null : await tx.member.findFirst({ where: { id: memberId, organisationId }, select: { unit: { select: { path: true } } } });
+  const areaRows = placed?.unit ? await tx.cardDesign.findMany({ where: { organisationId, unitId: { in: pathIds(placed.unit.path) }, ...live }, select: { ...select, unitId: true } }) : [];
+  const byArea = nearestAreaDesign(areaRows, placed?.unit?.path);
+  const scheme = byRole ?? byArea ?? (await tx.cardDesign.findFirst({ where: { organisationId, planId: null, roleId: null, unitId: null, ...live }, select }));
   const org = await tx.organisation.findUniqueOrThrow({ where: { id: organisationId }, select: { name: true, timezone: true } });
   const format = scheme?.numberFormat ?? DEFAULT_NUMBER_FORMAT;
   const prefix = scheme?.numberPrefix ?? deriveCardPrefix(org.name);
   const year = yearIn(org.timezone);
-  const counter = numberCounterName({ roleId: byRole ? primary!.roleId : null }, formatUsesYear(format) ? year : null);
+  const counter = numberCounterName({ roleId: byRole ? primary!.roleId : null, unitId: byArea?.unitId ?? null }, formatUsesYear(format) ? year : null);
   const units = formatUsesUnits(format) ? await unitCodesNow(tx, organisationId, memberId) : {};
   for (let attempt = 0; attempt < 50; attempt += 1) {
     const number = formatCardNumberFrom(format, { prefix, seq: await bumpCounter(tx, organisationId, counter), memberNumber, year, ...units });

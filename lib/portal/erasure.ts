@@ -72,6 +72,9 @@ async function anonymiseMember(tx: Tx, args: { org: OrgClock; memberId: string; 
   // Payment rows keep amounts, dates, bank references (UTR) and tax documents, which accounting law needs
   // for eight years; free-text notes and references are cleared, and the rows are marked anonymised.
   await tx.payment.updateMany({ where: { organisationId: args.org.id, memberId: member.id }, data: { note: "", reference: null, anonymisedAt: now } });
+  // Certificates stay on record, but the citation and the revoke reason are free text about the person.
+  await tx.certificate.updateMany({ where: { organisationId: args.org.id, memberId: member.id }, data: { reason: null } });
+  await tx.certificate.updateMany({ where: { organisationId: args.org.id, memberId: member.id, revokedAt: { not: null } }, data: { revokedReason: "Removed on erasure" } });
   await recordAuditEvent({ action: "MEMBER_ANONYMISED", actorUserId: args.actorUserId, organisationId: args.org.id, targetType: "Member", targetId: member.id, client: tx });
   const photoKey = member.photoUrl ? uploadKeyFromUrl(member.photoUrl) : null;
   return { uploadKeys: photoKey ? [photoKey] : [] };

@@ -30,6 +30,7 @@ The role editor groups the permissions like this. ◆ marks permissions that sta
 | Money | `payments.view`, `payments.manage` (record payments, confirm claims and refund), `accounts.manage` ◆, `payments.settings` ◆ |
 | Reports | `reports.membership`, `reports.finance`, `reports.gstr1` ●, `audit.view` (the activity log) |
 | Cards | `cards.manage` (issue, reissue and revoke), `cards.design` ◆ (draft designs), `cards.approve` ★ |
+| Certificates | `certificates.issue` (issue, email, download and revoke; works inside a unit or grouping limit), `certificates.design` ◆ (draft designs), `certificates.approve` ★ |
 | Organisation | `plans.manage` ◆, `org.settings` ◆, `structure.manage` ◆, `groupings.manage` ●, `team.manage`, `roles.manage` ◆, `org.delete` ★, `ownership.transfer` ★ |
 
 The editor also offers two templates that only fill the form: Area head and Unit secretary.

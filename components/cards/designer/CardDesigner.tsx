@@ -48,16 +48,18 @@ import { useLayerEditing } from "./useLayerEditing";
  * rulers, guides and smart snapping; several layers can be selected, arranged, grouped and copied
  * (editor/). The selected item's inspector, an Arrange and a Position panel and the layers list sit
  * on the right, settings and the element library on the left. The whole design autosaves as a draft
- * of the organisation default, one plan (`planId`) or one member role (`roleId`), which reaches
+ * of the organisation default, one plan (`planId`), one member role (`roleId`) or one area (`unitId`), which reaches
  * members' cards once the owner approves it.
  */
-export function CardDesigner({ organisationSlug, organisationName, planId, planName, roleId, roleName, initialDesign, branding: initialBranding, fields, numbering: initialNumbering, approval, unitLevels, brandKit = null }: {
+export function CardDesigner({ organisationSlug, organisationName, planId, planName, roleId, roleName, unitId = null, initialDesign, branding: initialBranding, fields, numbering: initialNumbering, approval, unitLevels, brandKit = null }: {
   organisationSlug: string;
   organisationName: string;
   planId: string | null;
   planName: string;
   roleId: string | null;
   roleName: string;
+  /** The area (unit) whose own design this is; null for every other scope. */
+  unitId?: string | null;
   initialDesign: CardDesign;
   branding: CardBranding;
   fields: DesignerField[];
@@ -77,10 +79,10 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
   const [sample, setSample] = useState<Sample>("latin");
   const [previewHolder, setPreviewHolder] = useState<CardHolder | null>(null);
   const [numbering, setNumbering] = useState<Numbering>(initialNumbering ?? { prefix: "", format: "" });
-  const autosave = useDesignAutosave({ design, numbering }, { organisationSlug, planId, roleId, numbers: Boolean(initialNumbering) });
+  const autosave = useDesignAutosave({ design, numbering }, { organisationSlug, planId, roleId, unitId, numbers: Boolean(initialNumbering) });
   const history = useDesignHistory();
   const { setError } = autosave;
-  const uploads = useArtworkUploads({ organisationSlug, planId, roleId, onError: setError });
+  const uploads = useArtworkUploads({ organisationSlug, planId, roleId, unitId, onError: setError });
   const latestDesign = () => autosave.current().design;
   const context = useMemo(() => ({ organisationName, planName }), [organisationName, planName]);
 
@@ -184,12 +186,12 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
         <SideTools side={side} both={both} onBoth={setBoth} onCopyLayout={copyLayout} onDuplicate={duplicate} />
         <SegmentedControl<Sample> ariaLabel="Sample name" size="sm" value={sample} onValueChange={(next) => { setSample(next); setPreviewHolder(null); }} options={[{ value: "latin", label: "Latin" }, { value: "malayalam", label: "മലയാളം" }, { value: "devanagari", label: "हिन्दी" }]} />
         <div className="ml-auto flex items-center gap-2" aria-live="polite">
-          <DesignerExtras organisationSlug={organisationSlug} planId={planId} roleId={roleId} design={design} side={side} onRestore={(next) => change(next)} onPreviewHolder={setPreviewHolder} />
+          <DesignerExtras organisationSlug={organisationSlug} planId={planId} roleId={roleId} unitId={unitId} design={design} side={side} onRestore={(next) => change(next)} onPreviewHolder={setPreviewHolder} />
           <SaveStatusPill status={autosave.status} />
           {autosave.status === "error" ? <Button size="sm" variant="secondary" onClick={() => void autosave.save()}>Try again</Button> : null}
         </div>
       </header>
-      <ApprovalBar state={approval} pending={approval.pending || edited} scope={{ organisationSlug, planId, roleId }} flush={autosave.save} />
+      <ApprovalBar state={approval} pending={approval.pending || edited} scope={{ organisationSlug, planId, roleId, unitId }} flush={autosave.save} />
       {autosave.error ? <div className="px-4 pt-3"><Callout tone="danger" role="alert">{autosave.error}</Callout></div> : null}
 
       {/* DOM order is the reading order below 1280px (preview, selected item, settings); from xl the grid places
@@ -247,7 +249,7 @@ export function CardDesigner({ organisationSlug, organisationName, planId, planN
           holder={holder}
           context={context}
           uploading={uploads.uploading}
-          numbering={initialNumbering ? { value: numbering, role: Boolean(roleId), unitLevels, onChange: (next) => { setNumbering(next); autosave.set({ numbering: next }); setEdited(true); } } : null}
+          numbering={initialNumbering ? { value: numbering, scope: roleId ? "role" : unitId ? "area" : "organisation", unitLevels, onChange: (next) => { setNumbering(next); autosave.set({ numbering: next }); setEdited(true); } } : null}
           brandKit={kit}
           documentColours={usedColours}
           organisationSlug={organisationSlug}

@@ -1,3 +1,4 @@
+import { areasForSection, type AreaContext, type AreaEntry, type LiveStatsData } from "@/lib/publicPage/blockData";
 import { actionHref, type PublicCounts, type SampleCard } from "@/lib/publicPage/live";
 import { videoEmbed } from "@/lib/publicPage/embeds";
 import type { PageSection } from "@/lib/publicPage/sections";
@@ -9,6 +10,7 @@ import { CallToAction, CardShowcase, Counts, countsToShow, Stats } from "./Membe
 import { Downloads, Gallery, ImageText, Video } from "./Media";
 import { Committee, Testimonials, Timeline } from "./People";
 import { HeroBlock } from "./PageTop";
+import { Areas, Badges, Buttons, Columns, Divider, IconList, LiveStats, MembersPreview } from "./Blocks";
 import { LEDE, PROSE, type ActionContext } from "./shared";
 
 export type PageOrg = { name: string; slug: string; kind: string; logoUrl: string | null; locale: string | null; financialYearStartMonth: number; unitLevels: string[] };
@@ -23,6 +25,12 @@ export type Live = {
   preview: boolean;
   counts: PublicCounts | null;
   sampleCard: SampleCard | null;
+  /** Figures for the numbers blocks, by section id (already scoped and suppressed). */
+  liveStats?: LiveStatsData | null;
+  /** Every area, for the areas directory. */
+  areas?: AreaEntry[];
+  /** Set on an area page: its join links carry the area's code. */
+  area?: AreaContext | null;
 };
 
 /** Sections that carry their own heading (a headline) instead of the section title. */
@@ -54,6 +62,14 @@ export function emptyReason(section: PageSection, live: Live, context: ActionCon
     case "contact": return contactIsEmpty(section) ? "No contact details yet." : null;
     case "map": return section.address || section.url ? null : "Add your address and a maps link.";
     case "text": return section.body ? null : "Nothing written yet.";
+    case "liveStats": return (live.liveStats?.[section.id] ?? []).some((result) => result.value !== null || result.rows.length) ? null : "Numbers appear once there are at least 5 current members to count. Add something to count first.";
+    case "areas": return areasForSection(section, live.areas ?? [], live.area ?? null).length ? null : "No areas to list. Add them in Settings → Units and roles.";
+    case "columns": return section.columns.some((column) => column.items.length) ? null : "Add a heading, some text or a button to a column.";
+    case "buttons": return section.items.some((item) => actionHref(item, context)) ? null : "Add a button.";
+    case "iconList": return section.items.length ? null : "Add your first point.";
+    case "divider": return null;
+    case "badges": return section.items.length ? null : "Add a badge.";
+    case "membersPreview": return section.points.length || (section.showCard && live.sampleCard) ? null : "Add what members get after joining.";
   }
 }
 
@@ -69,7 +85,7 @@ export function SectionBody({ section, live, context }: { section: PageSection; 
       return (
         <div className="flex flex-col gap-6">
           {section.intro ? <p className={LEDE}>{section.intro}</p> : null}
-          <PlanCards org={live.org} plans={live.plans} takingMembers={live.takingMembers} preview={live.preview} />
+          <PlanCards org={live.org} plans={live.plans} takingMembers={live.takingMembers} preview={live.preview} areaCode={live.area?.code ?? null} />
         </div>
       );
     case "units": return <Units units={live.units} intro={section.intro} />;
@@ -86,5 +102,13 @@ export function SectionBody({ section, live, context }: { section: PageSection; 
     case "contact": return <Contact section={section} />;
     case "map": return <MapLink section={section} />;
     case "text": return <PlainText body={section.body} />;
+    case "liveStats": return <LiveStats section={section} results={live.liveStats?.[section.id] ?? []} locale={live.org.locale} />;
+    case "areas": return <Areas section={section} areas={live.areas ?? []} area={live.area ?? null} orgSlug={live.org.slug} preview={live.preview} />;
+    case "columns": return <Columns section={section} context={context} />;
+    case "buttons": return <Buttons section={section} context={context} />;
+    case "iconList": return <IconList section={section} />;
+    case "divider": return <Divider section={section} />;
+    case "badges": return <Badges section={section} />;
+    case "membersPreview": return <MembersPreview section={section} card={live.sampleCard} orgName={live.org.name} />;
   }
 }

@@ -18,13 +18,14 @@ import { PlatformOrganisationProvider, usePlatformOrganisation } from "./Platfor
 import { ColorModeMenuItem } from "./ColorModeToggle";
 import { SlidingNav } from "@/components/motion/SlidingNav";
 
-/** Organisation navigation, in order. Each entry shows only when the role has the capability. */
-const ORG_NAV: Array<{ path: string; label: string; capability: Capability; exact?: boolean }> = [
+/** Organisation navigation, in order. Each entry shows only when the role has the capability (or `or`, when given). */
+const ORG_NAV: Array<{ path: string; label: string; capability: Capability; or?: Capability; exact?: boolean }> = [
   { path: "", label: "Overview", capability: "org.view", exact: true },
   { path: "/members", label: "Members", capability: "members.view" },
   { path: "/plans", label: "Membership plans", capability: "members.view" },
   { path: "/payments", label: "Payments", capability: "payments.view" },
   { path: "/accounts", label: "Accounts", capability: "payments.view" },
+  { path: "/certificates", label: "Certificates", capability: "certificates.issue", or: "certificates.design" },
   { path: "/reports", label: "Reports", capability: "reports.membership" },
   { path: "/activity", label: "Activity", capability: "audit.view" },
   { path: "/team", label: "Team", capability: "org.view" },
@@ -163,7 +164,7 @@ function SidebarContents({ user, organisations: teams, onNavigate }: { user: She
         <>
           <OrganisationSwitcher current={current} organisations={organisations} onNavigate={onNavigate} />
           <SlidingNav aria-label="Organisation" className="flex flex-col gap-1">
-            {ORG_NAV.filter((item) => organisationAllows(current.status, item.capability) && current.capabilities.includes(item.capability)).map((item) => {
+            {ORG_NAV.filter((item) => [item.capability, ...(item.or ? [item.or] : [])].some((capability) => organisationAllows(current.status, capability) && current.capabilities.includes(capability))).map((item) => {
               const href = `${base}${item.path}`;
               const isActive = item.exact ? pathname === href : pathname === href || pathname.startsWith(`${href}/`);
               return (

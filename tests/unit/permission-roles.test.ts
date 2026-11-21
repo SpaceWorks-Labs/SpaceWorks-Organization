@@ -35,14 +35,16 @@ const SPLIT_FROM: Partial<Record<Capability, string>> = {
   "accounts.manage": "payments.manage",
   "reports.gstr1": "reports.finance",
   "groupings.manage": "org.settings",
+  "certificates.issue": "cards.manage",
+  "certificates.design": "org.settings",
 };
 
 /** Brand new, owner-held permissions. */
-const OWNER_HELD: Capability[] = ["roles.manage", "ownership.transfer"];
+const OWNER_HELD: Capability[] = ["roles.manage", "ownership.transfer", "certificates.approve"];
 
 /** Old gates that refused staff limited to a unit inline (the `ORG_WIDE_ONLY` checks), now ◆ and ● in the list. */
 const ORG_WIDE_ONLY_USE = new Set(["reports.gstr1", "groupings.manage"]);
-const ORG_WIDE_WRITES = new Set(["org.settings", "plans.manage", "payments.settings", "structure.manage", "cards.design", "accounts.manage"]);
+const ORG_WIDE_WRITES = new Set(["org.settings", "plans.manage", "payments.settings", "structure.manage", "cards.design", "accounts.manage", "certificates.design"]);
 
 const starter = (key: TeamRole) => STARTER_ROLES.find((role) => role.key === key)!;
 const actor = (key: TeamRole, unitId: string | null = null): StaffActor => ({ orgRole: starter(key), unitId });

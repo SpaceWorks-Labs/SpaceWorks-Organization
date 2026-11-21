@@ -12,7 +12,7 @@ const ROLE_CARD_STATUS = { organisation: "Uses the organisation's card", draft: 
 
 export const metadata: Metadata = { title: "Cards", robots: { index: false, follow: false } };
 
-export default async function OrgCardSettingsPage({ params, searchParams }: { params: Promise<{ orgSlug: string }>; searchParams: Promise<{ plan?: string; role?: string }> }) {
+export default async function OrgCardSettingsPage({ params, searchParams }: { params: Promise<{ orgSlug: string }>; searchParams: Promise<{ plan?: string; role?: string; unit?: string }> }) {
   const view = await loadOrgCardSettingsView({ params, searchParams });
   const { org } = view;
   return (
@@ -24,16 +24,17 @@ export default async function OrgCardSettingsPage({ params, searchParams }: { pa
       />
       <SettingsTabs slug={org.slug} />
       {!view.canEdit ? <Callout tone="info">You manage one unit, so card designs are read-only for you.</Callout> : null}
-      <DesignScopePicker slug={org.slug} plans={view.plans} roles={view.roles} planId={view.plan?.id ?? null} roleId={view.role?.id ?? null} source={view.source} canRevert={view.canEdit && view.approval.canApprove} />
+      <DesignScopePicker slug={org.slug} plans={view.plans} roles={view.roles} areas={view.areas} planId={view.plan?.id ?? null} roleId={view.role?.id ?? null} unitId={view.unit?.id ?? null} source={view.source} canRevert={view.canEdit && view.approval.canApprove} />
       {view.canEdit ? (
         <CardDesigner
-          key={`${view.plan?.id ?? view.role?.id ?? "organisation"}-${view.source}-${view.approval.approvedAt}-${view.approval.draftUpdatedAt}`}
+          key={`${view.plan?.id ?? view.role?.id ?? view.unit?.id ?? "organisation"}-${view.source}-${view.approval.approvedAt}-${view.approval.draftUpdatedAt}`}
           organisationSlug={org.slug}
           organisationName={org.name}
           planId={view.plan?.id ?? null}
           planName={view.plan?.name ?? ""}
           roleId={view.role?.id ?? null}
           roleName={view.role?.name ?? ""}
+          unitId={view.unit?.id ?? null}
           initialDesign={view.design}
           branding={view.branding}
           fields={view.fields}

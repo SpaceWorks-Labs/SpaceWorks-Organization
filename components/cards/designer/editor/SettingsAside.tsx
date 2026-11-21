@@ -10,7 +10,7 @@ import { BackgroundSection } from "../BackgroundSection";
 import { Section, SwitchLine } from "../controls";
 import { ElementsPanel } from "../elements/ElementsPanel";
 import { FieldsPanel } from "../elements/FieldsPanel";
-import { NumberingSection, type Numbering } from "../NumberingSection";
+import { NumberingSection, type Numbering, type NumberingScope } from "../NumberingSection";
 import { PresetPicker } from "../PresetPicker";
 import { SideSettings, type DesignerField } from "../SideSettings";
 import { TemplateGallery } from "../TemplateGallery";
@@ -32,7 +32,7 @@ export function SettingsAside(props: {
   holder: CardHolder;
   context: TemplateContext;
   uploading: boolean;
-  numbering: { value: Numbering; role: boolean; unitLevels?: string[]; onChange: (next: Numbering) => void } | null;
+  numbering: { value: Numbering; scope: NumberingScope; unitLevels?: string[]; onChange: (next: Numbering) => void } | null;
   brandKit: BrandKit | null;
   /** Every colour the design uses, for the colour pickers. */
   documentColours: string[];
@@ -75,7 +75,7 @@ export function SettingsAside(props: {
           </Section>
           {props.numbering ? (
             <Section title="Card numbers">
-              <NumberingSection value={props.numbering.value} role={props.numbering.role} unitLevels={props.numbering.unitLevels} onChange={props.numbering.onChange} />
+              <NumberingSection value={props.numbering.value} scope={props.numbering.scope} unitLevels={props.numbering.unitLevels} onChange={props.numbering.onChange} />
             </Section>
           ) : null}
           {side === "back" ? (

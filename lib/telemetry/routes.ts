@@ -3,7 +3,7 @@
  * dashboard, the account area, the super-admin area, unknown paths) has no template and fails closed.
  * Segment matching only: there is no router in this module and it is safe to run in the edge runtime.
  */
-export const PUBLIC_PAGE_TEMPLATES = ["/", "/about", "/features", "/docs", "/docs/:slug", "/organisations", "/o/:orgSlug", "/privacy", "/terms"] as const;
+export const PUBLIC_PAGE_TEMPLATES = ["/", "/about", "/features", "/docs", "/docs/:slug", "/organisations", "/o/:orgSlug", "/o/:orgSlug/a/:unitCode", "/privacy", "/terms"] as const;
 /** Allowed for page analytics only, never for replay: it carries a person's own join answers. */
 export const ANALYTICS_ONLY_TEMPLATES = ["/o/:orgSlug/join/:planSlug"] as const;
 

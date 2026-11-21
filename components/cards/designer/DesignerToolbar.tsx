@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { Circle, Image as ImageIcon, Minus, Redo2, Square, Type, Undo2 } from "lucide-react";
 import { Button, IconButton } from "@/components/ui/button";
 import type { CardLayerKind } from "@/lib/cards/design/layers";
+import { reword, useDesignerNoun } from "./wording";
 
 /** The centre column is narrow at every width (the page is capped), so labels are read out and shown on hover only. */
 const label = (text: string) => <span className="sr-only">{text}</span>;
@@ -20,8 +21,9 @@ export function DesignerToolbar({ full, uploading, canUndo, canRedo, onAdd, onAd
   onRedo: () => void;
 }) {
   const file = useRef<HTMLInputElement>(null);
+  const noun = useDesignerNoun();
   return (
-    <div role="toolbar" aria-label="Add to the card" className="flex flex-wrap items-center gap-1.5 border-b border-line bg-canvas px-3 py-2">
+    <div role="toolbar" aria-label={reword("Add to the card", noun)} className="flex flex-wrap items-center gap-1.5 border-b border-line bg-canvas px-3 py-2">
       <Button size="sm" variant="secondary" title="Text" startIcon={<Type />} disabled={full} onClick={() => onAdd("text")}>{label("Text")}</Button>
       <Button size="sm" variant="secondary" title="Image" startIcon={<ImageIcon />} disabled={full || uploading} loading={uploading} onClick={() => file.current?.click()}>{label("Image")}</Button>
       <input ref={file} type="file" hidden accept="image/png,image/jpeg,image/webp" onChange={(event) => { const picked = event.target.files?.[0]; if (picked) onAddImage(picked); event.target.value = ""; }} />

@@ -19,6 +19,7 @@ export const MEMBER_MESSAGE_KINDS = [
   "lapsed",
   "payment-claim-pending",
   "card-issued",
+  "certificate-issued",
   "refund-decided",
   "membership-revoked",
   "membership-left",
@@ -42,15 +43,16 @@ export const MESSAGE_KIND_LABELS: Record<MemberMessageKind, { title: string; des
   lapsed: { title: "Membership lapsed", description: "Sent once a membership has lapsed, and with the reminders a plan sets after the end." },
   "payment-claim-pending": { title: "Payment being checked", description: "Sent when a member says they paid and the team has still not confirmed it a day later. Staff get a chat alert too.", staff: true },
   "card-issued": { title: "Membership card", description: "Sent when a card is first issued, and when you email a card. Email carries the card as a PDF." },
+  "certificate-issued": { title: "Certificate", description: "Sent when you email a certificate. Email carries the certificate as a PDF, with a link to check it." },
   "refund-decided": { title: "Refund decision", description: "Sent to the member who asked for a refund once the team has decided." },
   "membership-revoked": { title: "Membership revoked", description: "Sent when the team revokes a membership, with the note they gave." },
   "membership-left": { title: "Membership ended by the member", description: "Sent when a member ends their own membership from their account." },
 };
 
 /** Kinds that carry a PDF on email (a receipt, a card). Other channels get the short text only. */
-export const KINDS_WITH_ATTACHMENT: readonly MemberMessageKind[] = ["payment-received", "card-issued", "refund-decided"];
+export const KINDS_WITH_ATTACHMENT: readonly MemberMessageKind[] = ["payment-received", "card-issued", "certificate-issued", "refund-decided"];
 
-export const MESSAGE_PLACEHOLDERS = ["name", "organisation", "plan", "unit", "cardNumber", "validUntil", "amount", "dueDate", "payLink", "graceUntil", "paymentInstructions"] as const;
+export const MESSAGE_PLACEHOLDERS = ["name", "organisation", "plan", "unit", "cardNumber", "certificate", "certificateNumber", "validUntil", "amount", "dueDate", "payLink", "graceUntil", "paymentInstructions"] as const;
 export type MessagePlaceholder = (typeof MESSAGE_PLACEHOLDERS)[number];
 
 /** Variables a WhatsApp template may take, in the order the organisation lists them: the placeholders and the stop link. */

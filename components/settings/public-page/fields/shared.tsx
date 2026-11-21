@@ -2,12 +2,27 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2, X } from "lucide-react";
+import type { AreaEntry, LiveStatResult } from "@/lib/publicPage/blockData";
 import { pageImageUrl, type PageSection, type SectionOf } from "@/lib/publicPage/sections";
 import { Button, IconButton } from "@/components/ui/button";
 import { RadioCard, RadioGroup } from "@/components/ui/choice";
 import { Field, Input } from "@/components/ui/field";
 import { cn } from "@/lib/cn";
 import { ImageUploadButton } from "../ImageUploadButton";
+
+/** What the newer blocks' editors read beside the document (from the editor loader). */
+export type EditorExtras = {
+  /** Every active area, in tree order (areas directory scope). */
+  areas: AreaEntry[];
+  /** The organisation's groupings, for "members by grouping". */
+  groupings: Array<{ id: string; name: string }>;
+  /** Every live numbers metric, organisation-wide (pick a block's with `statsForSection`). */
+  statsCatalogue: LiveStatResult[];
+  /** The organisation's names for its unit levels ("Area", "Unit"). */
+  unitLevels: string[];
+  /** Keys of the organisation's uploaded page images, newest first, for image pickers. */
+  pageImages: string[];
+};
 
 /** What every section editor gets: the organisation, its plans for join buttons, and the server's errors. */
 export type FieldContext = {
@@ -16,6 +31,7 @@ export type FieldContext = {
   disabled: boolean;
   /** The server's first error for a path inside this section ("primary.label", "people.2.name"). */
   error: (path: string) => string | undefined;
+  extras: EditorExtras;
 };
 
 export type SectionProps<T extends PageSection["type"]> = FieldContext & { section: SectionOf<T>; onChange: (next: SectionOf<T>) => void };

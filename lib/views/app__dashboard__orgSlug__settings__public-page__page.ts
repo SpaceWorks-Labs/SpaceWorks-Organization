@@ -1,9 +1,11 @@
 import { prisma } from "@/lib/db";
 import { can, requireOrgCapability } from "@/lib/permissions";
+import { loadAreaEntries } from "@/lib/publicPage/areaData";
 import { loadPublicCounts } from "@/lib/publicPage/counts";
+import { loadStatsCatalogue } from "@/lib/publicPage/liveStats";
 import { sampleCardFor } from "@/lib/publicPage/sampleCard";
 import { loadStoredPage } from "@/lib/publicPage/server";
-import { starterDocument } from "@/lib/publicPage/sections";
+import { isPageImageKeyFor, starterDocument } from "@/lib/publicPage/sections";
 
 /**
  * The public page editor: what is published, the working draft (or the published page, or a starter
@@ -35,17 +37,36 @@ export async function loadPublicPageEditorView({ params }: { params: Promise<{ o
   ]);
   const working = stored.draft ?? stored.published ?? starterDocument(org);
   // Every count, so a counts section added in the editor previews straight away; still aggregates, small ones removed.
-  const [counts, sampleCard] = await Promise.all([loadPublicCounts(organisation.id, { total: true, byPlan: true, byUnit: true }), sampleCardFor(org)]);
+  const groupings = await prisma.orgGrouping.findMany({ where: { organisationId: organisation.id, archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true } });
+  const [counts, sampleCard, statsCatalogue, areas, images] = await Promise.all([
+    loadPublicCounts(organisation.id, { total: true, byPlan: true, byUnit: true }),
+    sampleCardFor(org),
+    loadStatsCatalogue(organisation.id, groupings, org),
+    loadAreaEntries({ ...org, website: org.website }, org.status === "ACTIVE"),
+    // The organisation's own uploaded page images (never page files), newest first, for the editor's image pickers.
+    prisma.asset.findMany({ where: { organisationId: organisation.id, key: { startsWith: `organisations/${organisation.id}/page-images/` } }, orderBy: { createdAt: "desc" }, take: 60, select: { key: true } }),
+  ]);
   return {
     org,
     canEdit: can(membership, "org.settings", { write: true }),
     publishedAt: stored.publishedAt,
     hasDraft: Boolean(stored.draft),
+    /** What visitors see now (null when unpublished), for Discard draft and "changed since publishing". */
+    published: stored.published,
+    draftSavedAt: stored.draftSavedAt,
     revision: stored.revision,
     document: working,
     plans,
     units,
     counts,
     sampleCard,
+    /** Every numbers metric the editor can offer, organisation-wide (use `statsForSection` to pick a block's). */
+    statsCatalogue,
+    /** Every area with its contact and join plans, for the areas directory preview. */
+    areas,
+    /** The organisation's groupings, for the numbers block's "by grouping" picker. */
+    groupings,
+    /** Keys of the organisation's uploaded page images, newest first. */
+    pageImages: images.map((image) => image.key).filter((key) => isPageImageKeyFor(key, organisation.id)),
   };
 }

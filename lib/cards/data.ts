@@ -9,15 +9,18 @@ import { managedImageUrl, memberPhotoUrl } from "./imageUrl";
 import type { CardInput } from "./render";
 import { printableWebsite, type CardBranding, type CardHolder } from "./types";
 import { roleCardRows } from "./roleCards";
+import { contactFor, unitChainNearestFirst } from "@/lib/units/contact";
+import { nearestAreaDesign } from "./areaDesigns";
 import { missingAncestorIds, unitChain, type CardUnitRow } from "./units";
 
 /*
  * Everything a card render needs, from the database: the organisation, its designs (the member's
- * primary role design, else the plan's, else the organisation default, else the built-in default), the
- * plan's printable fields, and the member's details with their current valid-until date and unit chain.
+ * primary role design, else their area's (own unit, then each unit above), else the plan's, else the
+ * organisation default, else the built-in default), the plan's printable fields, and the member's details
+ * with their current valid-until date, unit chain and area contact details.
  */
 
-const UNIT_SELECT = { id: true, name: true, code: true, level: true, path: true } as const;
+const UNIT_SELECT = { id: true, name: true, code: true, level: true, path: true, contactEmail: true, contactPhone: true, website: true } as const;
 
 export const CARD_INCLUDE = {
   plan: { select: { id: true, name: true } },
@@ -36,7 +39,7 @@ type CardRecord = Prisma.MemberCardGetPayload<{ include: typeof CARD_INCLUDE }>;
 
 export type CardOrgContext = {
   organisation: { id: string; name: string; slug: string; logoUrl: string | null; accentColor: string | null; timezone: string; status: string; unitLevels: string[]; delightEnabled: boolean; website?: string | null; contactEmail?: string | null; contactPhone?: string | null };
-  designs: Array<{ planId: string | null; roleId: string | null; design: unknown; watermarkUrl: string | null; numberPrefix: string; numberFormat: string }>;
+  designs: Array<{ planId: string | null; roleId: string | null; unitId?: string | null; design: unknown; watermarkUrl: string | null; numberPrefix: string; numberFormat: string }>;
   fields: Map<string, DetailField[]>;
   /** Ancestor units loaded so far by `loadCardUnits`, by id. */
   units: Map<string, CardUnitRow>;
@@ -56,7 +59,7 @@ export async function loadCardOrgContext(organisationId: string): Promise<CardOr
   if (!organisation) return null;
   const [designs, fields] = await Promise.all([
     // Only approved designs reach cards; drafts wait for the owner (lib/cards/approval.ts).
-    prisma.cardDesign.findMany({ where: { organisationId, design: { not: Prisma.DbNull } }, select: { planId: true, roleId: true, design: true, watermarkUrl: true, numberPrefix: true, numberFormat: true } }),
+    prisma.cardDesign.findMany({ where: { organisationId, design: { not: Prisma.DbNull } }, select: { planId: true, roleId: true, unitId: true, design: true, watermarkUrl: true, numberPrefix: true, numberFormat: true } }),
     prisma.planField.findMany({ where: { organisationId, adminOnly: false }, orderBy: { sortOrder: "asc" }, select: { planId: true, key: true, label: true, type: true, options: true, multiple: true, section: true } }),
   ]);
   const byPlan = new Map<string, DetailField[]>();
@@ -86,24 +89,26 @@ export function brandingFor(ctx: CardOrgContext, watermarkUrl: string | null): C
   };
 }
 
-export type DesignSource = "role" | "plan" | "organisation" | "default";
+export type DesignSource = "role" | "area" | "plan" | "organisation" | "default";
 
-/** The organisation default row: neither a plan's nor a role's. */
+/** The organisation default row: not a plan's, a role's or an area's. */
 export function organisationDesignRow(ctx: CardOrgContext) {
-  return ctx.designs.find((row) => row.planId === null && row.roleId === null);
+  return ctx.designs.find((row) => row.planId === null && row.roleId === null && !row.unitId);
 }
 
 /**
- * The design a card uses: its member's primary role design, else its plan's, else the organisation
- * default, else the built-in one.
+ * The design a card uses: its member's primary role design, else the nearest area design (the member's own
+ * unit, then each unit above it), else its plan's, else the organisation default, else the built-in one.
+ * `unit` is the member's unit (its `path`); drafts never reach here (only live rows are loaded).
  */
-export function designFor(ctx: CardOrgContext, plan: { id: string; name: string }, roleId: string | null = null): CardInput & { design: CardDesign; source: DesignSource } {
+export function designFor(ctx: CardOrgContext, plan: { id: string; name: string }, roleId: string | null = null, unit: { path: string } | null = null): CardInput & { design: CardDesign; source: DesignSource } {
   const byRole = roleId ? ctx.designs.find((row) => row.roleId === roleId) : undefined;
+  const byArea = nearestAreaDesign(ctx.designs, unit?.path);
   const byPlan = ctx.designs.find((row) => row.planId === plan.id);
   const fallback = organisationDesignRow(ctx);
-  const row = byRole ?? byPlan ?? fallback;
+  const row = byRole ?? byArea ?? byPlan ?? fallback;
   const design = withOwnArtwork(normalizeCardDesign(row?.design, { organisationName: ctx.organisation.name, planName: plan.name }), ctx.organisation.id);
-  return { design, branding: brandingFor(ctx, row?.watermarkUrl ?? null), source: byRole ? "role" : byPlan ? "plan" : fallback ? "organisation" : "default" };
+  return { design, branding: brandingFor(ctx, row?.watermarkUrl ?? null), source: byRole ? "role" : byArea ? "area" : byPlan ? "plan" : fallback ? "organisation" : "default" };
 }
 
 /** The member's primary role on a loaded card, if it is still in use. */
@@ -111,10 +116,18 @@ export function cardRoleId(card: CardRecord) {
   return card.member.roles[0]?.role.id ?? null;
 }
 
+/** The member's unit, for `designFor`. */
+export function cardUnit(card: CardRecord) {
+  return card.member.unit;
+}
+
 /** What a card prints about its member, read now: the valid-until date follows renewals. */
 export function holderFor(card: CardRecord, ctx: CardOrgContext, now = new Date()): CardHolder {
   const chain = card.member.terms.filter((term) => term.planId === card.planId);
   const current = deriveStatus(chain, now).current;
+  // Contact details come from the member's area, each from the nearest unit that sets it, else the organisation.
+  const unit = card.member.unit;
+  const area = contactFor(unitChainNearestFirst(unit, [...ctx.units.values(), ...(unit ? [unit] : [])]), { contactEmail: ctx.organisation.contactEmail, contactPhone: ctx.organisation.contactPhone, website: ctx.organisation.website });
   return {
     memberId: card.memberId,
     verifyToken: card.verifyToken,
@@ -127,7 +140,7 @@ export function holderFor(card: CardRecord, ctx: CardOrgContext, now = new Date(
     idNumber: card.cardNumber,
     validUntil: current?.startsAt ? formatValidUntil(current.endsAt, ctx.organisation.timezone) : null,
     units: unitChain(card.member.unit, ctx.units, ctx.organisation.unitLevels),
-    contact: { website: printableWebsite(ctx.organisation.website), email: ctx.organisation.contactEmail ?? null, phone: ctx.organisation.contactPhone ?? null },
+    contact: { website: printableWebsite(area.website), email: area.email, phone: area.phone },
     organisationName: ctx.organisation.name,
   };
 }
@@ -139,7 +152,7 @@ export async function loadCardForRender(cardId: string) {
   const ctx = await loadCardOrgContext(card.organisationId);
   if (!ctx) return null;
   await loadCardUnits(ctx, [card]);
-  const { design, branding } = designFor(ctx, card.plan, cardRoleId(card));
+  const { design, branding } = designFor(ctx, card.plan, cardRoleId(card), cardUnit(card));
   return { card, ctx, input: { design, branding } satisfies CardInput, holder: holderFor(card, ctx) };
 }
 

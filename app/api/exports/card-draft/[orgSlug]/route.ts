@@ -16,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * The card designer's downloads, of the design as it stands (the saved draft, not yet approved):
- * GET /api/exports/card-draft/{orgSlug}?plan=&role=&format=pdf|png&side=front|back&print=1&member=&sample=.
+ * GET /api/exports/card-draft/{orgSlug}?plan=&role=&unit=&format=pdf|png&side=front|back&print=1&member=&sample=.
  * The design is read from the database for that scope, never sent by the client. `print=1` adds a 2 mm bleed
  * with crop marks to the PDF. `member` previews with a member inside the viewer's scope (sample answers, a
  * dummy QR); otherwise the sample member. Staff with `cards.design` (and `members.view` for a member); one
@@ -41,7 +41,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ orgS
   const sample = url.searchParams.get("sample");
   if (!(await checkRateLimitById("cardRender", `user:${userId}`))) return jsonError(429, "Too many card downloads. Try again later.");
 
-  const scope = await findDesignScope(org.id, url.searchParams.get("plan") || null, url.searchParams.get("role") || null);
+  const scope = await findDesignScope(org.id, url.searchParams.get("plan") || null, url.searchParams.get("role") || null, url.searchParams.get("unit") || null);
   const ctx = scope ? await loadCardOrgContext(org.id) : null;
   if (!scope || !ctx) return jsonError(404, "Not found.");
   const { design, branding, numbering } = await loadDraftForExport(ctx, scope);
@@ -55,7 +55,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ orgS
   try {
     const bleedMm = format === "pdf" && url.searchParams.get("print") === "1" ? normalizeBleedMm(PRINT_BLEED_MM) : 0;
     const body = await renderDraftExport(design, branding, holder, { format, side, bleedMm, title: `${ctx.organisation.name} card design (draft)` });
-    const name = `${org.slug}-card-draft${scope.plan ? `-${slugForFile(scope.plan.name, "plan")}` : scope.role ? `-${slugForFile(scope.role.name, "role")}` : ""}${format === "png" ? `-${side}` : bleedMm ? "-print" : ""}.${format}`;
+    const name = `${org.slug}-card-draft${scope.plan ? `-${slugForFile(scope.plan.name, "plan")}` : scope.role ? `-${slugForFile(scope.role.name, "role")}` : scope.unit ? `-${slugForFile(scope.unit.name, "area")}` : ""}${format === "png" ? `-${side}` : bleedMm ? "-print" : ""}.${format}`;
     return download(body, format === "png" ? "image/png" : "application/pdf", name);
   } finally {
     release();

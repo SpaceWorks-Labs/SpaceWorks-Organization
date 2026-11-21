@@ -8,7 +8,7 @@ import { CARD_VERSION_LIMIT, isCardVersionKind, type CardVersionKind } from "@/l
 import type { ActionResult } from "./org";
 
 /*
- * Version history of one card design (the organisation default, a plan's or a role's), for the designer's
+ * Version history of one card design (the organisation default, a plan's, a role's or an area's), for the designer's
  * "Version history" dialog. Reading needs `cards.design`; restoring is the designer saving the version as its
  * draft, so the owner still approves it before it reaches members' cards.
  */
@@ -19,12 +19,13 @@ const scopeSchema = {
   organisationSlug: z.string().trim().min(1),
   planId: z.string().trim().min(1).max(64).nullable(),
   roleId: z.string().trim().min(1).max(64).nullable().optional(),
+  unitId: z.string().trim().min(1).max(64).nullable().optional(),
 };
 
-async function designFor(input: { organisationSlug: string; planId: string | null; roleId?: string | null }) {
+async function designFor(input: { organisationSlug: string; planId: string | null; roleId?: string | null; unitId?: string | null }) {
   const ctx = await cardDesignerReadAccess(input.organisationSlug, ["cards.design"]);
   if (!ctx.ok) return ctx;
-  const scope = await findDesignScope(ctx.organisation.id, input.planId, input.roleId ?? null);
+  const scope = await findDesignScope(ctx.organisation.id, input.planId, input.roleId ?? null, input.unitId ?? null);
   if (!scope) return { ok: false as const, error: NOT_FOUND };
   const row = await prisma.cardDesign.findFirst({ where: scope.where, select: { id: true } });
   return { ok: true as const, ctx, scope, row };

@@ -7,7 +7,7 @@
 /** The docs viewer's feature pages (/docs/<slug>), in reading order. */
 export const DOCS_SLUGS = [
   "organisations", "units", "groupings", "staff-and-roles", "sign-in", "plans-and-join-forms", "renewals", "payments", "receipts-and-refunds",
-  "member-cards", "member-portal", "public-page", "reports-and-analytics", "notifications", "web-analytics", "self-hosting",
+  "member-cards", "certificates", "member-portal", "public-page", "reports-and-analytics", "notifications", "web-analytics", "self-hosting",
 ] as const;
 
 export type DocsSlug = (typeof DOCS_SLUGS)[number];
@@ -54,6 +54,8 @@ export const FEATURE_AREAS: readonly FeatureArea[] = [
       "Join links carry the code (?unit=CODE), so people join the right unit, and card numbers can include it.",
       "A unit moves only to another parent on the same level, taking its subtree with it. Levels and card numbers never change.",
       "A plan limited to some units is offered to everything below them too.",
+      "Each unit can have its own email, phone and website, printed on the card backs of the members in it. A detail left empty comes from the unit above, then from the organisation.",
+      "Each unit has its own public page at /o/<organisation>/a/<code>, with its plans, its numbers and its contact details.",
     ],
     who: [
       "Building and changing the tree needs structure.manage.",
@@ -162,14 +164,30 @@ export const FEATURE_AREAS: readonly FeatureArea[] = [
     summary: "One live ID card per member and plan, with a QR anyone can scan to check it.",
     does: [
       "A card is issued when a membership first becomes active, and renewals keep it. Scanning the QR shows its live status.",
-      "A card designer sets colours, fonts and layout, with different designs per role.",
+      "A card designer sets colours, fonts and layout, with different designs per role, per plan and per area. A member's card uses the role design first, then the nearest area's, then the plan's, then the organisation's.",
       "Managers save drafts; only the Owner approves one, and members' cards keep the approved design until then.",
-      "Card numbers follow your own pattern with a running sequence. Cards are drawn on demand as matching PDF and PNG, never stored.",
+      "Card numbers follow your own pattern with a running sequence, with a series of their own for any area that has its own design. Cards are drawn on demand as matching PDF and PNG, never stored.",
       "Staff of the card's organisation who scan it see the member's record, inside their unit scope. Everyone else sees only whether it is valid.",
       "Bulk downloads give a ZIP of PDFs or one combined PDF.",
     ],
     who: ["Issuing, reissuing and emailing cards needs cards.manage; designs need cards.design.", "Approving a design needs cards.approve, the Owner's alone."],
     toggle: ["Cards are always on for active memberships.", "The public check page works whether or not member accounts are on."],
+  },
+  {
+    id: "certificates", docsSlug: "certificates", title: "Certificates", since: "0.11.0",
+    summary: "Numbered certificates for members, designed once and checked by a QR code.",
+    does: [
+      "Design a certificate page in A4 or US Letter, landscape or portrait, with the card designer's layers and placeholders such as the member's name, the title, the reason and the date. Only the Owner approves a design.",
+      "Issue certificates to chosen members, to everyone current on a plan or to a smart group, up to 200 at a time. A member who already holds the same certificate is skipped.",
+      "Email each member their certificate as a PDF, download any certificate as PDF or PNG, or take a batch as a ZIP or one combined PDF.",
+      "Each certificate has its own number and a QR code to a public check page that says whether it is valid. Revoking one keeps its record and removes the member's name from the page.",
+      "Members see their certificates in their account when member accounts are on.",
+    ],
+    who: [
+      "Issuing, emailing, downloading and revoking needs certificates.issue, and works for staff limited to a unit inside their reach.",
+      "Designs need certificates.design; approving a design needs certificates.approve, the Owner's alone.",
+    ],
+    toggle: ["Certificates need no switch: the menu item shows for anyone holding the permissions.", "Members see theirs only when member accounts are on. The check page works either way."],
   },
   {
     id: "member-portal", docsSlug: "member-portal", title: "Member portal",
@@ -187,9 +205,10 @@ export const FEATURE_AREAS: readonly FeatureArea[] = [
     id: "public-page", docsSlug: "public-page", title: "Public page",
     summary: "A page at /o/<your-organisation> that says who you are and how to join.",
     does: [
-      "A sections editor builds the page from text, links, images and plans.",
+      "A visual editor builds the page on the page itself: click a section or its text to change it, drag sections into order, and preview it in light or dark at desktop, tablet or phone width. 28 kinds of block include live numbers, an areas directory, columns, icon lists, badges and a members' area preview.",
+      "Every area has its own page at /o/<organisation>/a/<code>, built from the same blocks with that area's plans, numbers and contact details.",
       "Text uses a small Markdown subset and is always shown as text, never raw HTML. Links must be web, email or phone links, and images must be your own uploads.",
-      "Changes stay a draft until you publish; you can discard them or unpublish.",
+      "Changes save by themselves as a draft and stay hidden until you publish. Each publish is kept in a version history of the last 20, and any version can be restored to the draft. You can also discard the draft or unpublish.",
       "The page can use the organisation's own accent colour, checked for readable contrast.",
     ],
     who: ["Editing the page needs org.settings."],
@@ -202,7 +221,7 @@ export const FEATURE_AREAS: readonly FeatureArea[] = [
       "Reports cover the overview, units, members, renewals, applications, money, tax and receipts, and team activity, filtered by period, plan and unit.",
       "The units report compares the units one level down and drills into each.",
       "Reports export as CSV, and the overview prints as a PDF snapshot.",
-      "The super admin's platform analytics compare organisations with counts and totals only, never a member's name, email or phone.",
+      "The super admin's platform analytics have Growth, Money, Organisations and Operations tabs: members, renewals and churn against the previous period, money per currency, a sortable ranking of organisations, and the health of email, messages, sign-ins and background jobs. Counts and totals only, never a member's name, email or phone.",
       "Every figure is counted in house from the application's own data.",
     ],
     who: [
@@ -215,7 +234,7 @@ export const FEATURE_AREAS: readonly FeatureArea[] = [
     id: "notifications", docsSlug: "notifications", title: "Notifications",
     summary: "Member emails in your organisation's name, and team alerts in your chat.",
     does: [
-      "Notices, reminders, receipts and cards go out in the organisation's name, through its own SMTP server or the platform's.",
+      "Notices, reminders, receipts, cards and certificates go out in the organisation's name, through its own SMTP server or the platform's.",
       "Change the wording of member emails with plain-text templates and placeholders.",
       "Team alerts go to Slack, Discord, Mattermost, Telegram or WhatsApp: new applications, payments, refund and erasure requests, and a monthly summary.",
       "Messages are queued with the change that causes them, so a change that fails sends nothing.",

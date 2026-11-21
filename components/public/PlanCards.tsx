@@ -14,12 +14,14 @@ export type PublicPlan = {
 };
 
 /** The organisation's open plans, live from the database, each with its join button. They rise in once (delight). */
-export function PlanCards({ org, plans, takingMembers, preview = false }: {
+export function PlanCards({ org, plans, takingMembers, preview = false, areaCode = null }: {
   org: { name: string; slug: string; locale: string | null; financialYearStartMonth: number };
   plans: PublicPlan[];
   takingMembers: boolean;
   /** In the editor preview the join buttons don't navigate. */
   preview?: boolean;
+  /** On an area page: join links carry `?unit=CODE`. */
+  areaCode?: string | null;
 }) {
   return (
     <div className="flex flex-col gap-6">
@@ -47,7 +49,7 @@ export function PlanCards({ org, plans, takingMembers, preview = false }: {
                     preview ? (
                       <span className={buttonClasses({ variant: "accent", fullWidth: true })}>{label}<ArrowUpRight aria-hidden className="size-4" /></span>
                     ) : (
-                      <Link href={`/o/${org.slug}/join/${plan.slug}`} className={buttonClasses({ variant: "accent", fullWidth: true })}>
+                      <Link href={`/o/${org.slug}/join/${plan.slug}${areaCode ? `?unit=${areaCode}` : ""}`} className={buttonClasses({ variant: "accent", fullWidth: true })}>
                         {label}
                         <ArrowUpRight aria-hidden className="size-4" />
                       </Link>

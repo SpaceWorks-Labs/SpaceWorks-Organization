@@ -6,7 +6,7 @@ import "server-only";
  * term; never widen it. Rows map onto ./types.ts, which the pure reports depend on.
  * Contract and signatures: docs/REPORTS.md "Finance data contract".
  */
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type { ReportScope } from "../source";
 import { scopedMemberWhere } from "../source";
@@ -214,4 +214,32 @@ export async function loadPlatformPaymentActivity(failedSince: Date): Promise<{ 
     lastPaid: new Map(last.flatMap((row) => (row._max.paidAt ? [[row.organisationId, row._max.paidAt] as const] : []))),
     failed: new Map(failed.map((row) => [row.organisationId, row._count._all])),
   };
+}
+
+type BucketUnit = "day" | "month";
+
+/** Platform money: settled payments in a window, grouped in SQL by bucket start (UTC), currency and provider. Amounts only. */
+export async function loadPlatformPaymentGroups(window: { from: Date; to: Date }, unit: BucketUnit) {
+  const rows = await prisma.$queryRaw<Array<{ bucket: Date; currency: string; provider: string; amount: bigint; n: bigint }>>(Prisma.sql`
+    SELECT date_trunc(${unit}::text, "paidAt") AS bucket, "currency", "provider"::text AS provider, sum("amountMinor") AS amount, count(*) AS n
+    FROM "Payment" WHERE "status" = 'PAID' AND "paidAt" >= ${window.from} AND "paidAt" < ${window.to} GROUP BY 1, 2, 3`);
+  return rows.map((row) => ({ bucket: row.bucket, currency: row.currency, provider: row.provider, amountMinor: Number(row.amount), count: Number(row.n) }));
+}
+
+/** Platform money: processed refunds in a window by refund date (processed, else created), grouped in SQL by bucket start and currency. */
+export async function loadPlatformRefundGroups(window: { from: Date; to: Date }, unit: BucketUnit) {
+  const rows = await prisma.$queryRaw<Array<{ bucket: Date; currency: string; amount: bigint; n: bigint }>>(Prisma.sql`
+    SELECT date_trunc(${unit}::text, COALESCE("processedAt", "createdAt")) AS bucket, "currency", sum("amountMinor") AS amount, count(*) AS n
+    FROM "Refund" WHERE "status" = 'PROCESSED' AND COALESCE("processedAt", "createdAt") >= ${window.from} AND COALESCE("processedAt", "createdAt") < ${window.to} GROUP BY 1, 2`);
+  return rows.map((row) => ({ bucket: row.bucket, currency: row.currency, amountMinor: Number(row.amount), count: Number(row.n) }));
+}
+
+/** Platform money per organisation and currency in a window: settled payments and processed refunds, amounts only. */
+export async function loadPlatformMoneyByOrg(window: { from: Date; to: Date }) {
+  const [payments, refunds] = await Promise.all([
+    prisma.payment.groupBy({ by: ["organisationId", "currency"], where: { status: "PAID", paidAt: { gte: window.from, lt: window.to } }, _sum: { amountMinor: true } }),
+    prisma.refund.groupBy({ by: ["organisationId", "currency"], where: refundedIn(window), _sum: { amountMinor: true } }),
+  ]);
+  const amount = (row: { organisationId: string; currency: string; _sum: { amountMinor: number | null } }) => ({ organisationId: row.organisationId, currency: row.currency, amountMinor: row._sum.amountMinor ?? 0 });
+  return { payments: payments.map(amount), refunds: refunds.map(amount) };
 }

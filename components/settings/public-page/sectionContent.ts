@@ -17,6 +17,12 @@ export function sectionHasContent(section: PageSection): boolean {
     case "links": return section.links.length > 0;
     case "contact": return Boolean(section.email || section.phone || section.address || section.hours);
     case "map": return Boolean(section.address || section.url);
+    case "liveStats": return section.metrics.length > 2 || Boolean(section.intro);
+    case "areas": return Boolean(section.intro || section.parentCode);
+    case "columns": return section.columns.some((column) => column.items.length > 0);
+    case "buttons": case "iconList": case "badges": return section.items.length > 0;
+    case "divider": return false;
+    case "membersPreview": return section.points.length > 4 || Boolean(section.intro);
   }
 }
 

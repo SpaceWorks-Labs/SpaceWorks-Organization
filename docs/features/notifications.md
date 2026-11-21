@@ -10,14 +10,14 @@ nothing, and the background worker delivers it afterwards with retries.
 
 ### Member emails
 
-- Notices, reminders, receipts and credit notes, invites, cards, and refund and erasure replies go out in the
+- Notices, reminders, receipts and credit notes, invites, cards, certificates, and refund and erasure replies go out in the
   organisation's name.
 - An organisation can send them through its own SMTP, Amazon SES, Resend or Postmark account. Without one they come
   from the platform's address in the organisation's name, with replies going to its contact email.
 - Sign-in emails, such as password resets, verification codes and new-device alerts, always come from the platform.
 - **Send a test email** checks the settings before you rely on them. Addresses that bounce for good or complain are
   put on a suppression list and are not emailed again.
-- Receipts and cards travel as PDFs drawn when the email is sent, never stored.
+- Receipts, cards and certificates travel as PDFs drawn when the email is sent, never stored.
 
 ### Member messaging
 
@@ -25,7 +25,7 @@ nothing, and the background worker delivers it afterwards with retries.
   **Mattermost**.
 - Every member message is one of these kinds: application received, approved and declined; payment due and received;
   membership started and renewed; renewal due; membership ends today; grace period started and ending; membership
-  lapsed; payment being checked; membership card; refund decision; membership revoked; and membership ended by the
+  lapsed; payment being checked; membership card; certificate; refund decision; membership revoked; and membership ended by the
   member.
 - **Per-kind routing.** For each kind, Settings → Messaging lists up to four channels in the order to try them. A
   member gets each message **once**, on the first channel they can be reached on; the others are only a fallback.

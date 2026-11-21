@@ -135,6 +135,21 @@ See [Plans and join forms](../features/plans-and-join-forms.md).
 A bulk card download that matches more cards than its limit is refused with a message to filter by plan, unit or
 status first. See [Member cards](../features/member-cards.md).
 
+## Certificates
+
+| Limit | Value | Source |
+|---|---|---|
+| Certificate designs per organisation | 100 | `app/actions/certificate-designs.ts` |
+| Certificates per issue request | 200; more matches are refused, never cut short | `app/actions/certificates.ts` |
+| Chosen members per issue request | 500 | `app/actions/certificates.ts` |
+| Bulk certificates as a ZIP | 200 per download | `lib/certificates/bulk.ts` |
+| Bulk certificates as one PDF | 500 per download | `lib/certificates/bulk.ts` |
+| Title, reason, revoke reason | 120, 600 and 300 characters | `app/actions/certificates.ts` |
+| Emailing the same certificate again | After 10 minutes | `app/actions/certificates.ts` |
+| Certificate artwork | 5 MB | `app/actions/certificate-designs.ts` |
+
+See [Certificates](../features/certificates.md).
+
 ## Card designs
 
 | Limit | Value | Source |
@@ -152,6 +167,9 @@ status first. See [Member cards](../features/member-cards.md).
 | Limit | Value | Source |
 |---|---|---|
 | Sections | 30 | `lib/publicPage/sections.ts` |
+| Saved draft or published page | 120,000 bytes of JSON | `app/actions/public-page.ts` |
+| Published versions kept | 20, the oldest dropped on the next publish | `app/actions/public-page.ts` |
+| Items in the new blocks | Live numbers 8, columns 2 to 4 with 6 items each, buttons 6, icon list 12, badges 12, members' area points 8 | `lib/publicPage/blockSchemas.ts` |
 | Text in one section | 6000 characters (longer text is cut) | `lib/publicPage/markdown.ts` |
 | Gallery images | 12 | `lib/publicPage/sectionSchemas.ts` |
 | People | 24 | `lib/publicPage/sectionSchemas.ts` |

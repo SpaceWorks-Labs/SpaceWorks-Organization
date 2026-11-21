@@ -33,7 +33,7 @@ const TOP = 10;
 export function TrendChart({ labels, series, ariaLabel, format = "number", area = false, height = 180, yMax }: TrendChartProps) {
   const { ref, width, svgWidth } = useWidth<HTMLDivElement>();
   const values = series.flatMap((entry) => entry.values.filter((value): value is number => value !== null));
-  const ticks = niceTicks(yMax ?? Math.max(1, ...values), 4);
+  const ticks = niceTicks(yMax ?? Math.max(1, ...values), 4, { integer: format === "number" });
   const top = ticks.at(-1)!;
   const left = format === "percent" ? 40 : 36;
   const directLabels = series.length <= 4;

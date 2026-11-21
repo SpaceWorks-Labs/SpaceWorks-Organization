@@ -36,6 +36,7 @@ Some permissions cover the whole organisation. Held limited, they work different
 | ◆ | `org.settings` | Change the profile, public page, email and notifications | Read only |
 | ◆ | `structure.manage` | Change units, levels and member roles | Read only |
 | ◆ | `cards.design` | Draft card designs | Read only |
+| ◆ | `certificates.design` | Draft certificate designs | Read only |
 | ◆ | `accounts.manage` | Record other receipts and expenses | Read only |
 | ◆ | `roles.manage` | Create and edit staff roles | Read only |
 | ● | `reports.gstr1` | GSTR-1 export | Refused |
@@ -43,7 +44,7 @@ Some permissions cover the whole organisation. Held limited, they work different
 
 If you try to change a ◆ screen, the app answers "Only staff for the whole organisation can change this." The **Accounts** page shows "Kept for the whole organisation", because the accounts cover every unit.
 
-The Owner-only permissions (`cards.approve`, `org.delete`, `ownership.transfer`) are never part of a limited role.
+The Owner-only permissions (`cards.approve`, `certificates.approve`, `org.delete`, `ownership.transfer`) are never part of a limited role.
 
 ### Permissions that work inside your reach
 
@@ -61,9 +62,14 @@ These work as usual, applied to members inside your reach:
 | `reports.finance` | Finance reports |
 | `members.manage` | Add, edit, approve and renew members |
 | `cards.manage` | Issue, reissue and revoke member cards |
+| `certificates.issue` | Issue, email, download and revoke certificates for members in your reach |
 | `audit.view` | Read the activity log |
 | `erasure.decide` | Decide requests to erase personal data |
 | `team.manage` | Invite staff and change their roles |
+
+### Certificates in your reach
+
+With `certificates.issue` you can open **Certificates**, issue a certificate to members you can see, email it, download it and revoke it. Counts and the issued list cover only your members, a plan or smart group issues only to the members of it you can see, and a member outside your reach is refused as not found. Designs are read-only to you, and a design must be approved by the Owner before you can issue from it. See [Certificates](../features/certificates.md).
 
 ## Inviting and changing staff
 

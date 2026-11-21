@@ -19,10 +19,12 @@ type WriteSide = (next: CardSideSettings, undoStep: boolean | "coalesce") => voi
  * number of layers, always whole groups), zoom, guides, overlays, pointer transforms, the Arrange and
  * Position actions and the keyboard shortcuts.
  */
-export function useCardEditor({ current, side, writeSide, visible, undo, redo, onError, both = false }: {
+export function useCardEditor({ current, side, writeSide, visible, undo, redo, onError, both = false, initialSelection = ["name"] }: {
   current: CardSideSettings;
   /** Both sides shown side by side: zoom to fit two cards. */
   both?: boolean;
+  /** What is selected at first; the card's name item unless given (a layers-only designer passes none). */
+  initialSelection?: string[];
   side: () => CardSideSettings;
   writeSide: WriteSide;
   visible: Record<CardElement, boolean>;
@@ -30,7 +32,7 @@ export function useCardEditor({ current, side, writeSide, visible, undo, redo, o
   redo: () => void;
   onError: (message: string | null) => void;
 }) {
-  const [rawSelection, setSelection] = useState<string[]>(["name"]);
+  const [rawSelection, setSelection] = useState<string[]>(initialSelection);
   const [overlays, setOverlays] = useState<Overlays>({ grid: false, bleed: false, safe: true, rulers: true });
   const [helpOpen, setHelpOpen] = useState(false);
   const zoom = useZoom(both ? current.widthMm * 2 + 12 : current.widthMm, current.heightMm);

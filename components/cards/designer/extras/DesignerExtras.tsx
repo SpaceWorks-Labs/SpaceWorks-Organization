@@ -14,6 +14,7 @@ export type DesignerExtrasProps = {
   organisationSlug: string;
   planId: string | null;
   roleId: string | null;
+  unitId: string | null;
   design: CardDesign;
   side: CardSide;
   /** Replace the whole design (one undo step). */
@@ -23,11 +24,11 @@ export type DesignerExtrasProps = {
 };
 
 /** Version history, saving as an organisation template, previewing with a member and downloads, next to the save status. */
-export function DesignerExtras({ organisationSlug, planId, roleId, design, side, onRestore, onPreviewHolder }: DesignerExtrasProps) {
+export function DesignerExtras({ organisationSlug, planId, roleId, unitId, design, side, onRestore, onPreviewHolder }: DesignerExtrasProps) {
   const [dialog, setDialog] = useState<"history" | "template" | null>(null);
   const [member, setMember] = useState<PreviewMember | null>(null);
   const [message, setMessage] = useState<{ tone: "status" | "error"; text: string } | null>(null);
-  const target = { organisationSlug, planId, roleId };
+  const target = { organisationSlug, planId, roleId, unitId };
 
   // Confirmations fade after a few seconds; errors stay until the next try.
   useEffect(() => {

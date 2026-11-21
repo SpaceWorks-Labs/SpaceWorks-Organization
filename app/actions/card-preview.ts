@@ -34,6 +34,7 @@ const holderSchema = z.object({
   organisationSlug: z.string().trim().min(1),
   planId: z.string().trim().min(1).max(64).nullable(),
   roleId: z.string().trim().min(1).max(64).nullable().optional(),
+  unitId: z.string().trim().min(1).max(64).nullable().optional(),
   memberId: z.string().trim().min(1).max(64),
 });
 
@@ -43,7 +44,7 @@ export async function loadCardPreviewHolder(input: unknown): Promise<ActionResul
   if (!parsed.success) return { ok: false, error: "Invalid request." };
   const ctx = await cardDesignerReadAccess(parsed.data.organisationSlug, PREVIEW_CAPABILITIES);
   if (!ctx.ok) return ctx;
-  const design = await findDesignScope(ctx.organisation.id, parsed.data.planId, parsed.data.roleId ?? null);
+  const design = await findDesignScope(ctx.organisation.id, parsed.data.planId, parsed.data.roleId ?? null, parsed.data.unitId ?? null);
   const org = await prisma.organisation.findUnique({ where: { id: ctx.organisation.id }, select: PREVIEW_ORG_SELECT });
   if (!design || !org) return { ok: false, error: NOT_FOUND };
   const holder = await loadPreviewHolder(org, await teamScope(org.id, ctx.membership), parsed.data.memberId, design.plan?.id ?? null);

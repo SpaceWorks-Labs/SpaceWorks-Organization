@@ -43,7 +43,7 @@ export function sampleHolder(input: { planName: string; numberFormat: string; nu
 async function samplePlan(ctx: CardOrgContext) {
   const plans = await prisma.membershipPlan.findMany({ where: { organisationId: ctx.organisation.id, archivedAt: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } });
   if (organisationDesignRow(ctx)) return plans[0] ?? { id: "", name: "Membership" };
-  return plans.find((plan) => ctx.designs.some((row) => row.planId === plan.id && row.roleId === null)) ?? plans[0] ?? { id: "", name: "Membership" };
+  return plans.find((plan) => ctx.designs.some((row) => row.planId === plan.id && row.roleId === null && !row.unitId)) ?? plans[0] ?? { id: "", name: "Membership" };
 }
 
 /** What the sample draws, and its version: the design, the branding and the sample holder. */
@@ -52,7 +52,7 @@ async function sampleInput(organisationId: string) {
   if (!ctx) return null;
   const plan = await samplePlan(ctx);
   const { design, branding } = designFor(ctx, plan);
-  const row = ctx.designs.find((one) => one.planId === (plan.id || null) && one.roleId === null) ?? organisationDesignRow(ctx);
+  const row = ctx.designs.find((one) => one.planId === (plan.id || null) && one.roleId === null && !one.unitId) ?? organisationDesignRow(ctx);
   const holder = sampleHolder({ planName: plan.name, numberFormat: row?.numberFormat ?? DEFAULT_NUMBER_FORMAT, numberPrefix: row?.numberPrefix ?? "", year: yearIn(ctx.organisation.timezone) });
   const version = createHash("sha256").update(JSON.stringify({ design, branding, holder })).digest("hex").slice(0, 16);
   return { input: { design, branding }, holder, version, widthMm: design.front.widthMm, heightMm: design.front.heightMm };

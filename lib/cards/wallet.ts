@@ -3,7 +3,7 @@ import "server-only";
 import { prisma } from "@/lib/db";
 import { deriveStatus, type TermStatus } from "@/lib/membership/lifecycle";
 import { verifyPath } from "./core";
-import { CARD_INCLUDE, cardRoleId, designFor, holderFor, loadCardOrgContext, loadCardUnits, type CardOrgContext } from "./data";
+import { CARD_INCLUDE, cardRoleId, cardUnit, designFor, holderFor, loadCardOrgContext, loadCardUnits, type CardOrgContext } from "./data";
 import type { CardDesign } from "./design/presets";
 import type { CardBranding, CardHolder } from "./types";
 
@@ -61,7 +61,7 @@ export async function listCardsForUser(userId: string, now = new Date()): Promis
     }
     const ctx = contexts.get(card.organisationId);
     if (!ctx) continue;
-    const { design, branding } = designFor(ctx, card.plan, cardRoleId(card));
+    const { design, branding } = designFor(ctx, card.plan, cardRoleId(card), cardUnit(card));
     out.push({
       cardId: card.id,
       memberId: card.memberId,

@@ -1,10 +1,12 @@
 "use client";
 
 import { Dialog, DialogBody, DialogContent, DialogHeader } from "@/components/ui/dialog";
+import { reword, useDesignerNoun } from "../wording";
 import { SHORTCUTS } from "./shortcuts";
 
 /** The designer's keyboard shortcuts, opened with ? or the toolbar's keyboard button. */
 export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  const noun = useDesignerNoun();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent size="md">
@@ -14,7 +16,7 @@ export function ShortcutsDialog({ open, onOpenChange }: { open: boolean; onOpenC
             {SHORTCUTS.map((shortcut) => (
               <div key={shortcut.keys} className="contents">
                 <dt><kbd className="whitespace-nowrap rounded-md border border-line bg-subtle px-1.5 py-0.5 font-mono text-caption text-ink">{shortcut.keys}</kbd></dt>
-                <dd className="text-ink-secondary">{shortcut.label}</dd>
+                <dd className="text-ink-secondary">{reword(shortcut.label, noun)}</dd>
               </div>
             ))}
           </dl>

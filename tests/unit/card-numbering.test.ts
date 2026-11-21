@@ -55,3 +55,13 @@ describe("card number patterns", () => {
     expect(yearIn("UTC", newYearUtc)).toBe(2026);
   });
 });
+
+describe("area numbering series", () => {
+  it("keeps a running number per area, restarting yearly when the pattern has a year", () => {
+    expect(numberCounterName({ roleId: null, unitId: null }, null)).toBe("card");
+    expect(numberCounterName({ roleId: null, unitId: "u1" }, null)).toBe("card:area:u1");
+    expect(numberCounterName({ roleId: null, unitId: "u1" }, 2026)).toBe("card:area:u1:2026");
+    // A role design wins; an area never shares a series with a role or the organisation.
+    expect(numberCounterName({ roleId: "r1", unitId: "u1" }, null)).toBe("card:role:r1");
+  });
+});

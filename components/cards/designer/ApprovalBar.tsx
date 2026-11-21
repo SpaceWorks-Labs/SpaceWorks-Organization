@@ -15,7 +15,7 @@ const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString("en-GB"
  * Where the design stands: changes are a draft until the organisation's owner approves them, and only
  * then does every member's card (of this scope) use them. `flush` saves any edit still waiting.
  */
-export function ApprovalBar({ state, pending, scope, flush }: { state: ApprovalState; pending: boolean; scope: { organisationSlug: string; planId: string | null; roleId: string | null }; flush: () => Promise<void> }) {
+export function ApprovalBar({ state, pending, scope, flush }: { state: ApprovalState; pending: boolean; scope: { organisationSlug: string; planId: string | null; roleId: string | null; unitId: string | null }; flush: () => Promise<void> }) {
   const router = useRouter();
   const [busy, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);

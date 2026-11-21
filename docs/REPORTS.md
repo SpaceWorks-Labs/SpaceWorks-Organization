@@ -365,6 +365,28 @@ Counts of views of public pages, kept by this site itself (product rules section
 - **Who sees it.** The report at `/dashboard/<org>/reports/visits` (and its CSV, `/api/visits/export/<org>`, audited as `REPORT_EXPORTED`) needs `reports.membership`. It is whole-organisation public information, not member data, so staff limited to a unit may read it; the plan and unit filters do not apply. The super admin sees the platform total and every organisation's total in Analytics, and one organisation under its analytics page. Aggregates only.
 - **Cache.** Read through `lib/visits/read.ts` with `analyticsCacheKey` (organisation-wide) or `platformCacheKey`, five minutes; counts are not money and nothing invalidates them early.
 
+### Platform analytics (super admin, owner 2026-11-21)
+
+The super admin's Analytics pages add platform-wide growth, money, an organisation leaderboard and operations health.
+Computations are pure in `lib/reports/platformRange.ts`, `platformGrowth.ts`, `platformMoney.ts`,
+`platformLeaderboard.ts` and `platformOps.ts`; the loaders are the `*Source.ts` files beside them, and money still
+reads only through `lib/reports/finance/source.ts`. Everything is an aggregate: no member name, email, phone number,
+address, message text or error text ever reaches these pages.
+
+| Figure | Definition |
+| --- | --- |
+| Ranges | Last 30 days, last 90 days, last 12 months, or the financial year (April to March). Ranges run in UTC days. |
+| Comparison | The period of the same length just before the range. Each headline shows the change and, when the earlier value is not zero, the percentage change. |
+| Renewal rate | Terms renewed over terms that came up for renewal in the period, as in "Period metrics" above, summed across organisations. Its change is shown in percentage points. |
+| Churn | Lapses in the period over members active at its start. Its change is shown in percentage points. |
+| Organisations live | Organisations created before the period's end and active now (suspension history is not stored, so status has no comparison). |
+| Money | Per currency, never added across currencies: collected (settled payments), refunds, net, and online against in hand. **Outstanding** is what is owed now, not tied to the range. |
+| Leaderboard | One row per active or suspended organisation: members, growth over the range, renewal rate, net revenue per currency, and last activity (the latest paid payment, staff sign-in or new member). Sortable, filtered by status, revenue sorted in one chosen currency. |
+| Operations | Per day over 7, 30 or 90 days: outbox messages by status and kind (retrying means pending after at least one attempt) and the oldest pending one; emails sent, failed, bounced and complained, and the suppression list size; member messages per channel; team chat alerts; SMS codes requested and used; failed sign-ins (a lower bound: audit rows are throttled to one per method and reason a minute) and automatic address blocks; each background job's last run; storage used from stored file records. |
+
+- **Who sees it.** Super admins only (`requireSuperAdmin`); anyone else gets a not-found page.
+- **Cache.** `platformCacheKey("analytics", …)` for five minutes per range.
+
 ## Not applicable
 
 - **Table 11 advances**: receipts are issued when money arrives, so no advance without a document arises.

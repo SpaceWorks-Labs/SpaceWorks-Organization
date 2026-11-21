@@ -21,10 +21,33 @@ Membership, renewals, money and tax reports for each organisation, and aggregate
 - **Dashboard home.** The organisation overview shows active members at each month end, joined against lapsed, renewals due in the next 30 days and, for finance roles, money collected and outstanding.
 - **Monthly summary email.** Each owner, manager and treasurer gets last month's members, renewals, money (finance roles only) and waiting applications, for what they can see. Each person turns it off with **Email me a monthly summary** on the organisation overview.
 - **Platform analytics** for the super admin:
-  - **Super admin**, **Analytics** (`/super-admin/analytics`) compares every organisation (active members, growth, renewal rate, revenue, outstanding, last staff sign-in, limits used, dormant) and shows platform trends and failures, with an audited CSV.
+  - **Super admin**, **Analytics** (`/super-admin/analytics`) has six tabs, described under "Platform analytics tabs" below. **Overview** compares every organisation (active members, growth, renewal rate, revenue, outstanding, last staff sign-in, limits used, dormant) and shows platform trends and failures, with an audited CSV.
   - Each organisation's own analytics page (`/super-admin/orgs/<id>/analytics`) shows its member trend, renewal rate, revenue, top-level breakdown, grouping breakdown and limits used. Views are audited.
   - **Super admin**, **Reports** (`/super-admin/reports`) covers the organisation pipeline, members across organisations, payment volume, usage against limits, the email outbox and system health.
   - Platform analytics show counts, unit and organisation names and money totals only, never a member's name, email or phone.
+
+### Platform analytics tabs
+
+The super admin's **Analytics** page (`/super-admin/analytics`) has these tabs. Growth, Money and Organisations share a **Range** (**30 days**, **90 days**, **12 months** or **Financial year**, April to March, in UTC days); Operations has its own **Days** (7, 30 or 90). The range stays as you move between tabs, and the page works out the same-length period just before it for every comparison.
+
+- **Overview:** organisations compared, platform trends and failures, with the CSV export.
+- **Growth:**
+  - Headline tiles with the change since the previous period: live organisations, organisations created, members (all records), active members, joined, renewed, lapsed, reinstated, renewal rate and churn rate. A rate's change is in percentage points; for lapses and churn, higher is worse.
+  - Charts of active and grace members over time, joined, renewed, lapsed and reinstated, the renewal and churn rates, and organisations created against live. A period with no rollup yet shows "No data".
+  - Organisations by status now: active, suspended, pending and closed.
+- **Money:** one section for each currency, largest first, never added together: collected, refunds, net, online against in hand, and **Outstanding now** (owed now, not tied to the range). Every figure but outstanding shows its change. A chart shows online and in-hand money per period beside refunds. With no payments in the range, the tab says so.
+- **Organisations:** every active or suspended organisation ranked. Sort by name, created, members, active members, growth, renewal rate, revenue or last activity; filter by status; choose the currency that revenue is shown and sorted in; choose 10, 20, 50 or 100 rows a page. A row opens that organisation's own analytics.
+- **Operations:** how the platform is delivering, by day:
+  - **Outbox:** messages sent, failed, retrying and pending, by day and by kind, with the oldest one still waiting.
+  - **Email:** sent, failed, bounced and complained, and how many addresses are on the suppression list.
+  - **Messages and alerts:** member messages by channel and team chat alerts.
+  - **SMS codes:** requested, used and expired, by delivery report and purpose.
+  - **Sign-ins:** failed and blocked sign-ins by day, and by method and reason.
+  - **Background jobs:** each job's last run and whether it is fresh, stale or never run.
+  - **Storage:** bytes and files by provider, from the stored file records.
+- **Web:** the platform's own public-page visits and outside analytics, as before (see [web analytics](web-analytics.md)).
+
+Every figure is an aggregate. No member name, email address, phone number, address, message text or error text reaches these pages, and anyone who is not a super admin gets a not-found page. Each definition, such as renewal rate, churn and the comparison period, is in [Platform analytics](../REPORTS.md#platform-analytics-super-admin-owner-2026-11-21). Results are cached for five minutes.
 
 ### Rules every figure follows
 

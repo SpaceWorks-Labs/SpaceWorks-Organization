@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { PAGE_IMAGE_KEY } from "./links";
+import { BLOCK_SCHEMAS } from "./blockSchemas";
 import { SECTION_SCHEMAS } from "./sectionSchemas";
 
 /**
@@ -11,15 +12,17 @@ import { SECTION_SCHEMAS } from "./sectionSchemas";
 export { isExternalLink, isPageFileKey, isPageImageKeyFor, isPageUploadKeyFor, isSafeLink, pageFileUrl, pageImageUrl } from "./links";
 export { ACTION_KINDS, CTA_TONES, EMPTY_ACTION, HERO_LAYOUTS, IMAGE_SIDES, LINK_KINDS, MAX_DOWNLOADS, MAX_GALLERY_IMAGES, MAX_PEOPLE, MAX_STATS, MAX_TESTIMONIALS, MAX_TIMELINE, type ActionKind, type PageAction } from "./sectionSchemas";
 export { newSection, newSectionId, starterDocument } from "./defaults";
+export { ALIGNS, COLUMN_ITEM_TYPES, DEFAULT_PREVIEW_POINTS, DIVIDER_VARIANTS, GROWTH_DAYS, LIVE_STAT_DISPLAYS, LIVE_STAT_KINDS, LIVE_STAT_LABELS, MAX_AREAS_SHOWN, MAX_BADGES, MAX_BUTTONS, MAX_COLUMN_ITEMS, MAX_ICON_ITEMS, MAX_LIVE_STATS, MAX_PREVIEW_POINTS, SPACINGS, type ColumnItem, type LiveStatKind } from "./blockSchemas";
 
 export const SECTION_TYPES = [
   "hero", "cta", "about", "plans", "counts", "card", "stats", "committee", "testimonials", "timeline",
   "imageText", "video", "gallery", "downloads", "units", "faq", "links", "contact", "map", "text",
+  "liveStats", "areas", "columns", "buttons", "iconList", "divider", "badges", "membersPreview",
 ] as const;
 export type SectionType = (typeof SECTION_TYPES)[number];
 
-export type SectionGroup = "Welcome" | "Membership" | "People and story" | "Media" | "Information";
-export const SECTION_GROUPS: SectionGroup[] = ["Welcome", "Membership", "People and story", "Media", "Information"];
+export type SectionGroup = "Welcome" | "Membership" | "People and story" | "Media" | "Information" | "Layout";
+export const SECTION_GROUPS: SectionGroup[] = ["Welcome", "Membership", "People and story", "Media", "Information", "Layout"];
 
 export const SECTION_LABELS: Record<SectionType, { label: string; description: string; group: SectionGroup }> = {
   hero: { label: "Hero", description: "A big headline, a line about you, buttons and a photo. It replaces the plain top of the page.", group: "Welcome" },
@@ -42,14 +45,24 @@ export const SECTION_LABELS: Record<SectionType, { label: string; description: s
   contact: { label: "Contact", description: "How people reach you.", group: "Information" },
   map: { label: "Map link", description: "Your address and a link that opens it in a maps app.", group: "Information" },
   text: { label: "Free text", description: "A plain block of text.", group: "Information" },
+  liveStats: { label: "Live numbers", description: "Members in total, joined this year, growth, and members by area, plan or grouping. Small numbers stay hidden.", group: "Membership" },
+  areas: { label: "Areas directory", description: "Your areas with their contact details, a join link and a page each.", group: "Information" },
+  membersPreview: { label: "Members' area", description: "What members get after joining: their card, receipts, renewals and reminders.", group: "Membership" },
+  columns: { label: "Columns", description: "Two to four columns of headings, text, buttons, icons and images.", group: "Layout" },
+  buttons: { label: "Button group", description: "A row of buttons.", group: "Layout" },
+  iconList: { label: "Icon list", description: "Short points, each with an icon.", group: "Layout" },
+  divider: { label: "Divider", description: "A line, dots, a wave or plain space between sections.", group: "Layout" },
+  badges: { label: "Badges", description: "Small labels, like affiliations or awards.", group: "Layout" },
 };
 
 export const MAX_SECTIONS = 30;
 
 const S = SECTION_SCHEMAS;
+const B = BLOCK_SCHEMAS;
 export const sectionSchema = z.discriminatedUnion("type", [
   S.hero, S.cta, S.counts, S.card, S.about, S.plans, S.units, S.committee, S.testimonials, S.timeline, S.stats,
   S.imageText, S.video, S.gallery, S.downloads, S.faq, S.links, S.contact, S.map, S.text,
+  B.liveStats, B.areas, B.columns, B.buttons, B.iconList, B.divider, B.badges, B.membersPreview,
 ]);
 
 export type PageSection = z.infer<typeof sectionSchema>;
@@ -69,6 +82,11 @@ export const pageDocumentSchema = z
       if (ids.has(section.id)) ctx.addIssue({ code: "custom", path: ["sections", index, "id"], message: "Duplicate section" });
       ids.add(section.id);
       if (section.type === "hero" && ++heroes > 1) ctx.addIssue({ code: "custom", path: ["sections", index, "type"], message: "A page has one hero" });
+      if (section.type === "liveStats") {
+        section.metrics.forEach((metric, at) => {
+          if (metric.kind === "byGrouping" && !metric.groupingId) ctx.addIssue({ code: "custom", path: ["sections", index, "metrics", at, "groupingId"], message: "Choose a grouping" });
+        });
+      }
       if (section.type === "counts" && !section.total && !section.byPlan && !section.byUnit) ctx.addIssue({ code: "custom", path: ["sections", index, "total"], message: "Choose at least one count" });
     });
   });
@@ -84,6 +102,7 @@ export function documentImageKeys(document: PageDocument): string[] {
       case "downloads": keys.push(...section.files.map((file) => file.key)); break;
       case "committee": for (const person of section.people) if (person.photoKey) keys.push(person.photoKey); break;
       case "hero": case "imageText": if (section.imageKey) keys.push(section.imageKey); break;
+      case "columns": for (const column of section.columns) for (const item of column.items) if (item.type === "image") keys.push(item.imageKey); break;
     }
   }
   return keys;
@@ -105,6 +124,7 @@ export function readPageDocument(value: unknown): PageDocument {
     const one = sectionSchema.safeParse(section);
     if (!one.success || (one.data.type === "hero" && hero)) return [];
     if (one.data.type === "hero") hero = true;
+    if (one.data.type === "liveStats" && one.data.metrics.some((metric) => metric.kind === "byGrouping" && !metric.groupingId)) return [];
     if (one.data.type === "counts" && !one.data.total && !one.data.byPlan && !one.data.byUnit) return [];
     return [one.data];
   }) : [];

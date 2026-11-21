@@ -45,11 +45,12 @@ export function PageSections({ document, className, ...live }: { document: PageD
     plans: live.plans.map((plan) => ({ slug: plan.slug, joinMode: plan.joinMode })),
     takingMembers: live.takingMembers,
     plansSectionId: plansSectionId(document),
+    areaCode: live.area?.code ?? null,
   };
   const sections = document.sections.filter((section) => section.visible && section !== hero);
   return (
     <div className={cn("sw-display-headings flex flex-col gap-20 @4xl:gap-28", className)}>
-      {hero ? <LeadingHero section={hero} document={document} org={live.org} context={context} /> : <PageHero document={document} org={live.org} />}
+      {hero ? <LeadingHero section={hero} document={document} org={live.org} context={context} area={live.area} /> : <PageHero document={document} org={live.org} area={live.area} />}
       {sections.map((section) => <Section key={section.id} section={section} live={live} context={context} />)}
     </div>
   );

@@ -1,5 +1,5 @@
 import {
-  BarChart3, Bell, Building2, CreditCard, FileText, Globe, IdCard, KeyRound, Layers, LineChart, Network, RefreshCw, Server, ShieldCheck, UserRound, UsersRound,
+  Award, BarChart3, Bell, Building2, CreditCard, FileText, Globe, IdCard, KeyRound, Layers, LineChart, Network, RefreshCw, Server, ShieldCheck, UserRound, UsersRound,
   type LucideIcon,
 } from "lucide-react";
 import type { DocsSlug } from "@/lib/features/catalog";
@@ -16,6 +16,7 @@ export const AREA_ICONS: Record<DocsSlug, LucideIcon> = {
   payments: CreditCard,
   "receipts-and-refunds": FileText,
   "member-cards": IdCard,
+  certificates: Award,
   "member-portal": UserRound,
   "public-page": Globe,
   "reports-and-analytics": BarChart3,

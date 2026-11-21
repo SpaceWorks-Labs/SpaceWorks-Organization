@@ -7,7 +7,7 @@ import { Menu, MenuContent, MenuItem, MenuLabel, MenuTrigger } from "@/component
 import type { CardSide } from "@/lib/cards/design/presets";
 import { keepKeysInside } from "./shared";
 
-type Target = { organisationSlug: string; planId: string | null; roleId: string | null };
+type Target = { organisationSlug: string; planId: string | null; roleId: string | null; unitId: string | null };
 type Kind = "pdf" | "print" | "png";
 
 /** The download address for the saved draft, drawn with the sample or the chosen member. */
@@ -15,6 +15,7 @@ export function draftDownloadUrl(target: Target, kind: Kind, side: CardSide, mem
   const params = new URLSearchParams({ format: kind === "png" ? "png" : "pdf" });
   if (target.planId) params.set("plan", target.planId);
   if (target.roleId) params.set("role", target.roleId);
+  if (target.unitId) params.set("unit", target.unitId);
   if (kind === "print") params.set("print", "1");
   if (kind === "png") params.set("side", side);
   if (memberId) params.set("member", memberId);

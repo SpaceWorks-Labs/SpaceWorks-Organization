@@ -155,13 +155,27 @@ webhooks, the five-minute gateway reconciliation, offline payments recorded with
 | Manager emails a card | `card-issued` message, audit `CARD_EMAILED`. |
 | Card design approved | Audit `CARD_DESIGN_APPROVED`; the public page's cache is dropped, since it draws sample cards from the live design. |
 
+## Certificates
+
+`lib/certificates/issue.ts`. See [certificates](../features/certificates.md).
+
+| Event | Effect |
+|---|---|
+| Design approved | Audit `CERTIFICATE_DESIGN_APPROVED`; the draft becomes the live design, and every certificate already issued from it is drawn with it from then on. |
+| Certificates issued | One numbered certificate per member in the transaction, under an organisation-wide number lock; audit `CERTIFICATE_ISSUED` with counts. Members who already hold the same design and title are skipped. When emailing is ticked, a `certificate-email` outbox row per certificate. |
+| Emailed | A `certificate-issued` message with the PDF, audit `CERTIFICATE_EMAILED`. A certificate revoked before the send is dropped. |
+| Revoked | The certificate stays, with the reason kept for staff; its check page shows it as revoked without the member's name, and the member's account stops listing it. Audit `CERTIFICATE_REVOKED`. |
+| Member erased | The certificates stay as records, but their check page shows "not recognised" and they no longer download. |
+
 ## Organisation and structure
 
 | Event | Effect |
 |---|---|
 | Unit moved (`moveUnit`, `app/actions/units.ts`) | The structure lock is taken, the unit's and its subtree's paths are rewritten, audit `UNIT_MOVED`. Levels, members' units and card numbers stay. The `public-page` and `analytics` caches are dropped. Other unit changes (create, update, archive, levels) drop the same caches. |
 | Plan created, changed or archived (`app/actions/plans.ts`) | Audit `PLAN_CREATED`, `PLAN_UPDATED`, `PLAN_ARCHIVED` or `PLAN_RESTORED`; the `public-page` cache is dropped. An archived plan opens no new terms, and money paid on it is flagged. |
-| Public page published or unpublished | Audit `PUBLIC_PAGE_PUBLISHED` or `PUBLIC_PAGE_UNPUBLISHED`; the `public-page` cache is dropped. Draft saves change nothing visitors see. |
+| Public page published or unpublished | Audit `PUBLIC_PAGE_PUBLISHED` or `PUBLIC_PAGE_UNPUBLISHED`; the `public-page` cache is dropped, including every area page's. A publish also keeps a version (the newest 20). Draft saves change nothing visitors see. |
+| Public page version restored | The version is copied into the draft; audit `PUBLIC_PAGE_VERSION_RESTORED`. Nothing changes for visitors until the next publish. |
+| Unit contact details changed (`app/actions/unit-contact.ts`) | Audit `UNIT_CONTACT_CHANGED` with the field names only. Card backs and area pages read the details live. |
 | Organisation suspended (super admin) | Audit `ORGANISATION_SUSPENDED` and an `OrganisationReview` row; owners get an `organisation-notice` email. Joining stops, staff keep only the finance and record permissions in `SUSPENDED_CAPABILITIES` (`lib/permissionRoles.ts`), `/verify` reports the organisation as suspended, and money that still arrives is receipted and flagged. Reactivating writes `ORGANISATION_REACTIVATED`. |
 
 ## Erasure

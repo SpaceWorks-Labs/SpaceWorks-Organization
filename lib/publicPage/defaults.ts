@@ -1,3 +1,4 @@
+import { DEFAULT_PREVIEW_POINTS } from "./blockSchemas";
 import { EMPTY_ACTION } from "./sectionSchemas";
 import { SECTION_LABELS, type PageDocument, type PageSection, type SectionType } from "./sections";
 
@@ -33,6 +34,14 @@ export function newSection(type: SectionType, id = newSectionId(), org?: OrgCont
     case "contact": return { ...common, type, title: "Get in touch", email: org?.contactEmail ?? "", phone: org?.contactPhone ?? "", address: "", hours: "" };
     case "map": return { ...common, type, title: "Find us", address: "", url: "", label: "Open in maps" };
     case "text": return { ...common, type, title: "", body: "" };
+    case "liveStats": return { ...common, type, title: "Our members", intro: "", display: "numbers", metrics: [{ kind: "total", label: "", groupingId: "", days: 90 }, { kind: "joinsThisYear", label: "", groupingId: "", days: 90 }] };
+    case "areas": return { ...common, type, title: "Find your area", intro: "", parentCode: "", scope: "level", showContact: true, showJoinLink: true, joinPlanSlug: "" };
+    case "columns": return { ...common, type, title: "", columns: [{ items: [] }, { items: [] }] };
+    case "buttons": return { ...common, type, title: "", align: "start", items: [{ ...none(), kind: "plans", label: "See membership plans" }] };
+    case "iconList": return { ...common, type, title: "", layout: "grid", items: [] };
+    case "divider": return { ...common, type, title: "", variant: "line", spacing: "medium" };
+    case "badges": return { ...common, type, title: "", align: "start", items: [] };
+    case "membersPreview": return { ...common, type, title: "After you join", intro: "", showCard: true, points: [...DEFAULT_PREVIEW_POINTS] };
   }
 }
 

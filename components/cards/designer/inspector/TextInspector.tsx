@@ -2,7 +2,7 @@
 
 import { Field, Textarea } from "@/components/ui/field";
 import { cn } from "@/lib/cn";
-import { placeholderOptions } from "@/lib/cards/design/library/placeholders";
+import { placeholderOptions, type PlaceholderOption } from "@/lib/cards/design/library/placeholders";
 import { LAYER_TEXT_MAX, type CardTextCase, type CardTextEffect, type CardTextLayer } from "@/lib/cards/design/layerTypes";
 import { ColourField } from "../ColourField";
 import { SwitchLine } from "../controls";
@@ -25,12 +25,14 @@ const EFFECTS: Array<{ value: CardTextEffect; label: string }> = [
 ];
 
 /** What a text layer says and how it is set: font, size, case, colour, spacing, curve and effect. */
-export function TextInspector({ layer, onChange, colours, unitLevels, brandFonts }: {
+export function TextInspector({ layer, onChange, colours, unitLevels, brandFonts, placeholders }: {
   layer: CardTextLayer;
   onChange: (patch: Partial<CardTextLayer>) => void;
   colours: ColourContext;
   unitLevels?: readonly string[];
   brandFonts?: readonly string[];
+  /** The placeholder chips to offer; the card's member fields when left out. */
+  placeholders?: readonly PlaceholderOption[];
 }) {
   // Designs saved before `textCase` carry `uppercase`; it stays in step with the case (older releases read it).
   const textCase = layer.uppercase && layer.textCase === "none" ? "upper" : layer.textCase;
@@ -40,7 +42,7 @@ export function TextInspector({ layer, onChange, colours, unitLevels, brandFonts
         <Textarea rows={3} maxLength={LAYER_TEXT_MAX} value={layer.text} onChange={(event) => onChange({ text: event.target.value })} />
       </Field>
       <div role="group" aria-label={C.placeholder.label} className="flex flex-wrap gap-1">
-        {placeholderOptions(unitLevels).map(({ key, label }) => (
+        {(placeholders ?? placeholderOptions(unitLevels)).map(({ key, label }) => (
           <button key={key} type="button" aria-label={`Insert ${label.toLowerCase()}`} onClick={() => onChange({ text: `${layer.text}{${key}}`.slice(0, LAYER_TEXT_MAX) })} className={cn(TARGET.button, "rounded-full border border-line bg-panel px-3 text-caption text-ink hover:bg-muted")}>
             {label}
           </button>

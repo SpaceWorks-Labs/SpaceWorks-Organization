@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { ArrowLeft } from "lucide-react";
 import { loadMemberView } from "@/lib/views/app__dashboard__orgSlug__members__memberId__page";
 import { loadMemberPayments } from "@/lib/views/app__dashboard__orgSlug__members__memberId__payments";
+import { loadMemberCertificates } from "@/lib/views/app__dashboard__orgSlug__members__memberId__certificates";
+import { MemberCertificatesPanel } from "@/components/certificates/MemberCertificatesPanel";
 import { MemberPaymentsSection } from "@/components/payments/MemberPaymentsSection";
 import { MemberPhotoField } from "@/components/members/MemberPhotoField";
 import { TERM_STATUS_LABELS } from "@/lib/membership/lifecycle";
@@ -23,6 +25,7 @@ export const metadata: Metadata = { title: "Member", robots: { index: false, fol
 export default async function MemberPage({ params }: { params: Promise<{ orgSlug: string; memberId: string }> }) {
   const view = await loadMemberView({ params });
   const payments = await loadMemberPayments({ params });
+  const certificates = await loadMemberCertificates({ params });
   const { org, member } = view;
   const tz = org.timezone;
   const day = (date: Date) => formatCalendarDate(localDate(date, tz));
@@ -72,6 +75,7 @@ export default async function MemberPage({ params }: { params: Promise<{ orgSlug
         </div>
         <div className="flex min-w-0 flex-col gap-6">
           <MemberCardPanel slug={org.slug} memberId={member.id} memberName={member.name} plans={view.cards} canManage={view.canManageCards} delight={org.delightEnabled} timeZone={tz} />
+          {certificates ? <MemberCertificatesPanel slug={org.slug} memberId={member.id} data={certificates} timeZone={tz} /> : null}
           <ErasureRequestCard slug={org.slug} requests={member.erasureRequests} anonymisedAt={member.anonymisedAt} canManage={view.canDecideErasure} timeZone={tz} />
           <MemberRolesPicker slug={org.slug} memberId={member.id} roles={view.roles} initial={member.roles.map((a) => a.roleId)} initialPrimary={primary} canManage={view.canManage} />
           <MemberGroupingsPanel slug={org.slug} memberId={member.id} groupings={view.groupings} initial={view.groupingValues} canManage={view.canManage} />

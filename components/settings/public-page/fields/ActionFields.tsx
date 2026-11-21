@@ -1,6 +1,6 @@
 "use client";
 
-import type { ActionKind, PageAction } from "@/lib/publicPage/sections";
+import { isSafeLink, type ActionKind, type PageAction } from "@/lib/publicPage/sections";
 import { Dropdown, Field, Input } from "@/components/ui/field";
 
 const KIND_LABELS: Record<ActionKind, string> = {
@@ -55,7 +55,7 @@ export function ActionFields({ legend, value, plans, disabled, error, onChange }
       ) : null}
       {value.kind === "plans" ? <p className="text-caption text-ink-muted">Scrolls to your first visible plans section. Without one, the button isn&apos;t shown.</p> : null}
       {value.kind === "link" ? (
-        <Field label="Web address" error={error("url")}>
+        <Field label="Web address" error={error("url") ?? (value.url && !isSafeLink(value.url) ? "Use a web address starting with https://, or mailto:" : undefined)}>
           <Input type="url" inputMode="url" value={value.url} maxLength={500} placeholder="https://" onChange={(event) => onChange({ ...value, url: event.target.value.trim() })} />
         </Field>
       ) : null}

@@ -55,6 +55,8 @@ type ActionContext = {
   takingMembers: boolean;
   /** The id of the first visible plans section, when there is one. */
   plansSectionId: string | null;
+  /** On an area page: the area's code, so every join link carries `?unit=CODE` (the join form reads it). */
+  areaCode?: string | null;
 };
 
 /** Where a button goes, or null when it has nowhere to go (it is then not drawn). */
@@ -65,7 +67,7 @@ export function actionHref(action: PageAction, context: ActionContext): { href: 
   if (action.kind === "plans") return plansAnchor;
   const plan = context.plans.find((one) => one.slug === action.planSlug);
   const joinable = context.takingMembers && plan && plan.joinMode !== "CLOSED" && plan.joinMode !== "INVITE_ONLY";
-  if (joinable) return { href: `/o/${context.orgSlug}/join/${plan.slug}`, external: false };
+  if (joinable) return { href: `/o/${context.orgSlug}/join/${plan.slug}${context.areaCode ? `?unit=${context.areaCode}` : ""}`, external: false };
   return plansAnchor;
 }
 

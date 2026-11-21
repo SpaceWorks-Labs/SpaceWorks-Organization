@@ -124,6 +124,9 @@ describe("chart helpers", () => {
   it("rounds axes and formats values", () => {
     expect(niceTicks(215)).toEqual([0, 100, 200, 300]);
     expect(niceTicks(1, 4)).toEqual([0, 0.25, 0.5, 0.75, 1]);
+    expect(niceTicks(1, 4, { integer: true })).toEqual([0, 1]);
+    expect(niceTicks(3, 4, { integer: true })).toEqual([0, 1, 2, 3]);
+    expect(niceTicks(215, 4, { integer: true })).toEqual([0, 100, 200, 300]);
     expect(compactNumber(12_900)).toBe("13K");
     expect(formatValue(null, "percent")).toBe("—");
     expect(formatValue(0.756, "percent")).toBe("76%");

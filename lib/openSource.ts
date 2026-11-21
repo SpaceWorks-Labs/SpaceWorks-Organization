@@ -16,7 +16,7 @@ export const RELEASE_URL = `${GITHUB_URL}/releases/latest`;
  * tests/unit/open-source-links.test.ts. The split frontend build copies only app/, components/, lib/ and public/
  * (scripts/prepare-frontend.mjs), so VERSION itself is not readable there: bump this with VERSION.
  */
-export const RELEASE_VERSION = "0.10.2";
+export const RELEASE_VERSION = "0.11.0";
 
 /** The one-line installer for a single Linux server (docs/DEPLOYMENT_VPS.md). */
 export const INSTALL_COMMAND = `curl -fsSL https://raw.githubusercontent.com/${GITHUB_REPO}/main/install.sh | bash`;

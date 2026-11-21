@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode } from "react";
 import { cn } from "@/lib/cn";
+import { useDesignerNoun } from "../wording";
 import { follow } from "./pointer";
 import { Ruler, RULER_PX } from "./Rulers";
 import { isTypingTarget } from "./shortcuts";
@@ -22,6 +23,7 @@ export function EditorViewport({ zoom, widthMm, heightMm, rulers, onStartGuide, 
   onCanvasPointerDown: (event: PointerEvent<HTMLElement>, frame: Element) => void;
   children: (pxPerMm: number) => ReactNode;
 }) {
+  const noun = useDesignerNoun();
   const node = useRef<HTMLDivElement | null>(null);
   const [space, setSpace] = useState(false);
   const [panning, setPanning] = useState(false);
@@ -64,7 +66,7 @@ export function EditorViewport({ zoom, widthMm, heightMm, rulers, onStartGuide, 
       ref={attach}
       data-editor-viewport
       tabIndex={-1}
-      aria-label="Card canvas"
+      aria-label={noun === "card" ? "Card canvas" : "Certificate canvas"}
       className={cn("relative min-h-[380px] flex-1 overflow-auto focus:outline-none", space && (panning ? "cursor-grabbing" : "cursor-grab"))}
       style={{ backgroundImage: "radial-gradient(circle, var(--color-line-strong) 1px, transparent 1px)", backgroundSize: "16px 16px" }}
       onPointerDownCapture={(event) => {

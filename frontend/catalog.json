@@ -6,6 +6,11 @@
       "id": "account__phone:loadPhoneCardView"
     },
     {
+      "module": "lib/views/app__account__certificates__page",
+      "name": "loadAccountCertificatesView",
+      "id": "app__account__certificates__page:loadAccountCertificatesView"
+    },
+    {
       "module": "lib/views/app__account__layout",
       "name": "loadAccountShell",
       "id": "app__account__layout:loadAccountShell"
@@ -86,9 +91,39 @@
       "id": "app__dashboard__orgSlug__application__page:loadOrgApplicationView"
     },
     {
+      "module": "lib/views/app__dashboard__orgSlug__certificates__certificateId__page",
+      "name": "loadCertificateDetailView",
+      "id": "app__dashboard__orgSlug__certificates__certificateId__page:loadCertificateDetailView"
+    },
+    {
+      "module": "lib/views/app__dashboard__orgSlug__certificates__designs__designId__page",
+      "name": "loadCertificateDesignerView",
+      "id": "app__dashboard__orgSlug__certificates__designs__designId__page:loadCertificateDesignerView"
+    },
+    {
+      "module": "lib/views/app__dashboard__orgSlug__certificates__issue__page",
+      "name": "loadCertificateIssueView",
+      "id": "app__dashboard__orgSlug__certificates__issue__page:loadCertificateIssueView"
+    },
+    {
+      "module": "lib/views/app__dashboard__orgSlug__certificates__issue__recipient",
+      "name": "loadIssueRecipient",
+      "id": "app__dashboard__orgSlug__certificates__issue__recipient:loadIssueRecipient"
+    },
+    {
+      "module": "lib/views/app__dashboard__orgSlug__certificates__page",
+      "name": "loadCertificatesView",
+      "id": "app__dashboard__orgSlug__certificates__page:loadCertificatesView"
+    },
+    {
       "module": "lib/views/app__dashboard__orgSlug__layout",
       "name": "loadOrgSlugShell",
       "id": "app__dashboard__orgSlug__layout:loadOrgSlugShell"
+    },
+    {
+      "module": "lib/views/app__dashboard__orgSlug__members__memberId__certificates",
+      "name": "loadMemberCertificates",
+      "id": "app__dashboard__orgSlug__members__memberId__certificates:loadMemberCertificates"
     },
     {
       "module": "lib/views/app__dashboard__orgSlug__members__memberId__page",
@@ -296,6 +331,11 @@
       "id": "app__layout:loadWebTelemetryView"
     },
     {
+      "module": "lib/views/app__o__orgSlug__a__unitCode__page",
+      "name": "loadPublicAreaPage",
+      "id": "app__o__orgSlug__a__unitCode__page:loadPublicAreaPage"
+    },
+    {
       "module": "lib/views/app__o__orgSlug__join__planSlug__page",
       "name": "loadJoinView",
       "id": "app__o__orgSlug__join__planSlug__page:loadJoinView"
@@ -341,9 +381,34 @@
       "id": "app__sitemap:loadSitemapOrganisations"
     },
     {
+      "module": "lib/views/app__sitemap",
+      "name": "loadSitemapAreas",
+      "id": "app__sitemap:loadSitemapAreas"
+    },
+    {
       "module": "lib/views/app__start__page",
       "name": "loadStartView",
       "id": "app__start__page:loadStartView"
+    },
+    {
+      "module": "lib/views/app__super-admin__analytics__growth",
+      "name": "loadSuperAdminGrowthView",
+      "id": "app__super-admin__analytics__growth:loadSuperAdminGrowthView"
+    },
+    {
+      "module": "lib/views/app__super-admin__analytics__growth",
+      "name": "loadSuperAdminMoneyView",
+      "id": "app__super-admin__analytics__growth:loadSuperAdminMoneyView"
+    },
+    {
+      "module": "lib/views/app__super-admin__analytics__health",
+      "name": "loadSuperAdminOperationsHealthView",
+      "id": "app__super-admin__analytics__health:loadSuperAdminOperationsHealthView"
+    },
+    {
+      "module": "lib/views/app__super-admin__analytics__leaderboard",
+      "name": "loadSuperAdminLeaderboardView",
+      "id": "app__super-admin__analytics__leaderboard:loadSuperAdminLeaderboardView"
     },
     {
       "module": "lib/views/app__super-admin__analytics__page",
@@ -459,6 +524,11 @@
       "module": "lib/views/app__super-admin__users__userId__page",
       "name": "loadSuperAdminUserDetailView",
       "id": "app__super-admin__users__userId__page:loadSuperAdminUserDetailView"
+    },
+    {
+      "module": "lib/views/app__verify__certificate__token__page",
+      "name": "loadCertificateVerifyView",
+      "id": "app__verify__certificate__token__page:loadCertificateVerifyView"
     },
     {
       "module": "lib/views/app__verify__token__page",
@@ -641,6 +711,71 @@
       "module": "app/actions/cards",
       "name": "emailMemberCard",
       "id": "cards:emailMemberCard"
+    },
+    {
+      "module": "app/actions/certificate-batch",
+      "name": "previewCertificateIssue",
+      "id": "certificate-batch:previewCertificateIssue"
+    },
+    {
+      "module": "app/actions/certificate-batch",
+      "name": "emailIssuedCertificates",
+      "id": "certificate-batch:emailIssuedCertificates"
+    },
+    {
+      "module": "app/actions/certificate-designs",
+      "name": "createCertificateDesign",
+      "id": "certificate-designs:createCertificateDesign"
+    },
+    {
+      "module": "app/actions/certificate-designs",
+      "name": "saveCertificateDesign",
+      "id": "certificate-designs:saveCertificateDesign"
+    },
+    {
+      "module": "app/actions/certificate-designs",
+      "name": "approveCertificateDesign",
+      "id": "certificate-designs:approveCertificateDesign"
+    },
+    {
+      "module": "app/actions/certificate-designs",
+      "name": "discardCertificateDraft",
+      "id": "certificate-designs:discardCertificateDraft"
+    },
+    {
+      "module": "app/actions/certificate-designs",
+      "name": "deleteCertificateDesign",
+      "id": "certificate-designs:deleteCertificateDesign"
+    },
+    {
+      "module": "app/actions/certificate-designs",
+      "name": "restoreCertificateDesign",
+      "id": "certificate-designs:restoreCertificateDesign"
+    },
+    {
+      "module": "app/actions/certificate-designs",
+      "name": "uploadCertificateArtwork",
+      "id": "certificate-designs:uploadCertificateArtwork"
+    },
+    {
+      "module": "app/actions/certificates",
+      "name": "issueCertificates",
+      "id": "certificates:issueCertificates"
+    },
+    {
+      "module": "app/actions/certificates",
+      "name": "revokeIssuedCertificate",
+      "id": "certificates:revokeIssuedCertificate"
+    },
+    {
+      "module": "app/actions/certificates",
+      "name": "emailIssuedCertificate",
+      "id": "certificates:emailIssuedCertificate"
+    },
+    {
+      "module": "app/actions/certificates",
+      "name": "searchCertificateRecipients",
+      "id": "certificates:searchCertificateRecipients"
     },
     {
       "module": "app/actions/chat-channels",
@@ -1259,6 +1394,21 @@
     },
     {
       "module": "app/actions/public-page",
+      "name": "listPublicPageVersions",
+      "id": "public-page:listPublicPageVersions"
+    },
+    {
+      "module": "app/actions/public-page",
+      "name": "previewPublicPageVersion",
+      "id": "public-page:previewPublicPageVersion"
+    },
+    {
+      "module": "app/actions/public-page",
+      "name": "restorePublicPageVersion",
+      "id": "public-page:restorePublicPageVersion"
+    },
+    {
+      "module": "app/actions/public-page",
       "name": "unpublishPublicPage",
       "id": "public-page:unpublishPublicPage"
     },
@@ -1456,6 +1606,11 @@
       "module": "app/actions/team",
       "name": "deleteOrganisation",
       "id": "team:deleteOrganisation"
+    },
+    {
+      "module": "app/actions/unit-contact",
+      "name": "setUnitContact",
+      "id": "unit-contact:setUnitContact"
     },
     {
       "module": "app/actions/units",

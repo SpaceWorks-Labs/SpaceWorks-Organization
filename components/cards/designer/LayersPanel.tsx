@@ -8,6 +8,7 @@ import type { CardElement } from "@/lib/cards/design/elements";
 import type { CardLayer } from "@/lib/cards/design/layerTypes";
 import { ELEMENT_LABELS } from "../canvasInteraction";
 import { layerLabel } from "../CardLayerView";
+import { useDesignerNoun } from "./wording";
 
 const KIND_ICONS = { text: Type, image: ImageIcon, rect: Square, ellipse: Circle, line: Minus, shape: Shapes, icon: Star, qr: QrCode, barcode: Barcode, photo: UserRound };
 
@@ -24,6 +25,7 @@ export function LayersPanel({ order, layers, visible, selection, onSelect, onLay
   onSelect: (key: string, additive: boolean) => void;
   onLayerChange: (id: string, patch: Partial<CardLayer>) => void;
 }) {
+  const noun = useDesignerNoun();
   const byId = new Map(layers.map((layer) => [layer.id, layer]));
   const rows = [...order].reverse().filter((key) => byId.has(key) || visible[key as CardElement] || selection.includes(key));
   return (
@@ -51,7 +53,7 @@ export function LayersPanel({ order, layers, visible, selection, onSelect, onLay
           );
         })}
       </ul>
-      <p className="text-caption text-ink-muted">Top of the list prints on top. Shift-click to select several. Items you turned off on this side don&apos;t show here.</p>
+      <p className="text-caption text-ink-muted">Top of the list prints on top. Shift-click to select several.{noun === "card" ? " Items you turned off on this side don't show here." : ""}</p>
     </section>
   );
 }

@@ -5,8 +5,10 @@ import { currencyExponent, isCurrencyCode } from "@/lib/money/currencies";
 import { formatAmount } from "./money";
 
 /** Round, human tick values from 0 to at least `max` (0 / 5 / 10…, 0 / 1K / 2K…). */
-export function niceTicks(max: number, count = 4): number[] {
+export function niceTicks(max: number, count = 4, options: { integer?: boolean } = {}): number[] {
   if (!Number.isFinite(max) || max <= 0) return [0, 1];
+  // Counts never get fractional ticks, which would round to repeated labels (0, 0, 1, 1, 1).
+  if (options.integer && max <= count) return Array.from({ length: Math.max(1, Math.ceil(max)) + 1 }, (_, index) => index);
   const raw = max / count;
   const magnitude = 10 ** Math.floor(Math.log10(raw));
   const step = [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((candidate) => candidate >= raw) ?? 10 * magnitude;

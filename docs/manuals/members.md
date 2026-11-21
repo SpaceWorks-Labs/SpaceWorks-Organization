@@ -15,6 +15,7 @@ To join an organisation, see the [Quickstart for members](../guides/start/quicks
 | Your memberships | `/account` | See every organisation you belong to, each membership's status and your cards |
 | Membership | `/account/memberships/<slug>` | Your details for one organisation, history, receipts, renew, leave, refunds |
 | Pay for your membership | `/account/pay/<term>` | Pay a membership that is waiting for payment |
+| Your certificates | `/account/certificates` | Download certificates organisations have issued to you, as PDF or PNG, and open each one's check link |
 | Payments and receipts | `/account/payments` | Everything you've paid, with every receipt and credit note |
 | Your profile | `/account/profile` | Your name, photo, email and appearance |
 | Notifications | `/account/notifications` | Phone or chat channels for each organisation, and recent messages |
@@ -76,9 +77,9 @@ This page is for people who also work on an organisation's team. It lists those 
 
 ## When member accounts are off
 
-An organisation can switch member accounts off. Its memberships then don't appear in your account, and its emails link to its public page or to a signed pay link, `/pay/<token>`, valid for 30 days. Card checks at `/verify` still work.
+An organisation can switch member accounts off. Its memberships then don't appear in your account, and its emails link to its public page or to a signed pay link, `/pay/<token>`, valid for 30 days. Card checks at `/verify` and certificate checks at `/verify/certificate` still work.
 
 ## Related
 
-- [Member portal](../features/member-portal.md), [Member cards](../features/member-cards.md), [Payments](../features/payments.md)
+- [Member portal](../features/member-portal.md), [Member cards](../features/member-cards.md), [Certificates](../features/certificates.md), [Payments](../features/payments.md)
 - [Glossary](../guides/start/glossary.md)
